@@ -1,0 +1,111 @@
+:root {
+  /* ==========================================================================
+     CircuitFlow Theme Variables — "Tactile Precision Workbench"
+     Non-AI, Authentic Hardware Laboratory Aesthetic
+     ========================================================================== */
+
+  /* Surface & Canvas (Dark / Obsidian Workbench - Default) */
+  --bg-app: #0d1117;
+  --bg-canvas: #121820;
+  --bg-panel: #161f2c;
+  --bg-panel-elevated: #1d2738;
+  --bg-subtle: #232f42;
+  --bg-hover: #2d3b52;
+  --bg-active: #384863;
+
+  /* Borders & Dividers */
+  --border-subtle: #2b384c;
+  --border-strong: #3b4d68;
+  --border-focus: #38bdf8;
+
+  /* Text & Typography */
+  --text-primary: #f0f6fc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-mono: #6ee7b7;
+
+  /* Digital Electronics Logic State Colors */
+  --signal-high: #22c55e;        /* HIGH / 5V (Electric Emerald) */
+  --signal-high-glow: rgba(34, 197, 94, 0.45);
+  --signal-low: #475569;         /* LOW / 0V (Muted Cold Slate) */
+  --signal-low-glow: transparent;
+  --signal-z: #f59e0b;           /* High-Impedance (Amber Gold) */
+  --signal-x: #ef4444;           /* Contention / Error (Crimson) */
+  --signal-bus: #818cf8;         /* Multi-bit Bus */
+  --signal-clock: #06b6d4;       /* Clock Pulse Line (Cyan) */
+
+  /* Canvas Grid */
+  --grid-dot-color: #273549;
+  --grid-dot-size: 1.5px;
+  --grid-pitch: 20px;
+
+  /* Component Bodies (IC Packages & Gates) */
+  --gate-fill: #1a2332;
+  --gate-stroke: #4b5e7d;
+  --gate-stroke-selected: #38bdf8;
+  --pin-fill: #334155;
+  --pin-hover: #38bdf8;
+
+  /* Tactile Switch Visual Tokens */
+  --switch-track-off: #161f2c;
+  --switch-track-border: #3b4d68;
+  --switch-thumb: #f8fafc;
+  --switch-thumb-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+
+  /* Shadows & Elevation */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 12px var(--signal-high-glow);
+
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+
+/* Daylight Blueprint Lab (Light Mode - Enhanced Contrast) */
+[data-theme='light'] {
+  --bg-app: #f1f5f9;
+  --bg-canvas: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-panel-elevated: #f1f5f9;
+  --bg-subtle: #e2e8f0;
+  --bg-hover: #cbd5e1;
+  --bg-active: #94a3b8;
+
+  --border-subtle: #cbd5e1;
+  --border-strong: #64748b;
+  --border-focus: #0284c7;
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-mono: #047857;
+
+  --signal-high: #16a34a;
+  --signal-high-glow: rgba(22, 163, 74, 0.35);
+  --signal-low: #64748b;
+  --signal-low-glow: transparent;
+  --signal-z: #d97706;
+  --signal-x: #dc2626;
+  --signal-bus: #4f46e5;
+  --signal-clock: #0891b2;
+
+  --grid-dot-color: #cbd5e1;
+  --gate-fill: #ffffff;
+  --gate-stroke: #475569;
+  --gate-stroke-selected: #0284c7;
+  --pin-fill: #64748b;
+  --pin-hover: #0284c7;
+
+  /* Tactile Switch Visual Tokens (Crisp & High Contrast in Light Mode) */
+  --switch-track-off: #cbd5e1;
+  --switch-track-border: #64748b;
+  --switch-thumb: #ffffff;
+  --switch-thumb-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.3);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+  --shadow-glow: 0 0 8px rgba(22, 163, 74, 0.35);
+}

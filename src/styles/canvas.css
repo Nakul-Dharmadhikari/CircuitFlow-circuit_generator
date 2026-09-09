@@ -1,0 +1,1823 @@
+/* ==========================================================================
+   Canvas & Circuit Workspace Styles
+   ========================================================================== */
+
+.canvas-viewport {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-canvas);
+  background-image: radial-gradient(var(--grid-dot-color) var(--grid-dot-size), transparent var(--grid-dot-size));
+  background-size: var(--grid-pitch) var(--grid-pitch);
+  user-select: none;
+  cursor: crosshair;
+}
+
+.canvas-viewport.panning {
+  cursor: grab;
+}
+
+.canvas-viewport.panning:active {
+  cursor: grabbing;
+}
+
+.canvas-transform-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 0 0;
+}
+
+.canvas-svg-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10000px;
+  height: 10000px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Wires */
+.circuit-wire {
+  fill: none;
+  stroke-width: 3.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.circuit-wire.high {
+  stroke: var(--signal-high);
+  filter: drop-shadow(0 0 3px var(--signal-high));
+}
+
+.circuit-wire.low {
+  stroke: var(--signal-low);
+}
+
+.circuit-wire.z {
+  stroke: var(--signal-z);
+  stroke-dasharray: 4, 3;
+}
+
+.circuit-wire.conflict {
+  stroke: var(--signal-x);
+  stroke-width: 4px;
+}
+
+.circuit-wire:hover {
+  stroke-width: 5px;
+  filter: drop-shadow(0 0 6px var(--border-focus));
+}
+
+.circuit-wire.selected {
+  stroke: #38bdf8 !important;
+  stroke-width: 5.5px !important;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8)) !important;
+}
+
+.wire-action-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-focus);
+  padding: 3px 6px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.wire-action-btn {
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
+
+.wire-action-btn:hover {
+  background: var(--bg-active);
+}
+
+.wire-action-btn.delete {
+  color: #f87171;
+}
+
+.wire-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+}
+
+.wire-action-btn.junction {
+  color: #34d399;
+}
+
+.wire-action-btn.junction:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: #10b981;
+}
+
+.circuit-wire.in-progress {
+  stroke: var(--border-focus);
+  stroke-width: 3px;
+  stroke-dasharray: 6, 4;
+  animation: wire-dash 0.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes wire-dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* Component Container on Canvas */
+.circuit-node {
+  position: absolute;
+  box-sizing: border-box;
+  background-color: var(--gate-fill);
+  border: 1.5px solid var(--gate-stroke);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: move;
+  user-select: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  z-index: 10;
+}
+
+.circuit-node:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.circuit-node.selected {
+  border-color: var(--gate-stroke-selected);
+  box-shadow: 0 0 0 2px var(--gate-stroke-selected), var(--shadow-md);
+  z-index: 20;
+}
+
+/* DIP IC Notch Styling */
+.circuit-node.ic-chip {
+  background: linear-gradient(180deg, var(--bg-panel-elevated) 0%, var(--gate-fill) 100%);
+  border-radius: 4px;
+}
+
+.circuit-node.ic-chip::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: calc(50% - 7px);
+  width: 14px;
+  height: 6px;
+  background-color: var(--bg-canvas);
+  border-bottom: 1.5px solid var(--gate-stroke);
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
+
+/* Node Header / Label */
+.circuit-node-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.circuit-node-sublabel {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  color: var(--text-muted);
+  pointer-events: none;
+  margin-top: 2px;
+}
+
+/* Component Canvas Floating Label Banner */
+.circuit-node-banner {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 25;
+  box-shadow: var(--shadow-sm);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.circuit-node-banner-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.circuit-node.selected .circuit-node-banner {
+  border-color: var(--border-focus);
+  background-color: var(--bg-active);
+}
+
+.circuit-node.selected .circuit-node-banner-text {
+  color: var(--border-focus);
+}
+
+/* Pins */
+.circuit-pin {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--pin-fill);
+  border: 1.5px solid var(--bg-panel);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  z-index: 30;
+}
+
+.circuit-pin:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+  background-color: var(--pin-hover);
+  border-color: #ffffff;
+  box-shadow: 0 0 8px var(--pin-hover);
+}
+
+.circuit-pin.high {
+  background-color: var(--signal-high);
+  box-shadow: 0 0 6px var(--signal-high);
+}
+
+.circuit-pin.low {
+  background-color: var(--signal-low);
+}
+
+.circuit-pin.z {
+  background-color: var(--signal-z);
+}
+
+.circuit-pin.conflict {
+  background-color: var(--signal-x);
+}
+
+.circuit-pin-label {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* Specific Interactive Component Visuals */
+/* Toggle Switch */
+.switch-control {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  background-color: var(--switch-track-off);
+  border-radius: 13px;
+  border: 1.5px solid var(--switch-track-border);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px;
+  box-sizing: border-box;
+}
+
+.switch-control.active {
+  background-color: var(--signal-high);
+  border-color: #15803d;
+  box-shadow: 0 0 10px var(--signal-high-glow), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.switch-indicator-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  user-select: none;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.switch-control .label-off {
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.switch-control.active .label-off {
+  display: none;
+}
+
+.switch-control .label-on {
+  display: none;
+  color: #ffffff;
+  margin-right: auto;
+}
+
+.switch-control.active .label-on {
+  display: block;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background-color: var(--switch-thumb);
+  border-radius: 50%;
+  box-shadow: var(--switch-thumb-shadow);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.switch-thumb::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  width: 2px;
+  height: 10px;
+  background-color: #cbd5e1;
+  border-radius: 1px;
+}
+
+.switch-control.active .switch-thumb {
+  transform: translateX(22px);
+}
+
+/* Push Button */
+.button-control {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #f43f5e 40%, #be123c 100%);
+  border: 2px solid #9f1239;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4), inset 0 2px 2px rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  user-select: none;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.button-control:active,
+.button-control.pressed {
+  transform: translateY(2px) scale(0.96);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(circle, #e11d48 40%, #9f1239 100%);
+}
+
+/* LED Indicator with Digital 0/1 Readout */
+.led-indicator {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #1e293b;
+  border: 2.5px solid #334155;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.led-digit-readout {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  color: #94a3b8;
+  user-select: none;
+  pointer-events: none;
+  line-height: 1;
+  z-index: 2;
+}
+
+.led-indicator.on .led-digit-readout {
+  color: #ffffff;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.led-indicator.on.amber .led-digit-readout {
+  color: #451a03;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+/* Junction Branch Solder Point */
+.circuit-node.junction-node {
+  border-radius: 50%;
+  background-color: var(--signal-low);
+  border: 2px solid var(--bg-panel);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  cursor: crosshair;
+  z-index: 25;
+}
+
+.circuit-node.junction-node.active {
+  background-color: var(--signal-high);
+  box-shadow: 0 0 8px var(--signal-high);
+}
+
+.led-indicator.on.green {
+  background: radial-gradient(circle, #86efac 15%, #22c55e 65%, #15803d 100%);
+  border-color: #4ade80;
+  box-shadow: 0 0 16px #22c55e, 0 0 30px rgba(34, 197, 94, 0.5), inset 0 1px 2px #dcfce7;
+}
+
+.led-indicator.on.red {
+  background: radial-gradient(circle, #fca5a5 15%, #ef4444 65%, #b91c1c 100%);
+  border-color: #f87171;
+  box-shadow: 0 0 16px #ef4444, 0 0 30px rgba(239, 68, 68, 0.5), inset 0 1px 2px #fee2e2;
+}
+
+.led-indicator.on.amber {
+  background: radial-gradient(circle, #fde68a 15%, #f59e0b 65%, #b45309 100%);
+  border-color: #fbbf24;
+  box-shadow: 0 0 16px #f59e0b, 0 0 30px rgba(245, 158, 11, 0.5), inset 0 1px 2px #fef3c7;
+}
+
+.led-indicator.on.blue {
+  background: radial-gradient(circle, #93c5fd 15%, #3b82f6 65%, #1d4ed8 100%);
+  border-color: #60a5fa;
+  box-shadow: 0 0 16px #3b82f6, 0 0 30px rgba(59, 130, 246, 0.5), inset 0 1px 2px #dbeafe;
+}
+
+/* 7-Segment Display */
+.seven-seg-box {
+  width: 54px;
+  height: 80px;
+  background-color: #05080c;
+  border-radius: 4px;
+  border: 2px solid #1e293b;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seven-seg-svg {
+  width: 44px;
+  height: 68px;
+}
+
+.seg-off {
+  fill: #141b24;
+}
+
+.seg-on {
+  fill: #ef4444;
+  filter: drop-shadow(0 0 3px #ef4444);
+}
+
+/* Hex Display */
+.hex-display-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hex-char-readout {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 800;
+  color: #22c55e;
+  text-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+}
+
+/* Logic Probe Readout */
+.probe-readout {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  letter-spacing: 0.5px;
+}
+
+.probe-readout.val-1 {
+  color: var(--signal-high);
+  border-color: var(--signal-high);
+}
+
+.probe-readout.val-0 {
+  color: var(--signal-low);
+  border-color: var(--border-subtle);
+}
+
+.probe-readout.val-z {
+  color: var(--signal-z);
+  border-color: var(--signal-z);
+}
+
+.probe-readout.val-x {
+  color: var(--signal-x);
+  border-color: var(--signal-x);
+}
+
+/* ==========================================================================
+   20-PIN HORIZONTAL DIP IC PACKAGE HARDWARE STYLING
+   ========================================================================== */
+.circuit-node.dip-ic-package {
+  background: linear-gradient(180deg, #1b222d 0%, #0f151e 100%) !important;
+  border: 1.5px solid #334155 !important;
+  border-radius: 5px !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.circuit-node.dip-ic-package.selected {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45), 0 8px 20px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Physical Left Notch for Horizontal DIP Orientation */
+.dip-hardware-notch {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 18px;
+  background-color: #0b0f17;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border: 1px solid #475569;
+  border-left: none;
+  z-index: 12;
+  pointer-events: none;
+}
+
+/* Pin 1 Dot Indicator (Bottom-Left on Horizontal DIP) */
+.dip-hardware-pin1-dot {
+  position: absolute;
+  left: 14px;
+  bottom: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  z-index: 12;
+  pointer-events: none;
+}
+
+/* DIP IC Top / Bottom Physical Pins styling */
+.dip-ic-package .circuit-pin {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 2px !important;
+  background: linear-gradient(180deg, #94a3b8, #cbd5e1) !important;
+  border: 1px solid #475569 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 0.1s ease, box-shadow 0.1s ease !important;
+}
+
+.dip-ic-package .circuit-pin:hover {
+  transform: scale(1.3) !important;
+  background: #38bdf8 !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 8px #38bdf8 !important;
+  z-index: 25 !important;
+}
+
+.dip-ic-package .circuit-pin.high {
+  background: #22c55e !important;
+  border-color: #16a34a !important;
+  box-shadow: 0 0 6px #22c55e !important;
+}
+
+.dip-ic-package .circuit-pin.low {
+  background: #3b82f6 !important;
+  border-color: #2563eb !important;
+}
+
+/* ==========================================================================
+   DIGITAL HARDWARE TRAINER BOARD CHASSIS (Slight Yellowish-White Lab Finish)
+   ========================================================================== */
+.hardware-trainer-board {
+  position: absolute;
+  background-color: #faf7eb;
+  background-image: linear-gradient(180deg, #fcfaf2 0%, #f4efe0 100%);
+  border-radius: 8px;
+  border: 2.5px solid #d4ceb8;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  pointer-events: auto;
+  user-select: none;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+/* Silkscreen Horizontal Dividers */
+.trainer-divider {
+  width: 100%;
+  height: 3px;
+  background: #334155;
+  position: absolute;
+  left: 0;
+  box-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
+  z-index: 3;
+}
+
+.trainer-divider.top-div {
+  bottom: 0;
+}
+
+.trainer-divider.bottom-div {
+  top: 0;
+}
+
+/* ==========================================================================
+   TOP STRIP (Outputs, VCC, Dual 7-Segment Displays, Power)
+   ========================================================================== */
+.trainer-top-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 84px;
+}
+
+.trainer-section-title {
+  position: absolute;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #0f172a;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.trainer-section-title.top-title {
+  top: 6px;
+  left: 198px;
+}
+
+.trainer-output-num-row {
+  position: absolute;
+  top: 21px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.trainer-pin-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+  position: absolute;
+  text-align: center;
+  user-select: none;
+}
+
+.trainer-pin-num.out-num {
+  top: 21px;
+  width: 16px;
+  transform: translateX(-50%);
+}
+
+.trainer-pin-num.vcc-label {
+  top: 21px;
+  width: 28px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+/* Compact Dual 7-Segment Displays Housing */
+.trainer-displays-housing {
+  position: absolute;
+  right: 48px;
+  top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.compact-7seg-unit {
+  width: 24px;
+  height: 36px;
+  background: #0f172a;
+  border-radius: 3px;
+  border: 1.5px solid #334155;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 2px 5px rgba(0, 0, 0, 0.3);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.compact-seg-bezel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compact-seg-ghost {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 900;
+  color: rgba(239, 68, 68, 0.18);
+  line-height: 1;
+  user-select: none;
+}
+
+.compact-seg-legs {
+  position: absolute;
+  bottom: -6px;
+  display: flex;
+  gap: 2.5px;
+}
+
+.compact-seg-leg {
+  width: 1.5px;
+  height: 6px;
+  background: linear-gradient(180deg, #94a3b8, #475569);
+  border-radius: 0.5px;
+}
+
+.trainer-power-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.power-lbl {
+  font-size: 9px;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: var(--font-sans);
+}
+
+.power-icon-puck {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #111827;
+  border: 1.5px solid #38bdf8;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+/* ==========================================================================
+   MIDDLE SECTION: 3 HORIZONTAL 20-PIN IC SOCKETS
+   ========================================================================== */
+.trainer-ic-bases-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.horizontal-ic-base-socket {
+  position: absolute;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #18202c 0%, #111722 100%);
+  border: 1.5px solid #334155;
+  box-shadow:
+    inset 0 0 12px rgba(0, 0, 0, 0.8),
+    0 8px 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.horizontal-ic-base-socket:hover {
+  border-color: #38bdf8;
+  box-shadow:
+    0 0 14px rgba(56, 189, 248, 0.5),
+    inset 0 0 14px rgba(56, 189, 248, 0.15),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.horizontal-ic-base-socket.occupied {
+  background: linear-gradient(180deg, #131b26 0%, #0d131c 100%);
+  border-color: #475569;
+}
+
+.horizontal-ic-base-socket.empty {
+  border: 1.5px dashed rgba(56, 189, 248, 0.6);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.horizontal-ic-base-socket.empty:hover {
+  border: 1.5px solid #38bdf8;
+  background: rgba(15, 23, 42, 0.95);
+}
+
+/* Pin Rows (Top: 20..11, Bottom: 1..10) */
+.base-pins-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+
+.base-pin-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.base-pins-row.bottom-row .base-pin-slot {
+  flex-direction: column;
+}
+
+.slot-index {
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  user-select: none;
+}
+
+.slot-socket-hole {
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+  background: #020617;
+  border: 1px solid #64748b;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* Center Socket Body & Interactive Trigger */
+.base-socket-body {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2px 0;
+}
+
+.base-socket-notch {
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 14px;
+  background: #f4efe0;
+  border-top-right-radius: 7px;
+  border-bottom-right-radius: 7px;
+  border: 1px solid #d4ceb8;
+  border-left: none;
+}
+
+.base-center-interactive {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.base-mount-action-btn {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px dashed rgba(56, 189, 248, 0.4);
+  border-radius: 4px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #38bdf8;
+  transition: all 0.15s ease;
+}
+
+.base-mount-action-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.mount-btn-plus {
+  font-size: 11px;
+}
+
+.mount-btn-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.mount-btn-sub {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.base-occupied-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #334155;
+}
+
+.base-socket-name {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.base-chip-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.base-swap-action {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  color: #38bdf8;
+  opacity: 0.8;
+}
+
+.horizontal-ic-base-socket:hover .base-swap-action {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   BOTTOM STRIP (Inputs, GND, Clocks, Pulse)
+   ========================================================================== */
+.trainer-bottom-strip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 105px;
+}
+
+.trainer-input-num-row {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.trainer-pin-num.in-num {
+  bottom: 22px;
+  width: 16px;
+  transform: translateX(-50%);
+}
+
+.trainer-section-title.input-title {
+  position: absolute;
+  bottom: 6px;
+  left: 198px;
+}
+
+.trainer-pin-num.gnd-label {
+  bottom: 22px;
+  width: 28px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.trainer-clock-num-row {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.trainer-pin-num.clk-num {
+  bottom: 22px;
+  width: 22px;
+  transform: translateX(-50%);
+}
+
+.trainer-section-title.clock-title {
+  position: absolute;
+  bottom: 6px;
+  left: 742px;
+}
+
+.trainer-pin-num.high-lbl {
+  bottom: 50px;
+  width: 28px;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.trainer-pin-num.low-lbl {
+  bottom: 50px;
+  width: 26px;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 900;
+}
+
+/* ==========================================================================
+   INTERACTIVE HARDWARE TRAINER COMPONENTS (LEDs, Toggle Switches, Pulse)
+   ========================================================================== */
+.circuit-node.trainer-node {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Output Lamp Unit */
+.trainer-output-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.trainer-led-lamp {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #334155 0%, #0f172a 100%);
+  border: 1.5px solid #1e293b;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s ease;
+}
+
+.trainer-led-lamp.on {
+  background: radial-gradient(circle at 35% 35%, #86efac 0%, #22c55e 60%, #15803d 100%);
+  border-color: #15803d;
+  box-shadow:
+    0 0 12px #22c55e,
+    0 0 24px rgba(34, 197, 94, 0.6),
+    inset 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.trainer-terminal-stem {
+  width: 2px;
+  height: 7px;
+  background: linear-gradient(180deg, #94a3b8, #475569);
+}
+
+.trainer-jack-socket {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 2px solid #cbd5e1;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Input Toggle Switch with Integrated Rocker Lever */
+.trainer-input-unit,
+.trainer-clock-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.trainer-toggle-switch {
+  width: 16px;
+  height: 24px;
+  background: linear-gradient(180deg, #1e293b, #0f172a);
+  border-radius: 3px;
+  border: 1.5px solid #334155;
+  position: relative;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  transition: all 0.15s ease;
+}
+
+.trainer-toggle-switch:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+.trainer-toggle-lever {
+  position: absolute;
+  width: 10px;
+  height: 11px;
+  left: 1.5px;
+  bottom: 2px;
+  background: linear-gradient(180deg, #f1f5f9, #94a3b8);
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: all 0.12s ease;
+}
+
+.trainer-toggle-switch.active .trainer-toggle-lever {
+  bottom: 9px;
+  background: linear-gradient(180deg, #38bdf8, #0284c7);
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+/* Generate Pulse Push Button */
+.trainer-pulse-btn {
+  background: linear-gradient(180deg, #222a36 0%, #141820 100%);
+  border: 1.5px solid #374151;
+  border-radius: 4px;
+  color: #f8fafc;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: all 0.1s ease;
+  user-select: none;
+}
+
+.trainer-pulse-btn:hover {
+  border-color: #60a5fa;
+  color: #38bdf8;
+}
+
+.trainer-pulse-btn.pressed {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.trainer-pulse-btn .pulse-icon {
+  color: #ef4444;
+  font-size: 12px;
+  filter: drop-shadow(0 0 4px #ef4444);
+}
+
+/* Terminal Pins for Board Jacks */
+.circuit-pin.trainer-pin {
+  background: transparent !important;
+  border: 2px solid transparent !important;
+  box-shadow: none !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin-left: -7px !important;
+  margin-top: -7px !important;
+}
+
+.circuit-pin.trainer-pin:hover {
+  border-color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.5) !important;
+  box-shadow: 0 0 8px #38bdf8 !important;
+}
+
+.circuit-pin.trainer-pin.high {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.3) !important;
+}
+
+/* Master Power Switch Housing */
+.trainer-board-power-housing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: #1e293b;
+  border: 1.5px solid #475569;
+  border-radius: 6px;
+  padding: 4px 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  user-select: none;
+}
+
+.power-housing-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.power-text-tag {
+  font-family: var(--font-sans);
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: #94a3b8;
+}
+
+.power-lamp {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 4px #ef4444;
+  transition: all 0.15s ease;
+}
+
+.power-lamp.on {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e, 0 0 14px rgba(34, 197, 94, 0.6);
+}
+
+.trainer-power-rocker {
+  width: 48px;
+  height: 22px;
+  background: #0f172a;
+  border: 1.5px solid #334155;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.trainer-power-rocker:hover {
+  border-color: #38bdf8;
+}
+
+.trainer-power-rocker.active {
+  background: #064e3b;
+  border-color: #10b981;
+}
+
+.rocker-lbl {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 900;
+  color: #64748b;
+  line-height: 1;
+  z-index: 1;
+}
+
+.trainer-power-rocker.active .on-lbl {
+  color: #34d399;
+}
+
+.trainer-power-rocker:not(.active) .off-lbl {
+  color: #f87171;
+}
+
+.rocker-switch-thumb {
+  position: absolute;
+  top: 1.5px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f8fafc, #cbd5e1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.trainer-power-rocker.active .rocker-switch-thumb {
+  transform: translateX(25px);
+  background: linear-gradient(180deg, #34d399, #059669);
+  box-shadow: 0 0 8px #10b981;
+}
+
+/* Trainer Labels and Unit Text */
+.trainer-unit-lbl {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+.trainer-unit-lbl.top {
+  margin-bottom: 2px;
+}
+
+.trainer-unit-lbl.bottom {
+  margin-top: 3px;
+}
+
+.trainer-unit-lbl.high-text {
+  color: #dc2626;
+  font-size: 8px;
+}
+
+.trainer-unit-lbl.low-text {
+  color: #0f172a;
+  font-size: 8px;
+}
+
+/* Power & Reference Units */
+.trainer-power-unit,
+.trainer-ref-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.trainer-jack-socket.vcc {
+  border-color: #ef4444;
+}
+
+.trainer-jack-socket.gnd {
+  border-color: #475569;
+}
+
+.trainer-jack-socket.clk {
+  border-color: #38bdf8;
+}
+
+/* Clock Frequency Lamp */
+.trainer-clk-lamp {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #334155;
+  border: 1px solid #1e293b;
+  margin-top: 2px;
+  transition: all 0.08s ease;
+}
+
+.trainer-clk-lamp.on {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b, 0 0 14px rgba(245, 158, 11, 0.6);
+}
+
+/* ==========================================================================
+   Canvas Tool Mode Controller Dock (Wire Mode / Move Circuitry / Delete Wire)
+   ========================================================================== */
+.canvas-tool-mode-box {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  user-select: none;
+  pointer-events: auto;
+  min-width: 175px;
+}
+
+[data-theme='light'] .canvas-tool-mode-box {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.15);
+}
+
+.tool-mode-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 2px 2px;
+}
+
+.tool-mode-title {
+  font-size: 9.5px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  letter-spacing: 0.8px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+[data-theme='light'] .tool-mode-title {
+  color: #64748b;
+}
+
+.tool-mode-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tool-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+[data-theme='light'] .tool-mode-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #334155;
+}
+
+.tool-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+[data-theme='light'] .tool-mode-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #0f172a;
+}
+
+.tool-mode-btn.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.2) 100%);
+  border-color: #10b981;
+  color: #34d399;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+}
+
+[data-theme='light'] .tool-mode-btn.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.12) 100%);
+  border-color: #059669;
+  color: #047857;
+}
+
+.tool-mode-btn.danger.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.2) 100%);
+  border-color: #ef4444;
+  color: #f87171;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+}
+
+[data-theme='light'] .tool-mode-btn.danger.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(220, 38, 38, 0.12) 100%);
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.tool-mode-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.tool-mode-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-mode-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.tool-mode-sub {
+  font-size: 9px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+[data-theme='light'] .tool-mode-sub {
+  color: #64748b;
+}
+
+.tool-mode-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 3px 0;
+}
+
+[data-theme='light'] .tool-mode-divider {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.remove-wire-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.remove-wire-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.05);
+  color: #64748b;
+}
+
+.remove-wire-btn.active:not(:disabled) {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border-color: #dc2626;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+.remove-wire-btn.active:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.55);
+}
+
+/* --- Modular Input & Output Pin Styles --- */
+.modular-pin-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-focus);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.modular-pin-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1e293b;
+  color: #94a3b8;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid #475569;
+  transition: all 0.15s ease;
+}
+
+.modular-pin-badge.active {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #34d399;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+}
+
+.modular-pin-badge.out.active {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #f87171;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+}
+
+.modular-pin-tag {
+  position: absolute;
+  bottom: 2px;
+  font-size: 7.5px;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+/* --- Modular Solderless Breadboard Styles --- */
+.modular-breadboard-surface {
+  width: 100%;
+  height: 100%;
+  background: #f8fafc;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  user-select: none;
+}
+
+[data-theme='dark'] .modular-breadboard-surface {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.bb-top-rails, .bb-bot-rails {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 8px;
+  gap: 2px;
+}
+
+.bb-rail {
+  height: 9px;
+  display: flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  padding-left: 4px;
+}
+
+.bb-rail.red {
+  color: #ef4444;
+  border-bottom: 1.5px solid rgba(239, 68, 68, 0.4);
+}
+
+.bb-rail.blue {
+  color: #3b82f6;
+  border-bottom: 1.5px solid rgba(59, 130, 246, 0.4);
+}
+
+.bb-terminal-grid {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2px 8px;
+}
+
+.bb-trough-divider {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: #cbd5e1;
+  transform: translateY(-50%);
+}
+
+[data-theme='dark'] .bb-trough-divider {
+  background: #0f172a;
+}
+
+.bb-section-labels {
+  display: flex;
+  gap: 12px;
+  font-size: 7.5px;
+  color: #94a3b8;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.bb-brand-watermark {
+  position: absolute;
+  right: 12px;
+  bottom: 6px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  color: rgba(148, 163, 184, 0.35);
+}
+
+/* --- Canvas Right-Click Context Menu --- */
+.canvas-context-menu {
+  position: fixed;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-focus);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 170px;
+  backdrop-filter: blur(8px);
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: left;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.context-menu-item.danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.context-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.context-menu-shortcut {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  margin-left: 12px;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 3px 0;
+}
