@@ -5,7 +5,7 @@ import type { LabExperiment } from './presets/labExperiments';
 import { soundFx } from './audio/soundEffects';
 import { getCurrentUser, logoutUser } from './services/storage';
 import { useCircuitHistory } from './hooks/useCircuitHistory';
-import { ensureTrainerKit, TRAINER_BOARD_LAYOUT } from './engine/trainerKit';
+import { ensureTrainerKit, createTrainerKitComponents, getTrainerBoards, TRAINER_BOARD_LAYOUT } from './engine/trainerKit';
 import { getUserCustomICs, deleteUserCustomIC } from './services/customIcStorage';
 
 import { LandingPage } from './components/LandingPage';
@@ -73,13 +73,26 @@ export function App() {
     resetHistory,
   } = useCircuitHistory(initialCircuit);
 
+  // Workspace Mode: 'trainer' (Chassis + Ports) vs 'freeform' (Unlimited Open Canvas)
+  const [workbenchMode, setWorkbenchMode] = useState<'trainer' | 'freeform'>(() => {
+    return (localStorage.getItem('circuitflow_workbench_mode') as 'trainer' | 'freeform') || 'trainer';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('circuitflow_workbench_mode', workbenchMode);
+  }, [workbenchMode]);
+
+  // Live Canvas Mouse Cursor Tracking for Cursor-Aware Paste
+  const mouseCanvasPosRef = useRef<{ x: number; y: number }>({ x: 350, y: 250 });
+
   // Canvas Viewport Transforms - zero-scroll fit for digital trainer board
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 20, y: 15 });
 
-  // Selection: Component, Wire, or Complete Circuit
+  // Selection: Component, Wire, Trainer Board, or Complete Circuit
   const [selectedCompId, setSelectedCompId] = useState<string | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  const [selectedBoardIndex, setSelectedBoardIndex] = useState<number | null>(null);
   const [isAllSelected, setIsAllSelected] = useState<boolean>(false);
 
   // Simulation Controls
@@ -108,7 +121,7 @@ export function App() {
     circuitRef.current = circuit;
   }, [circuit]);
 
-  // Track component drag start snapshot for undoing moves
+  // Track drag start snapshot for undoing component and board moves
   const dragStartCircuitRef = useRef<Circuit | null>(null);
 
   const handleDragStart = (_id: string) => {
@@ -125,6 +138,31 @@ export function App() {
       }
       dragStartCircuitRef.current = null;
     }
+  };
+
+  const handleBoardDragStart = (_boardIndex: number) => {
+    dragStartCircuitRef.current = circuitRef.current;
+  };
+
+  const handleBoardDragEnd = (_boardIndex: number) => {
+    if (dragStartCircuitRef.current) {
+      commitAction(dragStartCircuitRef.current, circuitRef.current);
+      dragStartCircuitRef.current = null;
+    }
+  };
+
+  // Update Multiple Component Positions (continuous board dragging at 60fps)
+  const handleUpdateMultipleComponentPositions = (
+    updates: Array<{ id: string; x: number; y: number }>
+  ) => {
+    const updateMap = new Map(updates.map((u) => [u.id, u]));
+    setCircuitDirect((prev) => ({
+      ...prev,
+      components: prev.components.map((c) => {
+        const up = updateMap.get(c.id);
+        return up ? { ...c, x: up.x, y: up.y } : c;
+      }),
+    }));
   };
 
   // Record a sample for the waveform analyzer
@@ -607,8 +645,61 @@ export function App() {
     showToast(`Complete circuit selected (${circuit.components.length} components, ${circuit.wires.length} wires)`);
   }, [circuit]);
 
-  // Copy & Paste Circuit Parts (or whole circuit if complete circuit selected or nothing selected)
+  // Copy specific Trainer Board
+  const handleCopyBoard = useCallback(
+    (boardIndex: number) => {
+      const isBoardComp = (c: CircuitComponent) => {
+        if (c.customProps?.boardIndex === boardIndex) return true;
+        if (
+          boardIndex === 0 &&
+          c.id.startsWith('trainer_') &&
+          !c.id.match(/^trainer_b\d+_/)
+        ) {
+          return true;
+        }
+        if (c.id.startsWith(`trainer_b${boardIndex}_`)) return true;
+        return false;
+      };
+
+      const boards = getTrainerBoards(circuit.components);
+      const thisBoard = boards.find((b) => b.boardIndex === boardIndex);
+      const bOffsetX = thisBoard?.offsetX ?? 0;
+      const bOffsetY = thisBoard?.offsetY ?? boardIndex * 560;
+      const bMinX = TRAINER_BOARD_LAYOUT.boardX + bOffsetX - 20;
+      const bMaxX = bMinX + TRAINER_BOARD_LAYOUT.boardWidth + 40;
+      const bMinY = TRAINER_BOARD_LAYOUT.boardY + bOffsetY - 20;
+      const bMaxY = bMinY + TRAINER_BOARD_LAYOUT.boardHeight + 40;
+
+      const toCopyComps = circuit.components.filter(
+        (c) => isBoardComp(c) || (c.x >= bMinX && c.x <= bMaxX && c.y >= bMinY && c.y <= bMaxY)
+      );
+      const compIds = new Set(toCopyComps.map((c) => c.id));
+      const toCopyWires = circuit.wires.filter(
+        (w) => compIds.has(w.fromCompId) && compIds.has(w.toCompId)
+      );
+
+      const payload = {
+        type: 'trainer_board',
+        boardIndex,
+        components: toCopyComps,
+        wires: toCopyWires,
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify(payload));
+      soundFx.playButtonTap();
+      showToast(`Copied Digital Trainer Board #${boardIndex + 1} (${toCopyComps.length} components)`);
+    },
+    [circuit]
+  );
+
+  // Copy & Paste Circuit Parts (or whole circuit / selected trainer board)
   const handleCopy = useCallback(() => {
+    if (selectedBoardIndex !== null) {
+      handleCopyBoard(selectedBoardIndex);
+      return;
+    }
+
     let toCopyComps: CircuitComponent[] = [];
     let toCopyWires: Wire[] = [];
 
@@ -633,7 +724,12 @@ export function App() {
       return;
     }
 
+    const hasTrainer = toCopyComps.some(
+      (c) => c.isTrainerFixed || c.id.startsWith('trainer_')
+    );
+
     const payload = {
+      type: hasTrainer ? 'trainer_board' : 'general',
       components: toCopyComps,
       wires: toCopyWires,
       timestamp: Date.now(),
@@ -646,83 +742,225 @@ export function App() {
     } else {
       showToast(`Copied ${toCopyComps.length} component${toCopyComps.length === 1 ? '' : 's'}`);
     }
-  }, [circuit, isAllSelected, selectedCompId, selectedWireId]);
+  }, [circuit, isAllSelected, selectedBoardIndex, selectedCompId, selectedWireId, handleCopyBoard]);
 
-  const handlePaste = useCallback((targetPosition?: { x: number; y: number }) => {
-    try {
-      const raw = localStorage.getItem(CLIPBOARD_STORAGE_KEY);
-      if (!raw) {
-        showToast('Clipboard is empty (Ctrl+C to copy)');
-        return;
-      }
+  const handlePaste = useCallback(
+    (targetPosition?: { x: number; y: number }) => {
+      try {
+        const raw = localStorage.getItem(CLIPBOARD_STORAGE_KEY);
+        if (!raw) {
+          showToast('Clipboard is empty (Ctrl+C to copy)');
+          return;
+        }
 
-      const payload = JSON.parse(raw);
-      if (!Array.isArray(payload.components) || (payload.components.length === 0 && (!payload.wires || payload.wires.length === 0))) {
-        showToast('Clipboard is empty');
-        return;
-      }
+        const payload = JSON.parse(raw);
+        const hasComponents = Array.isArray(payload.components) && payload.components.length > 0;
+        const hasWires = Array.isArray(payload.wires) && payload.wires.length > 0;
 
-      const idMap: Record<string, string> = {};
-      let offsetX = 40;
-      let offsetY = 40;
+        if (!hasComponents && !hasWires) {
+          showToast('Clipboard is empty');
+          return;
+        }
 
-      if (targetPosition && payload.components.length > 0) {
+        const effectiveTargetPos = targetPosition || mouseCanvasPosRef.current;
+        const hasTrainerFixed = payload.components.some(
+          (c: any) => c.isTrainerFixed || (typeof c.id === 'string' && c.id.startsWith('trainer_'))
+        );
+
+        if (hasTrainerFixed || payload.type === 'trainer_board') {
+          // Paste as a new Digital Trainer Board
+          const existingBoards = getTrainerBoards(circuit.components);
+          const nextBoardIndex =
+            existingBoards.length > 0
+              ? Math.max(...existingBoards.map((b) => b.boardIndex)) + 1
+              : 0;
+
+          const minX = Math.min(...payload.components.map((c: any) => c.x));
+          const minY = Math.min(...payload.components.map((c: any) => c.y));
+          const targetX = effectiveTargetPos?.x ? Math.round(effectiveTargetPos.x / 10) * 10 : 20;
+          const targetY = effectiveTargetPos?.y
+            ? Math.round(effectiveTargetPos.y / 10) * 10
+            : nextBoardIndex * 560 + 15;
+          const shiftX = targetX - minX;
+          const shiftY = targetY - minY;
+
+          const idMap: Record<string, string> = {};
+          const newComps: CircuitComponent[] = payload.components.map((c: CircuitComponent) => {
+            let newId: string;
+            const isTrainer = c.isTrainerFixed || c.id.startsWith('trainer_');
+            if (isTrainer) {
+              const suffix = c.id.replace(/^trainer_(b\d+_)?/, '');
+              newId = nextBoardIndex === 0 ? `trainer_${suffix}` : `trainer_b${nextBoardIndex}_${suffix}`;
+            } else {
+              newId = `comp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+            }
+            idMap[c.id] = newId;
+
+            return {
+              ...c,
+              id: newId,
+              isTrainerFixed: isTrainer,
+              x: Math.round((c.x + shiftX) / 10) * 10,
+              y: Math.round((c.y + shiftY) / 10) * 10,
+              inputs: c.inputs.map((p) => ({ ...p })),
+              outputs: c.outputs.map((p) => ({ ...p })),
+              state: { ...c.state },
+              customProps: {
+                ...c.customProps,
+                ...(isTrainer ? { boardIndex: nextBoardIndex } : {}),
+              },
+            };
+          });
+
+          const newWires: Wire[] = (payload.wires || [])
+            .filter((w: Wire) => idMap[w.fromCompId] && idMap[w.toCompId])
+            .map((w: Wire) => ({
+              ...w,
+              id: `wire_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              fromCompId: idMap[w.fromCompId],
+              toCompId: idMap[w.toCompId],
+            }));
+
+          const nextCircuit = {
+            components: [...circuit.components, ...newComps],
+            wires: [...circuit.wires, ...newWires],
+          };
+
+          const res = simulateCircuit(nextCircuit);
+          pushState(res.circuit);
+          if (workbenchMode !== 'trainer') {
+            setWorkbenchMode('trainer');
+          }
+          setSelectedBoardIndex(nextBoardIndex);
+          setSelectedCompId(null);
+          setSelectedWireId(null);
+          setIsAllSelected(false);
+          soundFx.playButtonTap();
+          showToast(`Pasted Digital Trainer Board #${nextBoardIndex + 1}`);
+          return;
+        }
+
+        // Standard standalone components paste (gates, ICs, inputs, probes, muxes, etc.)
         const minX = Math.min(...payload.components.map((c: any) => c.x));
         const maxX = Math.max(...payload.components.map((c: any) => c.x));
         const minY = Math.min(...payload.components.map((c: any) => c.y));
         const maxY = Math.max(...payload.components.map((c: any) => c.y));
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
-        offsetX = Math.round((targetPosition.x - centerX) / 10) * 10;
-        offsetY = Math.round((targetPosition.y - centerY) / 10) * 10;
-      }
 
-      const newComps: CircuitComponent[] = (payload.components || []).map((c: CircuitComponent) => {
-        const newId = `comp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        idMap[c.id] = newId;
+        const targetX = effectiveTargetPos?.x ?? minX + 40;
+        const targetY = effectiveTargetPos?.y ?? minY + 40;
+        const offsetX = Math.round((targetX - (payload.components.length === 1 ? minX : centerX)) / 10) * 10;
+        const offsetY = Math.round((targetY - (payload.components.length === 1 ? minY : centerY)) / 10) * 10;
 
-        return {
-          ...c,
-          id: newId,
-          x: c.x + offsetX,
-          y: c.y + offsetY,
-          inputs: c.inputs.map((p) => ({ ...p })),
-          outputs: c.outputs.map((p) => ({ ...p })),
-          state: { ...c.state },
-          customProps: { ...c.customProps },
+        const idMap: Record<string, string> = {};
+        const newComps: CircuitComponent[] = payload.components.map((c: CircuitComponent) => {
+          const newId = `comp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          idMap[c.id] = newId;
+
+          return {
+            ...c,
+            id: newId,
+            isTrainerFixed: false,
+            x: Math.max(10, c.x + offsetX),
+            y: Math.max(10, c.y + offsetY),
+            inputs: c.inputs.map((p) => ({ ...p })),
+            outputs: c.outputs.map((p) => ({ ...p })),
+            state: { ...c.state },
+            customProps: { ...c.customProps },
+          };
+        });
+
+        const newWires: Wire[] = (payload.wires || [])
+          .filter((w: Wire) => idMap[w.fromCompId] && idMap[w.toCompId])
+          .map((w: Wire) => ({
+            ...w,
+            id: `wire_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            fromCompId: idMap[w.fromCompId],
+            toCompId: idMap[w.toCompId],
+          }));
+
+        const nextCircuit = {
+          components: [...circuit.components, ...newComps],
+          wires: [...circuit.wires, ...newWires],
         };
-      });
 
-      const newWires: Wire[] = (payload.wires || [])
-        .filter((w: Wire) => idMap[w.fromCompId] && idMap[w.toCompId])
-        .map((w: Wire) => ({
-          ...w,
-          id: `wire_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          fromCompId: idMap[w.fromCompId],
-          toCompId: idMap[w.toCompId],
-        }));
+        const res = simulateCircuit(nextCircuit);
+        pushState(res.circuit);
+        if (newComps.length > 1) {
+          setIsAllSelected(true);
+          setSelectedCompId(null);
+          setSelectedWireId(null);
+        } else if (newComps.length === 1) {
+          setSelectedCompId(newComps[0].id);
+          setIsAllSelected(false);
+        }
+        soundFx.playButtonTap();
+        showToast(
+          `Pasted ${newComps.length} component${newComps.length === 1 ? '' : 's'}${
+            newWires.length > 0 ? ` and ${newWires.length} wire${newWires.length === 1 ? '' : 's'}` : ''
+          }`
+        );
+      } catch {
+        showToast('Failed to paste from clipboard');
+      }
+    },
+    [circuit, pushState, workbenchMode]
+  );
 
-      const nextCircuit = {
-        components: [...circuit.components, ...newComps],
-        wires: [...circuit.wires, ...newWires],
+  // Add an Additional Digital Trainer Board to Workbench
+  const handleAddTrainerBoard = useCallback(() => {
+    const existingBoards = getTrainerBoards(circuit.components);
+    const nextBoardIndex =
+      existingBoards.length > 0
+        ? Math.max(...existingBoards.map((b) => b.boardIndex)) + 1
+        : 0;
+    const offsetY = nextBoardIndex * 560;
+    const newBoardComps = createTrainerKitComponents(0, offsetY, nextBoardIndex);
+
+    const nextCircuit = {
+      ...circuit,
+      components: [...circuit.components, ...newBoardComps],
+    };
+    const res = simulateCircuit(nextCircuit);
+    pushState(res.circuit);
+    if (workbenchMode !== 'trainer') {
+      setWorkbenchMode('trainer');
+    }
+    soundFx.playButtonTap();
+    showToast(`Added Digital Trainer Board #${nextBoardIndex + 1}`);
+  }, [circuit, pushState, workbenchMode]);
+
+  // Remove a specific Digital Trainer Board instance
+  const handleRemoveTrainerBoard = useCallback(
+    (boardIndex: number) => {
+      const isTrainerCompForBoard = (c: CircuitComponent) => {
+        if (c.customProps?.boardIndex === boardIndex) return true;
+        if (
+          boardIndex === 0 &&
+          c.id.startsWith('trainer_') &&
+          !c.id.match(/^trainer_b\d+_/)
+        ) {
+          return true;
+        }
+        if (c.id.startsWith(`trainer_b${boardIndex}_`)) return true;
+        return false;
       };
 
-      const res = simulateCircuit(nextCircuit);
+      const compsToRemove = circuit.components.filter(isTrainerCompForBoard);
+      const removeIds = new Set(compsToRemove.map((c) => c.id));
+      const nextComps = circuit.components.filter((c) => !removeIds.has(c.id));
+      const nextWires = circuit.wires.filter(
+        (w) => !removeIds.has(w.fromCompId) && !removeIds.has(w.toCompId)
+      );
+      const cleaned = cleanupOrphanJunctions(nextComps, nextWires);
+      const res = simulateCircuit({ components: cleaned.components, wires: cleaned.wires });
       pushState(res.circuit);
-      if (newComps.length > 1) {
-        setIsAllSelected(true);
-        setSelectedCompId(null);
-        setSelectedWireId(null);
-      } else if (newComps.length === 1) {
-        setSelectedCompId(newComps[0].id);
-        setIsAllSelected(false);
-      }
       soundFx.playButtonTap();
-      showToast(`Pasted ${newComps.length} component${newComps.length === 1 ? '' : 's'}${newWires.length > 0 ? ` and ${newWires.length} wire${newWires.length === 1 ? '' : 's'}` : ''}`);
-    } catch {
-      showToast('Failed to paste from clipboard');
-    }
-  }, [circuit, pushState]);
+      showToast(`Removed Digital Trainer Board #${boardIndex + 1}`);
+    },
+    [circuit, pushState]
+  );
 
   // Load Pre-Built Lab Experiment
   const handleLoadExperiment = (exp: LabExperiment) => {
@@ -908,6 +1146,12 @@ export function App() {
           setIsAllSelected(false);
           return;
         }
+        if (selectedBoardIndex !== null) {
+          e.preventDefault();
+          handleRemoveTrainerBoard(selectedBoardIndex);
+          setSelectedBoardIndex(null);
+          return;
+        }
         if (selectedCompId) {
           e.preventDefault();
           handleDeleteComponent(selectedCompId);
@@ -919,6 +1163,7 @@ export function App() {
         setIsAllSelected(false);
         setSelectedCompId(null);
         setSelectedWireId(null);
+        setSelectedBoardIndex(null);
         setIsTruthTableOpen(false);
         setIsLabPresetsOpen(false);
         setIsShortcutsOpen(false);
@@ -933,6 +1178,7 @@ export function App() {
     isAllSelected,
     selectedCompId,
     selectedWireId,
+    selectedBoardIndex,
     canUndo,
     canRedo,
     undo,
@@ -944,6 +1190,7 @@ export function App() {
     runSimulationStep,
     handleDeleteComponent,
     handleDeleteWire,
+    handleRemoveTrainerBoard,
   ]);
 
   const selectedComponent = circuit.components.find((c) => c.id === selectedCompId) || null;
@@ -1039,6 +1286,9 @@ export function App() {
         clockHz={clockHz}
         onClockHzChange={setClockHz}
         onOpenCreateIC={() => setIsCustomICModalOpen(true)}
+        workbenchMode={workbenchMode}
+        onToggleWorkbenchMode={setWorkbenchMode}
+        onAddTrainerBoard={handleAddTrainerBoard}
       />
 
       {/* Main Workspace */}
@@ -1059,20 +1309,38 @@ export function App() {
           circuit={circuit}
           selectedCompId={selectedCompId}
           selectedWireId={selectedWireId}
+          selectedBoardIndex={selectedBoardIndex}
           isAllSelected={isAllSelected}
           onSelectComponent={(id) => {
             setSelectedCompId(id);
             setIsAllSelected(false);
-            if (id) setSelectedWireId(null);
+            if (id) {
+              setSelectedWireId(null);
+              setSelectedBoardIndex(null);
+            }
           }}
           onSelectWire={(id) => {
             setSelectedWireId(id);
             setIsAllSelected(false);
-            if (id) setSelectedCompId(null);
+            if (id) {
+              setSelectedCompId(null);
+              setSelectedBoardIndex(null);
+            }
+          }}
+          onSelectBoard={(bIdx) => {
+            setSelectedBoardIndex(bIdx);
+            setIsAllSelected(false);
+            if (bIdx !== null) {
+              setSelectedCompId(null);
+              setSelectedWireId(null);
+            }
           }}
           onUpdateComponentPosition={handleUpdateComponentPosition}
+          onUpdateMultipleComponentPositions={handleUpdateMultipleComponentPositions}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onBoardDragStart={handleBoardDragStart}
+          onBoardDragEnd={handleBoardDragEnd}
           onAddWire={handleAddWire}
           onDeleteWire={handleDeleteWire}
           onBranchWire={handleBranchWire}
@@ -1083,10 +1351,14 @@ export function App() {
           onToggleLibrary={() => setIsComponentLibraryOpen((prev) => !prev)}
           onSelectAll={handleSelectAll}
           onCopy={handleCopy}
+          onCopyBoard={handleCopyBoard}
           onPasteAtPosition={(pos) => handlePaste(pos)}
           onDeleteSelected={() => {
             if (isAllSelected) {
               handleClearCanvas();
+            } else if (selectedBoardIndex !== null) {
+              handleRemoveTrainerBoard(selectedBoardIndex);
+              setSelectedBoardIndex(null);
             } else if (selectedCompId) {
               handleDeleteComponent(selectedCompId);
             } else if (selectedWireId) {
@@ -1097,6 +1369,12 @@ export function App() {
           canRedo={canRedo}
           onUndo={undo}
           onRedo={redo}
+          onAddTrainerBoard={handleAddTrainerBoard}
+          onRemoveTrainerBoard={handleRemoveTrainerBoard}
+          onMouseMoveWorld={(pos) => {
+            mouseCanvasPosRef.current = pos;
+          }}
+          workbenchMode={workbenchMode}
           zoom={zoom}
           pan={pan}
           onPanChange={setPan}

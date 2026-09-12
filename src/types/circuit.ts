@@ -37,13 +37,17 @@ export type ComponentType =
   | 'ic_7447' // BCD to 7-Segment Decoder / Driver (16-pin DIP)
   | 'ic_555' // NE555 Precision Timer IC (8-pin DIP)
   | 'custom_ic' // User-Defined Custom Reusable IC (14/16/20-pin)
-  // Basic Gates
+  // Basic & Multi-Input Logic Gates
   | 'buffer'
   | 'not'
   | 'and'
+  | 'and_3' // 3-Input AND Gate
   | 'or'
+  | 'or_3' // 3-Input OR Gate
   | 'nand'
+  | 'nand_3' // 3-Input NAND Gate
   | 'nor'
+  | 'nor_3' // 3-Input NOR Gate
   | 'xor'
   | 'xnor'
   | 'tri_state'
@@ -58,10 +62,12 @@ export type ComponentType =
   | 'probe'
   // Output & Indicators
   | 'led'
+  | 'rgb_led' // RGB Multi-Color LED (Red, Green, Blue inputs)
+  | 'led_bar_4' // 4-Bit Bar Graph LED Indicator
   | 'seven_segment'
   | 'hex_display'
   | 'buzzer'
-  // Combinational
+  // Combinational MSI
   | 'half_adder'
   | 'full_adder'
   | 'mux_2to1'
@@ -70,15 +76,20 @@ export type ComponentType =
   | 'demux_1to4'
   | 'decoder_2to4'
   | 'comparator_4bit'
-  // Sequential
+  | 'priority_encoder_4to2' // 4-to-2 Priority Encoder
+  | 'parity_gen' // 4-Bit Even/Odd Parity Generator
+  // Sequential & Storage
   | 'sr_latch'
+  | 'd_latch' // Transparent D Latch with Enable
   | 'd_flipflop'
   | 'jk_flipflop'
   | 't_flipflop'
   | 'counter_4bit'
   | 'shift_reg_4bit'
   // Wiring, Breadboarding & Branching
-  | 'breadboard' // Modular solderless protoboard with tie-point terminal columns
+  | 'breadboard' // Full Solderless Breadboard (830 tie-points)
+  | 'breadboard_half' // Half Solderless Breadboard (400 tie-points)
+  | 'breadboard_mini' // Mini Solderless Breadboard (170 tie-points)
   | 'junction';
 
 export interface CustomICPinMapping {

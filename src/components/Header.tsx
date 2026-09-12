@@ -24,6 +24,9 @@ interface HeaderProps {
   clockHz: number;
   onClockHzChange: (freq: number) => void;
   onOpenCreateIC?: () => void;
+  workbenchMode?: 'trainer' | 'freeform';
+  onToggleWorkbenchMode?: (mode: 'trainer' | 'freeform') => void;
+  onAddTrainerBoard?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,6 +52,9 @@ export const Header: React.FC<HeaderProps> = ({
   clockHz,
   onClockHzChange,
   onOpenCreateIC,
+  workbenchMode = 'trainer',
+  onToggleWorkbenchMode,
+  onAddTrainerBoard,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -65,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="workbench-header minimalistic-green">
-      {/* 1. Brand Logo */}
+      {/* 1. Brand Logo & Workspace Mode Toggle */}
       <div className="brand-section">
         <div className="brand-logo" title="CircuitFlow Digital Electronics Workbench">
           <div className="brand-icon">CF</div>
@@ -74,7 +80,44 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="brand-badge">PRO</span>
           </div>
         </div>
+
+        {/* Mode Switcher: Trainer Board Kit vs Freeform Schematic (No Board) */}
+        {onToggleWorkbenchMode && (
+          <div className="workbench-mode-pill-toggle" title="Switch workspace layout">
+            <button
+              type="button"
+              className={`mode-pill-btn ${workbenchMode === 'trainer' ? 'active' : ''}`}
+              onClick={() => onToggleWorkbenchMode('trainer')}
+              title="Digital Trainer Kit Mode: Pre-mounted Digital Trainer Board ready"
+            >
+              🎓 Trainer Board Mode
+            </button>
+            <button
+              type="button"
+              className={`mode-pill-btn ${workbenchMode === 'freeform' ? 'active' : ''}`}
+              onClick={() => onToggleWorkbenchMode('freeform')}
+              title="Schematic Mode (No Board): Pure open workbench canvas for custom gates and circuits"
+            >
+              📐 Schematic Mode (No Board)
+            </button>
+          </div>
+        )}
       </div>
+
+      <div className="header-divider" />
+
+      {/* Trainer Board Quick Action */}
+      {onAddTrainerBoard && (
+        <button
+          type="button"
+          className="header-btn trainer-quick-btn"
+          onClick={onAddTrainerBoard}
+          title="Add a Digital Trainer Board (Chassis with outputs, 3 IC bases, inputs, and clock) to workbench"
+        >
+          <span>🎓</span>
+          <span className="btn-label">+ Trainer Board</span>
+        </button>
+      )}
 
       <div className="header-divider" />
 

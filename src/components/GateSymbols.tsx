@@ -47,6 +47,21 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
         </svg>
       );
 
+    case 'and_3':
+      return (
+        <svg width={width} height={height} viewBox="0 0 85 55">
+          <path
+            d="M 16,6 L 48,6 A 21,21 0 0,1 48,48 L 16,48 Z"
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+          />
+          <text x="35" y="32" fill={textMuted} fontSize="9" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+            3-IN
+          </text>
+        </svg>
+      );
+
     case 'nand':
       return (
         <svg width={width} height={height} viewBox="0 0 85 50">
@@ -57,6 +72,22 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
             strokeWidth={strokeWidth}
           />
           <circle cx="69" cy="25" r="4.5" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+        </svg>
+      );
+
+    case 'nand_3':
+      return (
+        <svg width={width} height={height} viewBox="0 0 90 55">
+          <path
+            d="M 14,6 L 46,6 A 21,21 0 0,1 46,48 L 14,48 Z"
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+          />
+          <circle cx="73" cy="27" r="4.5" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+          <text x="33" y="32" fill={textMuted} fontSize="9" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+            3-IN
+          </text>
         </svg>
       );
 
@@ -72,6 +103,21 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
         </svg>
       );
 
+    case 'or_3':
+      return (
+        <svg width={width} height={height} viewBox="0 0 85 55">
+          <path
+            d="M 14,6 Q 28,27 14,48 Q 48,48 70,27 Q 48,6 14,6 Z"
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+          />
+          <text x="36" y="32" fill={textMuted} fontSize="9" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+            3-IN
+          </text>
+        </svg>
+      );
+
     case 'nor':
       return (
         <svg width={width} height={height} viewBox="0 0 85 50">
@@ -82,6 +128,22 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
             strokeWidth={strokeWidth}
           />
           <circle cx="68" cy="25" r="4.5" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+        </svg>
+      );
+
+    case 'nor_3':
+      return (
+        <svg width={width} height={height} viewBox="0 0 90 55">
+          <path
+            d="M 12,6 Q 26,27 12,48 Q 44,48 66,27 Q 44,6 12,6 Z"
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+          />
+          <circle cx="73" cy="27" r="4.5" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+          <text x="34" y="32" fill={textMuted} fontSize="9" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+            3-IN
+          </text>
         </svg>
       );
 
@@ -359,6 +421,32 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
         </svg>
       );
 
+    case 'priority_encoder_4to2':
+      return (
+        <svg width={width} height={height} viewBox="0 0 80 44">
+          <rect x="12" y="6" width="56" height="32" rx="4" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+          <text x="40" y="19" fill={textPrimary} fontSize="9" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+            PRI-ENC
+          </text>
+          <text x="40" y="31" fill={accentColor} fontSize="8" fontFamily="var(--font-mono)" textAnchor="middle">
+            4:2 + V
+          </text>
+        </svg>
+      );
+
+    case 'parity_gen':
+      return (
+        <svg width={width} height={height} viewBox="0 0 80 44">
+          <rect x="12" y="6" width="56" height="32" rx="4" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+          <text x="40" y="19" fill={textPrimary} fontSize="9" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+            PARITY
+          </text>
+          <text x="40" y="31" fill={accentColor} fontSize="8" fontFamily="var(--font-mono)" textAnchor="middle">
+            EVEN/ODD
+          </text>
+        </svg>
+      );
+
     // -------------------------------------------------------------------------
     // SEQUENTIAL ICs
     // -------------------------------------------------------------------------
@@ -371,6 +459,19 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
           </text>
           <text x="40" y="32" fill={accentColor} fontSize="7.5" fontFamily="var(--font-mono)" textAnchor="middle">
             LATCH
+          </text>
+        </svg>
+      );
+
+    case 'd_latch':
+      return (
+        <svg width={width} height={height} viewBox="0 0 80 44">
+          <rect x="14" y="6" width="52" height="32" rx="4" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
+          <text x="40" y="19" fill={textPrimary} fontSize="9.5" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+            D-LATCH
+          </text>
+          <text x="40" y="31" fill={accentColor} fontSize="7.5" fontFamily="var(--font-mono)" textAnchor="middle">
+            EN LATCH
           </text>
         </svg>
       );
@@ -463,6 +564,27 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
         </svg>
       );
 
+    case 'rgb_led':
+      return (
+        <svg width={width} height={height} viewBox="0 0 70 44">
+          <circle cx="35" cy="22" r="14" fill="#0f172a" stroke={strokeColor} strokeWidth="2" />
+          <circle cx="28" cy="18" r="4" fill="#ef4444" opacity="0.9" />
+          <circle cx="42" cy="18" r="4" fill="#10b981" opacity="0.9" />
+          <circle cx="35" cy="28" r="4" fill="#3b82f6" opacity="0.9" />
+        </svg>
+      );
+
+    case 'led_bar_4':
+      return (
+        <svg width={width} height={height} viewBox="0 0 70 44">
+          <rect x="10" y="8" width="50" height="28" rx="3" fill="#0f172a" stroke={strokeColor} strokeWidth="1.5" />
+          <rect x="15" y="13" width="8" height="18" rx="1.5" fill="#10b981" />
+          <rect x="26" y="13" width="8" height="18" rx="1.5" fill="#10b981" />
+          <rect x="37" y="13" width="8" height="18" rx="1.5" fill="#10b981" />
+          <rect x="48" y="13" width="8" height="18" rx="1.5" fill="#10b981" />
+        </svg>
+      );
+
     case 'seven_segment':
       return (
         <svg width={width} height={height} viewBox="0 0 60 44">
@@ -539,6 +661,8 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
       );
 
     case 'breadboard':
+    case 'breadboard_half':
+    case 'breadboard_mini':
       return (
         <svg width={width} height={height} viewBox="0 0 80 44">
           {/* Solderless Breadboard */}

@@ -27,9 +27,13 @@ export const GateComponent: React.FC<GateComponentProps> = ({
     'not',
     'buffer',
     'and',
+    'and_3',
     'or',
+    'or_3',
     'nand',
+    'nand_3',
     'nor',
+    'nor_3',
     'xor',
     'xnor',
     'tri_state',
@@ -373,6 +377,65 @@ export const GateComponent: React.FC<GateComponentProps> = ({
         </div>
       )}
 
+      {type === 'rgb_led' && (
+        <div className="rgb-led-container">
+          <div
+            className="rgb-led-lens"
+            style={{
+              boxShadow: `0 0 14px ${
+                inputs.find((p) => p.id === 'r')?.value === '1' && inputs.find((p) => p.id === 'g')?.value === '1' && inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#ffffff'
+                  : inputs.find((p) => p.id === 'r')?.value === '1' && inputs.find((p) => p.id === 'g')?.value === '1'
+                  ? '#eab308'
+                  : inputs.find((p) => p.id === 'r')?.value === '1' && inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#ec4899'
+                  : inputs.find((p) => p.id === 'g')?.value === '1' && inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#06b6d4'
+                  : inputs.find((p) => p.id === 'r')?.value === '1'
+                  ? '#ef4444'
+                  : inputs.find((p) => p.id === 'g')?.value === '1'
+                  ? '#22c55e'
+                  : inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#3b82f6'
+                  : 'transparent'
+              }`,
+              backgroundColor:
+                inputs.find((p) => p.id === 'r')?.value === '1' && inputs.find((p) => p.id === 'g')?.value === '1' && inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#ffffff'
+                  : inputs.find((p) => p.id === 'r')?.value === '1' && inputs.find((p) => p.id === 'g')?.value === '1'
+                  ? '#facc15'
+                  : inputs.find((p) => p.id === 'r')?.value === '1' && inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#f472b6'
+                  : inputs.find((p) => p.id === 'g')?.value === '1' && inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#22d3ee'
+                  : inputs.find((p) => p.id === 'r')?.value === '1'
+                  ? '#ef4444'
+                  : inputs.find((p) => p.id === 'g')?.value === '1'
+                  ? '#22c55e'
+                  : inputs.find((p) => p.id === 'b')?.value === '1'
+                  ? '#3b82f6'
+                  : '#1e293b',
+            }}
+          />
+          <span className="rgb-led-tag">RGB</span>
+        </div>
+      )}
+
+      {type === 'led_bar_4' && (
+        <div className="led-bar-container">
+          <div className="led-bar-segments">
+            {['d0', 'd1', 'd2', 'd3'].map((pid, idx) => (
+              <div
+                key={pid}
+                className={`led-bar-segment ${inputs.find((p) => p.id === pid)?.value === '1' ? 'on' : ''}`}
+                title={`Bit ${idx}: ${inputs.find((p) => p.id === pid)?.value || '0'}`}
+              />
+            ))}
+          </div>
+          <span className="led-bar-lbl">4-BIT BAR</span>
+        </div>
+      )}
+
       {!isTrainerSpecial && type === 'probe' && (
         <div className={`probe-readout val-${inputs[0]?.value?.toLowerCase() || '0'}`}>
           {inputs[0]?.value === '1' ? 'HIGH 5V' : inputs[0]?.value === '0' ? 'LOW 0V' : inputs[0]?.value === 'Z' ? 'HIGH-Z' : 'ERR'}
@@ -410,7 +473,7 @@ export const GateComponent: React.FC<GateComponentProps> = ({
       )}
 
       {/* Modular Solderless Breadboard */}
-      {type === 'breadboard' && (
+      {(type === 'breadboard' || type === 'breadboard_half' || type === 'breadboard_mini') && (
         <div className="modular-breadboard-surface">
           <div className="bb-top-rails">
             <div className="bb-rail red"><span className="bb-rail-lbl">+</span></div>
@@ -425,11 +488,15 @@ export const GateComponent: React.FC<GateComponentProps> = ({
               <span>F</span><span>G</span><span>H</span><span>I</span><span>J</span>
             </div>
           </div>
-          <div className="bb-bot-rails">
-            <div className="bb-rail red"><span className="bb-rail-lbl">+</span></div>
-            <div className="bb-rail blue"><span className="bb-rail-lbl">-</span></div>
+          {type !== 'breadboard_mini' && (
+            <div className="bb-bot-rails">
+              <div className="bb-rail red"><span className="bb-rail-lbl">+</span></div>
+              <div className="bb-rail blue"><span className="bb-rail-lbl">-</span></div>
+            </div>
+          )}
+          <div className="bb-brand-watermark">
+            {type === 'breadboard_mini' ? 'MINI 170-PT' : type === 'breadboard_half' ? 'HALF 400-PT' : 'FULL 830-PT'}
           </div>
-          <div className="bb-brand-watermark">PROTOBOARD</div>
         </div>
       )}
 

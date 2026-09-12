@@ -12,6 +12,8 @@ interface VerticalToolbarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  onAddTrainerBoard?: () => void;
+  onPaste?: () => void;
 }
 
 export const VerticalToolbar: React.FC<VerticalToolbarProps> = ({
@@ -26,6 +28,8 @@ export const VerticalToolbar: React.FC<VerticalToolbarProps> = ({
   canRedo,
   onUndo,
   onRedo,
+  onAddTrainerBoard,
+  onPaste,
 }) => {
   return (
     <div className="vertical-floating-toolbar" onMouseDown={(e) => e.stopPropagation()}>
@@ -77,6 +81,18 @@ export const VerticalToolbar: React.FC<VerticalToolbarProps> = ({
           </svg>
         </button>
 
+        {/* Quick Add Trainer Board */}
+        {onAddTrainerBoard && (
+          <button
+            type="button"
+            className="v-tool-btn highlight"
+            onClick={onAddTrainerBoard}
+            title="Add Digital Trainer Board to Workbench"
+          >
+            <span style={{ fontSize: '15px' }}>🎓</span>
+          </button>
+        )}
+
         {/* Delete Wire Tool */}
         <button
           type="button"
@@ -103,7 +119,7 @@ export const VerticalToolbar: React.FC<VerticalToolbarProps> = ({
           type="button"
           className="v-tool-btn"
           onClick={onSelectAll}
-          title="Select All Circuit (Ctrl+A) - Copy with Ctrl+C, Paste with Ctrl+V"
+          title="Select All Circuit (Ctrl+A)"
         >
           <svg className="v-tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             {/* Marquee / Select All Box */}
@@ -111,6 +127,21 @@ export const VerticalToolbar: React.FC<VerticalToolbarProps> = ({
             <circle cx="12" cy="12" r="2" />
           </svg>
         </button>
+
+        {/* Quick Paste Button */}
+        {onPaste && (
+          <button
+            type="button"
+            className="v-tool-btn"
+            onClick={onPaste}
+            title="Paste from Clipboard (Ctrl+V) at Cursor"
+          >
+            <svg className="v-tool-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* 2. History Undo / Redo Card */}

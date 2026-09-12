@@ -2939,3 +2939,115 @@
   color: #f8fafc;
 }
 
+/* --- Workspace Mode Pill Switcher & Header Additions --- */
+.workbench-mode-pill-toggle {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 9999px;
+  padding: 2px;
+  margin-left: 12px;
+  gap: 2px;
+}
+
+.mode-pill-btn {
+  background: transparent;
+  border: none;
+  border-radius: 9999px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.mode-pill-btn:hover {
+  color: #f8fafc;
+}
+
+.mode-pill-btn.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #0f172a;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+.breadboard-quick-btn {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  color: #34d399 !important;
+  font-weight: 700 !important;
+}
+
+.breadboard-quick-btn:hover {
+  background: rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* --- RGB LED & LED Bar Component Styles --- */
+.rgb-led-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.rgb-led-lens {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #334155;
+  transition: all 0.1s ease;
+}
+
+.rgb-led-tag {
+  font-size: 8.5px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.led-bar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
+}
+
+.led-bar-segments {
+  display: flex;
+  gap: 4px;
+  background: #0f172a;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid #334155;
+}
+
+.led-bar-segment {
+  width: 8px;
+  height: 18px;
+  border-radius: 2px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  transition: all 0.1s ease;
+}
+
+.led-bar-segment.on {
+  background: #10b981;
+  border-color: #34d399;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.led-bar-lbl {
+  font-size: 8px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #64748b;
+}
+

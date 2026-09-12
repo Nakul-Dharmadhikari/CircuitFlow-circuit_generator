@@ -5,6 +5,7 @@ import { WireRenderer } from './WireRenderer';
 import { TrainerBoard } from './TrainerBoard';
 import { VerticalToolbar } from './VerticalToolbar';
 import { soundFx } from '../audio/soundEffects';
+import { TRAINER_BOARD_LAYOUT, getTrainerBoards } from '../engine/trainerKit';
 
 interface InProgressWire {
   fromCompId: string;
@@ -18,12 +19,17 @@ interface CanvasProps {
   circuit: Circuit;
   selectedCompId: string | null;
   selectedWireId?: string | null;
+  selectedBoardIndex?: number | null;
   isAllSelected?: boolean;
   onSelectComponent: (id: string | null) => void;
   onSelectWire?: (wireId: string | null) => void;
+  onSelectBoard?: (boardIndex: number | null) => void;
   onUpdateComponentPosition: (id: string, x: number, y: number) => void;
+  onUpdateMultipleComponentPositions?: (updates: Array<{ id: string; x: number; y: number }>) => void;
   onDragStart?: (compId: string) => void;
   onDragEnd?: (compId: string) => void;
+  onBoardDragStart?: (boardIndex: number) => void;
+  onBoardDragEnd?: (boardIndex: number) => void;
   onAddWire: (wire: Wire) => void;
   onDeleteWire: (wireId: string) => void;
   onBranchWire?: (
@@ -39,12 +45,17 @@ interface CanvasProps {
   onToggleLibrary: () => void;
   onSelectAll?: () => void;
   onCopy?: () => void;
+  onCopyBoard?: (boardIndex: number) => void;
   onPasteAtPosition?: (pos: { x: number; y: number }) => void;
   onDeleteSelected?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  onAddTrainerBoard?: () => void;
+  onRemoveTrainerBoard?: (boardIndex: number) => void;
+  onMouseMoveWorld?: (pos: { x: number; y: number }) => void;
+  workbenchMode?: 'trainer' | 'freeform';
   zoom: number;
   pan: { x: number; y: number };
   onPanChange: (pan: { x: number; y: number }) => void;
@@ -55,12 +66,17 @@ export const Canvas: React.FC<CanvasProps> = ({
   circuit,
   selectedCompId,
   selectedWireId,
+  selectedBoardIndex = null,
   isAllSelected,
   onSelectComponent,
   onSelectWire,
+  onSelectBoard,
   onUpdateComponentPosition,
+  onUpdateMultipleComponentPositions,
   onDragStart,
   onDragEnd,
+  onBoardDragStart,
+  onBoardDragEnd,
   onAddWire,
   onDeleteWire,
   onBranchWire,
@@ -71,12 +87,17 @@ export const Canvas: React.FC<CanvasProps> = ({
   onToggleLibrary,
   onSelectAll,
   onCopy,
+  onCopyBoard,
   onPasteAtPosition,
   onDeleteSelected,
   canUndo = false,
   canRedo = false,
   onUndo,
   onRedo,
+  onAddTrainerBoard,
+  onRemoveTrainerBoard,
+  onMouseMoveWorld,
+  workbenchMode = 'trainer',
   zoom,
   pan,
   onPanChange,
@@ -96,6 +117,49 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Wiring states
   const [inProgressWire, setInProgressWire] = useState<InProgressWire | null>(null);
+
+  // Board Dragging states
+  const [draggingBoardIndex, setDraggingBoardIndex] = useState<number | null>(null);
+  const boardDragStartWorldRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const boardInitialCompPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  const handleStartDragBoard = (boardIndex: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelectComponent(null);
+    onSelectWire?.(null);
+    onSelectBoard?.(boardIndex);
+
+    const world = screenToWorld(e.clientX, e.clientY);
+    boardDragStartWorldRef.current = world;
+
+    const initialMap = new Map<string, { x: number; y: number }>();
+    const prefix = boardIndex === 0 ? 'trainer_' : `trainer_b${boardIndex}_`;
+
+    const boards = getTrainerBoards(circuit.components);
+    const thisBoard = boards.find((b) => b.boardIndex === boardIndex);
+    const bOffsetX = thisBoard?.offsetX ?? 0;
+    const bOffsetY = thisBoard?.offsetY ?? boardIndex * 560;
+    const bMinX = TRAINER_BOARD_LAYOUT.boardX + bOffsetX - 20;
+    const bMaxX = bMinX + TRAINER_BOARD_LAYOUT.boardWidth + 40;
+    const bMinY = TRAINER_BOARD_LAYOUT.boardY + bOffsetY - 20;
+    const bMaxY = bMinY + TRAINER_BOARD_LAYOUT.boardHeight + 40;
+
+    for (const c of circuit.components) {
+      const isBoardComp =
+        c.customProps?.boardIndex === boardIndex ||
+        (boardIndex === 0 && c.id.startsWith('trainer_') && !c.id.match(/^trainer_b\d+_/)) ||
+        c.id.startsWith(prefix) ||
+        (c.x >= bMinX && c.x <= bMaxX && c.y >= bMinY && c.y <= bMaxY);
+
+      if (isBoardComp) {
+        initialMap.set(c.id, { x: c.x, y: c.y });
+      }
+    }
+
+    boardInitialCompPositionsRef.current = initialMap;
+    setDraggingBoardIndex(boardIndex);
+    onBoardDragStart?.(boardIndex);
+  };
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -161,6 +225,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     } else if (e.target === containerRef.current) {
       onSelectComponent(null);
       onSelectWire?.(null);
+      onSelectBoard?.(null);
       if (inProgressWire) {
         setInProgressWire(null);
       }
@@ -193,6 +258,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleComponentSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     onSelectWire?.(null);
+    onSelectBoard?.(null);
     onSelectComponent(id);
 
     const comp = circuit.components.find((c) => c.id === id);
@@ -284,12 +350,37 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     const world = screenToWorld(e.clientX, e.clientY);
     mouseWorldPosRef.current = world;
+    onMouseMoveWorld?.(world);
 
     if (isPanning) {
       onPanChange({
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y,
       });
+      return;
+    }
+
+    // Dragging an entire Digital Trainer Board
+    if (draggingBoardIndex !== null && boardInitialCompPositionsRef.current.size > 0) {
+      const deltaX = world.x - boardDragStartWorldRef.current.x;
+      const deltaY = world.y - boardDragStartWorldRef.current.y;
+      const snappedDeltaX = Math.round(deltaX / 10) * 10;
+      const snappedDeltaY = Math.round(deltaY / 10) * 10;
+
+      const updates: Array<{ id: string; x: number; y: number }> = [];
+      boardInitialCompPositionsRef.current.forEach((pos, compId) => {
+        updates.push({
+          id: compId,
+          x: pos.x + snappedDeltaX,
+          y: pos.y + snappedDeltaY,
+        });
+      });
+
+      if (onUpdateMultipleComponentPositions) {
+        onUpdateMultipleComponentPositions(updates);
+      } else {
+        updates.forEach((u) => onUpdateComponentPosition(u.id, u.x, u.y));
+      }
       return;
     }
 
@@ -322,6 +413,10 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Mouse Up & Drag End (with auto snap-connect)
   const handleMouseUp = (e: React.MouseEvent) => {
     if (isPanning) setIsPanning(false);
+    if (draggingBoardIndex !== null) {
+      onBoardDragEnd?.(draggingBoardIndex);
+      setDraggingBoardIndex(null);
+    }
     if (draggingCompId) {
       onDragEnd?.(draggingCompId);
       setDraggingCompId(null);
@@ -347,6 +442,10 @@ export const Canvas: React.FC<CanvasProps> = ({
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       setIsPanning(false);
+      if (draggingBoardIndex !== null) {
+        onBoardDragEnd?.(draggingBoardIndex);
+        setDraggingBoardIndex(null);
+      }
       if (draggingCompId) {
         onDragEnd?.(draggingCompId);
         setDraggingCompId(null);
@@ -364,18 +463,15 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       window.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [draggingCompId, onDragEnd]);
+  }, [draggingBoardIndex, draggingCompId, onBoardDragEnd, onDragEnd]);
 
-  // Wire Branching Handlers
+  // Wire double-click handler for creating in-line junction node
   const handleWireDoubleClick = (wireId: string, clientX: number, clientY: number) => {
     const world = screenToWorld(clientX, clientY);
-    onBranchWire?.(
-      wireId,
-      Math.round(world.x / 10) * 10,
-      Math.round(world.y / 10) * 10
-    );
+    onBranchWire?.(wireId, Math.round(world.x / 10) * 10, Math.round(world.y / 10) * 10);
   };
 
+  // Wire release handler: drop wire onto existing wire to create branch junction
   const handleWireMouseUp = (wireId: string, clientX: number, clientY: number) => {
     if (!inProgressWire) return;
     const world = screenToWorld(clientX, clientY);
@@ -435,6 +531,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           onRedo?.();
           soundFx.playButtonTap();
         }}
+        onAddTrainerBoard={onAddTrainerBoard}
+        onPaste={() => onPasteAtPosition?.(mouseWorldPosRef.current)}
       />
 
       {/* Right-Click Context Menu with Cursor-Aware Paste Here */}
@@ -485,6 +583,19 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           <div className="context-menu-divider" />
 
+          {onAddTrainerBoard && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onAddTrainerBoard();
+                setContextMenu(null);
+              }}
+            >
+              <span>🎓 + Add Trainer Board</span>
+            </button>
+          )}
+
           <button
             type="button"
             className="context-menu-item"
@@ -519,12 +630,32 @@ export const Canvas: React.FC<CanvasProps> = ({
         }}
       >
         {/* Hardware Trainer Board (Outputs, Horizontal IC Sockets, Inputs) */}
-        <TrainerBoard components={circuit.components} onOpenICPicker={onOpenICPicker} />
+        {workbenchMode !== 'freeform' && (
+          <TrainerBoard
+            components={circuit.components}
+            selectedBoardIndex={selectedBoardIndex}
+            onSelectBoard={onSelectBoard}
+            onOpenICPicker={onOpenICPicker}
+            onRemoveBoard={onRemoveTrainerBoard}
+            onStartDragBoard={handleStartDragBoard}
+            onCopyBoard={onCopyBoard}
+          />
+        )}
 
         {/* Wire Paths */}
         <WireRenderer
-          wires={circuit.wires}
-          components={circuit.components}
+          wires={
+            workbenchMode === 'freeform'
+              ? circuit.wires.filter(
+                  (w) => !w.fromCompId.startsWith('trainer_') && !w.toCompId.startsWith('trainer_')
+                )
+              : circuit.wires
+          }
+          components={
+            workbenchMode === 'freeform'
+              ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_'))
+              : circuit.components
+          }
           selectedWireId={selectedWireId}
           isAllSelected={isAllSelected}
           isDeleteMode={interactionMode === 'delete'}
@@ -537,7 +668,10 @@ export const Canvas: React.FC<CanvasProps> = ({
         />
 
         {/* Component Nodes */}
-        {circuit.components.map((comp) => (
+        {(workbenchMode === 'freeform'
+          ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_'))
+          : circuit.components
+        ).map((comp) => (
           <GateComponent
             key={comp.id}
             component={comp}

@@ -650,3 +650,74 @@ export function evaluate7447(
   };
 }
 
+// ---------------------------------------------------------------------------
+// 3-Input Gates
+// ---------------------------------------------------------------------------
+export function evaluateAnd3(a: LogicValue, b: LogicValue, c: LogicValue): LogicValue {
+  if (a === '0' || b === '0' || c === '0') return '0';
+  if (a === '1' && b === '1' && c === '1') return '1';
+  return 'X';
+}
+
+export function evaluateOr3(a: LogicValue, b: LogicValue, c: LogicValue): LogicValue {
+  if (a === '1' || b === '1' || c === '1') return '1';
+  if (a === '0' && b === '0' && c === '0') return '0';
+  return 'X';
+}
+
+export function evaluateNand3(a: LogicValue, b: LogicValue, c: LogicValue): LogicValue {
+  return notGate(evaluateAnd3(a, b, c));
+}
+
+export function evaluateNor3(a: LogicValue, b: LogicValue, c: LogicValue): LogicValue {
+  return notGate(evaluateOr3(a, b, c));
+}
+
+// ---------------------------------------------------------------------------
+// Transparent D Latch
+// ---------------------------------------------------------------------------
+export function evaluateDLatch(
+  d: LogicValue,
+  en: LogicValue,
+  currentQ: LogicValue = '0'
+): { q: LogicValue; qBar: LogicValue } {
+  if (en === '1') {
+    const q = d === '1' ? '1' : d === '0' ? '0' : 'X';
+    return { q, qBar: notGate(q) };
+  }
+  return { q: currentQ, qBar: notGate(currentQ) };
+}
+
+// ---------------------------------------------------------------------------
+// 4-to-2 Priority Encoder
+// ---------------------------------------------------------------------------
+export function evaluatePriorityEncoder4to2(
+  d0: LogicValue,
+  d1: LogicValue,
+  d2: LogicValue,
+  d3: LogicValue
+): { y1: LogicValue; y0: LogicValue; v: LogicValue } {
+  if (d3 === '1') return { y1: '1', y0: '1', v: '1' };
+  if (d2 === '1') return { y1: '1', y0: '0', v: '1' };
+  if (d1 === '1') return { y1: '0', y0: '1', v: '1' };
+  if (d0 === '1') return { y1: '0', y0: '0', v: '1' };
+  return { y1: '0', y0: '0', v: '0' };
+}
+
+// ---------------------------------------------------------------------------
+// 4-Bit Parity Generator (Even & Odd)
+// ---------------------------------------------------------------------------
+export function evaluateParityGen(
+  a: LogicValue,
+  b: LogicValue,
+  c: LogicValue,
+  d: LogicValue
+): { even: LogicValue; odd: LogicValue } {
+  const p1 = xorGate(a, b);
+  const p2 = xorGate(c, d);
+  const odd = xorGate(p1, p2);
+  const even = notGate(odd);
+  return { even, odd };
+}
+
+

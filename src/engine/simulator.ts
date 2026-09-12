@@ -33,6 +33,13 @@ import {
   evaluate7485,
   evaluate74194,
   evaluate7447,
+  evaluateAnd3,
+  evaluateOr3,
+  evaluateNand3,
+  evaluateNor3,
+  evaluateDLatch,
+  evaluatePriorityEncoder4to2,
+  evaluateParityGen,
 } from './logicGates';
 
 export function getComponentDisplayName(type: ComponentType): string {
@@ -61,10 +68,14 @@ export function getComponentDisplayName(type: ComponentType): string {
 
     case 'buffer': return 'Buffer';
     case 'not': return 'NOT Gate (Inverter)';
-    case 'and': return 'AND Gate';
-    case 'or': return 'OR Gate';
-    case 'nand': return 'NAND Gate';
-    case 'nor': return 'NOR Gate';
+    case 'and': return 'AND Gate (2-Input)';
+    case 'and_3': return '3-Input AND Gate';
+    case 'or': return 'OR Gate (2-Input)';
+    case 'or_3': return '3-Input OR Gate';
+    case 'nand': return 'NAND Gate (2-Input)';
+    case 'nand_3': return '3-Input NAND Gate';
+    case 'nor': return 'NOR Gate (2-Input)';
+    case 'nor_3': return '3-Input NOR Gate';
     case 'xor': return 'XOR Gate';
     case 'xnor': return 'XNOR Gate';
     case 'tri_state': return 'Tri-State Buffer';
@@ -76,6 +87,8 @@ export function getComponentDisplayName(type: ComponentType): string {
     case 'vcc': return 'VCC (+5V Power)';
     case 'gnd': return 'GND (0V Ground)';
     case 'led': return 'LED Indicator';
+    case 'rgb_led': return 'RGB Multi-Color LED';
+    case 'led_bar_4': return '4-Bit LED Bar Graph';
     case 'probe': return 'Digital Logic Probe';
     case 'buzzer': return 'Audio Buzzer';
     case 'seven_segment': return '7-Segment Display';
@@ -88,13 +101,18 @@ export function getComponentDisplayName(type: ComponentType): string {
     case 'demux_1to4': return '1:4 Demultiplexer';
     case 'decoder_2to4': return '2:4 Line Decoder (74139)';
     case 'comparator_4bit': return '4-Bit Magnitude Comparator (7485)';
+    case 'priority_encoder_4to2': return '4:2 Priority Encoder';
+    case 'parity_gen': return '4-Bit Parity Generator';
     case 'sr_latch': return 'SR Latch';
+    case 'd_latch': return 'Transparent D Latch';
     case 'd_flipflop': return 'D Flip-Flop (7474)';
     case 'jk_flipflop': return 'JK Flip-Flop (7476)';
     case 't_flipflop': return 'T Flip-Flop';
     case 'counter_4bit': return '4-Bit Binary Counter (7493)';
     case 'shift_reg_4bit': return '4-Bit Shift Register (74194)';
-    case 'breadboard': return 'Solderless Breadboard';
+    case 'breadboard': return 'Full Solderless Breadboard (830pts)';
+    case 'breadboard_half': return 'Half Breadboard (400pts)';
+    case 'breadboard_mini': return 'Mini Breadboard (170pts)';
     case 'junction': return 'Wire Junction';
     default: return String(type).toUpperCase();
   }
@@ -927,6 +945,16 @@ export function createComponent(
       outputs.push({ id: 'out', name: 'Y', type: 'output', x: 80, y: 25, value: '0' });
       break;
 
+    case 'and_3':
+      width = 85;
+      height = 55;
+      label = 'AND-3';
+      inputs.push({ id: 'a', name: 'A', type: 'input', x: 0, y: 12, value: '0' });
+      inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 27, value: '0' });
+      inputs.push({ id: 'c', name: 'C', type: 'input', x: 0, y: 42, value: '0' });
+      outputs.push({ id: 'out', name: 'Y', type: 'output', x: 85, y: 27, value: '0' });
+      break;
+
     case 'or':
       width = 80;
       height = 50;
@@ -934,6 +962,16 @@ export function createComponent(
       inputs.push({ id: 'a', name: 'A', type: 'input', x: 0, y: 15, value: '0' });
       inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 35, value: '0' });
       outputs.push({ id: 'out', name: 'Y', type: 'output', x: 80, y: 25, value: '0' });
+      break;
+
+    case 'or_3':
+      width = 85;
+      height = 55;
+      label = 'OR-3';
+      inputs.push({ id: 'a', name: 'A', type: 'input', x: 0, y: 12, value: '0' });
+      inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 27, value: '0' });
+      inputs.push({ id: 'c', name: 'C', type: 'input', x: 0, y: 42, value: '0' });
+      outputs.push({ id: 'out', name: 'Y', type: 'output', x: 85, y: 27, value: '0' });
       break;
 
     case 'nand':
@@ -945,6 +983,16 @@ export function createComponent(
       outputs.push({ id: 'out', name: 'Y', type: 'output', x: 85, y: 25, value: '1', inverted: true });
       break;
 
+    case 'nand_3':
+      width = 90;
+      height = 55;
+      label = 'NAND-3';
+      inputs.push({ id: 'a', name: 'A', type: 'input', x: 0, y: 12, value: '0' });
+      inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 27, value: '0' });
+      inputs.push({ id: 'c', name: 'C', type: 'input', x: 0, y: 42, value: '0' });
+      outputs.push({ id: 'out', name: 'Y', type: 'output', x: 90, y: 27, value: '1', inverted: true });
+      break;
+
     case 'nor':
       width = 85;
       height = 50;
@@ -953,6 +1001,55 @@ export function createComponent(
       inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 35, value: '0' });
       outputs.push({ id: 'out', name: 'Y', type: 'output', x: 85, y: 25, value: '1', inverted: true });
       break;
+
+    case 'nor_3':
+      width = 90;
+      height = 55;
+      label = 'NOR-3';
+      inputs.push({ id: 'a', name: 'A', type: 'input', x: 0, y: 12, value: '0' });
+      inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 27, value: '0' });
+      inputs.push({ id: 'c', name: 'C', type: 'input', x: 0, y: 42, value: '0' });
+      outputs.push({ id: 'out', name: 'Y', type: 'output', x: 90, y: 27, value: '1', inverted: true });
+      break;
+
+    case 'breadboard_half': {
+      width = 180;
+      height = 140;
+      label = 'HALF BREADBOARD';
+      for (let c = 1; c <= 4; c++) {
+        const xPos = 24 + c * 28;
+        inputs.push({ id: `top_plus_${c}`, name: '+', type: 'input', x: xPos, y: 12, value: '0' });
+        inputs.push({ id: `top_minus_${c}`, name: '-', type: 'input', x: xPos, y: 24, value: '0' });
+      }
+      for (let c = 1; c <= 4; c++) {
+        const xPos = 24 + c * 28;
+        inputs.push({ id: `col_${c}_a`, name: `${c}A`, type: 'input', x: xPos, y: 44, value: '0' });
+        inputs.push({ id: `col_${c}_b`, name: `${c}B`, type: 'input', x: xPos, y: 56, value: '0' });
+        inputs.push({ id: `col_${c}_c`, name: `${c}C`, type: 'input', x: xPos, y: 68, value: '0' });
+        inputs.push({ id: `col_${c}_d`, name: `${c}D`, type: 'input', x: xPos, y: 80, value: '0' });
+        inputs.push({ id: `col_${c}_e`, name: `${c}E`, type: 'input', x: xPos, y: 92, value: '0' });
+
+        inputs.push({ id: `col_${c}_f`, name: `${c}F`, type: 'input', x: xPos, y: 108, value: '0' });
+        inputs.push({ id: `col_${c}_g`, name: `${c}G`, type: 'input', x: xPos, y: 120, value: '0' });
+        inputs.push({ id: `col_${c}_h`, name: `${c}H`, type: 'input', x: xPos, y: 132, value: '0' });
+      }
+      break;
+    }
+
+    case 'breadboard_mini': {
+      width = 150;
+      height = 100;
+      label = 'MINI BREADBOARD';
+      for (let c = 1; c <= 4; c++) {
+        const xPos = 20 + c * 26;
+        inputs.push({ id: `col_${c}_a`, name: `${c}A`, type: 'input', x: xPos, y: 20, value: '0' });
+        inputs.push({ id: `col_${c}_b`, name: `${c}B`, type: 'input', x: xPos, y: 34, value: '0' });
+        inputs.push({ id: `col_${c}_c`, name: `${c}C`, type: 'input', x: xPos, y: 48, value: '0' });
+        inputs.push({ id: `col_${c}_f`, name: `${c}F`, type: 'input', x: xPos, y: 66, value: '0' });
+        inputs.push({ id: `col_${c}_g`, name: `${c}G`, type: 'input', x: xPos, y: 80, value: '0' });
+      }
+      break;
+    }
 
     case 'xor':
       width = 85;
@@ -1033,6 +1130,25 @@ export function createComponent(
       label = 'LED';
       customProps.color = 'green';
       inputs.push({ id: 'in', name: 'IN', type: 'input', x: 0, y: 26, value: '0' });
+      break;
+
+    case 'rgb_led':
+      width = 60;
+      height = 60;
+      label = 'RGB LED';
+      inputs.push({ id: 'r', name: 'R', type: 'input', x: 0, y: 15, value: '0' });
+      inputs.push({ id: 'g', name: 'G', type: 'input', x: 0, y: 30, value: '0' });
+      inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 45, value: '0' });
+      break;
+
+    case 'led_bar_4':
+      width = 50;
+      height = 80;
+      label = '4-LED BAR';
+      inputs.push({ id: 'd0', name: '0', type: 'input', x: 0, y: 12, value: '0' });
+      inputs.push({ id: 'd1', name: '1', type: 'input', x: 0, y: 30, value: '0' });
+      inputs.push({ id: 'd2', name: '2', type: 'input', x: 0, y: 48, value: '0' });
+      inputs.push({ id: 'd3', name: '3', type: 'input', x: 0, y: 66, value: '0' });
       break;
 
     case 'seven_segment':
@@ -1165,6 +1281,31 @@ export function createComponent(
       outputs.push({ id: 'lt', name: 'A<B', type: 'output', x: 110, y: 90, value: '0' });
       break;
 
+    case 'priority_encoder_4to2':
+      width = 100;
+      height = 90;
+      label = '4:2 PRI-ENC';
+      inputs.push({ id: 'd0', name: 'D0', type: 'input', x: 0, y: 16, value: '0' });
+      inputs.push({ id: 'd1', name: 'D1', type: 'input', x: 0, y: 36, value: '0' });
+      inputs.push({ id: 'd2', name: 'D2', type: 'input', x: 0, y: 56, value: '0' });
+      inputs.push({ id: 'd3', name: 'D3', type: 'input', x: 0, y: 76, value: '0' });
+      outputs.push({ id: 'y1', name: 'Y1', type: 'output', x: 100, y: 25, value: '0' });
+      outputs.push({ id: 'y0', name: 'Y0', type: 'output', x: 100, y: 50, value: '0' });
+      outputs.push({ id: 'v', name: 'V', type: 'output', x: 100, y: 75, value: '0' });
+      break;
+
+    case 'parity_gen':
+      width = 95;
+      height = 90;
+      label = 'PARITY GEN';
+      inputs.push({ id: 'a', name: 'A', type: 'input', x: 0, y: 16, value: '0' });
+      inputs.push({ id: 'b', name: 'B', type: 'input', x: 0, y: 36, value: '0' });
+      inputs.push({ id: 'c', name: 'C', type: 'input', x: 0, y: 56, value: '0' });
+      inputs.push({ id: 'd', name: 'D', type: 'input', x: 0, y: 76, value: '0' });
+      outputs.push({ id: 'even', name: 'EVEN', type: 'output', x: 95, y: 30, value: '1' });
+      outputs.push({ id: 'odd', name: 'ODD', type: 'output', x: 95, y: 60, value: '0' });
+      break;
+
     case 'sr_latch':
       width = 90;
       height = 70;
@@ -1175,6 +1316,18 @@ export function createComponent(
       inputs.push({ id: 's', name: 'S', type: 'input', x: 0, y: 20, value: '0' });
       inputs.push({ id: 'r', name: 'R', type: 'input', x: 0, y: 50, value: '0' });
       inputs.push({ id: 'clr', name: 'CLR̄', type: 'input', x: 45, y: 70, value: '1', inverted: true });
+      outputs.push({ id: 'q', name: 'Q', type: 'output', x: 90, y: 20, value: '0' });
+      outputs.push({ id: 'qBar', name: 'Q̄', type: 'output', x: 90, y: 50, value: '1' });
+      break;
+
+    case 'd_latch':
+      width = 90;
+      height = 70;
+      label = 'D LATCH';
+      state.q = '0';
+      state.qBar = '1';
+      inputs.push({ id: 'd', name: 'D', type: 'input', x: 0, y: 20, value: '0' });
+      inputs.push({ id: 'en', name: 'EN', type: 'input', x: 0, y: 50, value: '0' });
       outputs.push({ id: 'q', name: 'Q', type: 'output', x: 90, y: 20, value: '0' });
       outputs.push({ id: 'qBar', name: 'Q̄', type: 'output', x: 90, y: 50, value: '1' });
       break;
@@ -1324,16 +1477,32 @@ function evaluateSingleComponent(comp: CircuitComponent): {
       outputs.out = andGate(getIn('a'), getIn('b'));
       break;
 
+    case 'and_3':
+      outputs.out = evaluateAnd3(getIn('a'), getIn('b'), getIn('c'));
+      break;
+
     case 'or':
       outputs.out = orGate(getIn('a'), getIn('b'));
+      break;
+
+    case 'or_3':
+      outputs.out = evaluateOr3(getIn('a'), getIn('b'), getIn('c'));
       break;
 
     case 'nand':
       outputs.out = nandGate(getIn('a'), getIn('b'));
       break;
 
+    case 'nand_3':
+      outputs.out = evaluateNand3(getIn('a'), getIn('b'), getIn('c'));
+      break;
+
     case 'nor':
       outputs.out = norGate(getIn('a'), getIn('b'));
+      break;
+
+    case 'nor_3':
+      outputs.out = evaluateNor3(getIn('a'), getIn('b'), getIn('c'));
       break;
 
     case 'xor':
@@ -1346,6 +1515,40 @@ function evaluateSingleComponent(comp: CircuitComponent): {
 
     case 'tri_state':
       outputs.out = triStateBuffer(getIn('in'), getIn('en'));
+      break;
+
+    case 'd_latch': {
+      const res = evaluateDLatch(getIn('d'), getIn('en'), comp.state?.q || '0');
+      outputs.q = res.q;
+      outputs.qBar = res.qBar;
+      newState.q = res.q;
+      newState.qBar = res.qBar;
+      break;
+    }
+
+    case 'priority_encoder_4to2': {
+      const res = evaluatePriorityEncoder4to2(
+        getIn('d0'),
+        getIn('d1'),
+        getIn('d2'),
+        getIn('d3')
+      );
+      outputs.y1 = res.y1;
+      outputs.y0 = res.y0;
+      outputs.v = res.v;
+      break;
+    }
+
+    case 'parity_gen': {
+      const res = evaluateParityGen(getIn('d0'), getIn('d1'), getIn('d2'), getIn('d3'));
+      outputs.even = res.even;
+      outputs.odd = res.odd;
+      break;
+    }
+
+    case 'rgb_led':
+    case 'led_bar_4':
+      // Pure sinks
       break;
 
     case 'toggle':
@@ -2116,6 +2319,47 @@ export function simulateCircuit(circuit: Circuit): {
       const net2 = getOrAssignNet(toKey);
       const mergedNet = mergeNets(net1, net2);
       wireToNet.set(wire.id, mergedNet);
+    }
+
+    // Merge internal breadboard conductive strips
+    for (const comp of components) {
+      if (
+        comp.type === 'breadboard' ||
+        comp.type === 'breadboard_half' ||
+        comp.type === 'breadboard_mini'
+      ) {
+        const busGroups: Record<string, string[]> = {};
+        for (const pin of comp.inputs) {
+          let busKey = '';
+          if (pin.id.startsWith('top_plus_')) busKey = 'top_plus';
+          else if (pin.id.startsWith('top_minus_')) busKey = 'top_minus';
+          else if (pin.id.startsWith('bot_plus_')) busKey = 'bot_plus';
+          else if (pin.id.startsWith('bot_minus_')) busKey = 'bot_minus';
+          else {
+            const match = pin.id.match(/^col_(\d+)_([a-j])$/i);
+            if (match) {
+              const colNum = match[1];
+              const rowLetter = match[2].toLowerCase();
+              const half = rowLetter <= 'e' ? 'top' : 'bot';
+              busKey = `col_${colNum}_${half}`;
+            }
+          }
+          if (busKey) {
+            if (!busGroups[busKey]) busGroups[busKey] = [];
+            busGroups[busKey].push(pin.id);
+          }
+        }
+
+        for (const pinIds of Object.values(busGroups)) {
+          if (pinIds.length > 1) {
+            const firstNet = getOrAssignNet(`${comp.id}:${pinIds[0]}`);
+            for (let i = 1; i < pinIds.length; i++) {
+              const otherNet = getOrAssignNet(`${comp.id}:${pinIds[i]}`);
+              mergeNets(firstNet, otherNet);
+            }
+          }
+        }
+      }
     }
 
     // 3. Resolve Net Logic Value from Drivers and Distribute to Wires & Inputs

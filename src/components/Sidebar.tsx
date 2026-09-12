@@ -41,7 +41,7 @@ const TOOLBOX_ITEMS: ToolboxItem[] = [
   { type: 'ic_7447', name: '7447 BCD-to-7Seg', code: 'DIP-20', category: 'dip_ics' },
   { type: 'ic_555', name: 'NE555 Timer IC', code: 'DIP-8', category: 'dip_ics' },
 
-  // Modular I/O & Wiring
+  // Inputs, Logic Probes & Wiring
   { type: 'input_pin', name: 'Input Pin (0/1)', code: 'IN-PIN', category: 'io' },
   { type: 'output_pin', name: 'Output Pin (Probe)', code: 'OUT-PIN', category: 'io' },
   { type: 'toggle', name: 'Toggle Switch', code: 'SPST', category: 'io' },
@@ -50,21 +50,24 @@ const TOOLBOX_ITEMS: ToolboxItem[] = [
   { type: 'vcc', name: 'VCC (+5V)', code: 'HIGH', category: 'io' },
   { type: 'gnd', name: 'GND (0V)', code: 'LOW', category: 'io' },
   { type: 'probe', name: 'Logic Probe', code: 'VMET', category: 'io' },
-  { type: 'breadboard', name: 'Solderless Breadboard', code: 'PROTO', category: 'io' },
   { type: 'junction', name: 'Junction Tap', code: 'NODE', category: 'io' },
 
-  // Basic Gates
+  // Logic Gates (2-Input & 3-Input)
   { type: 'not', name: 'NOT Inverter', code: 'INV', category: 'gates' },
   { type: 'buffer', name: 'Buffer', code: 'BUF', category: 'gates' },
-  { type: 'and', name: 'AND Gate', code: 'AND', category: 'gates' },
-  { type: 'or', name: 'OR Gate', code: 'OR', category: 'gates' },
-  { type: 'nand', name: 'NAND Gate', code: 'NAND', category: 'gates' },
-  { type: 'nor', name: 'NOR Gate', code: 'NOR', category: 'gates' },
+  { type: 'and', name: '2-In AND Gate', code: 'AND-2', category: 'gates' },
+  { type: 'and_3', name: '3-In AND Gate', code: 'AND-3', category: 'gates' },
+  { type: 'or', name: '2-In OR Gate', code: 'OR-2', category: 'gates' },
+  { type: 'or_3', name: '3-In OR Gate', code: 'OR-3', category: 'gates' },
+  { type: 'nand', name: '2-In NAND Gate', code: 'NAND-2', category: 'gates' },
+  { type: 'nand_3', name: '3-In NAND Gate', code: 'NAND-3', category: 'gates' },
+  { type: 'nor', name: '2-In NOR Gate', code: 'NOR-2', category: 'gates' },
+  { type: 'nor_3', name: '3-In NOR Gate', code: 'NOR-3', category: 'gates' },
   { type: 'xor', name: 'XOR Gate', code: 'XOR', category: 'gates' },
   { type: 'xnor', name: 'XNOR Gate', code: 'XNOR', category: 'gates' },
   { type: 'tri_state', name: 'Tri-State Buf', code: '3-STATE', category: 'gates' },
 
-  // Combinational
+  // Combinational MSI
   { type: 'half_adder', name: 'Half Adder', code: 'HA', category: 'combinational' },
   { type: 'full_adder', name: 'Full Adder', code: 'FA', category: 'combinational' },
   { type: 'mux_2to1', name: '2:1 MUX', code: 'MUX2', category: 'combinational' },
@@ -73,17 +76,22 @@ const TOOLBOX_ITEMS: ToolboxItem[] = [
   { type: 'demux_1to4', name: '1:4 DEMUX', code: 'DMUX4', category: 'combinational' },
   { type: 'decoder_2to4', name: '2:4 Decoder', code: 'DEC', category: 'combinational' },
   { type: 'comparator_4bit', name: '4-Bit Comp', code: 'COMP', category: 'combinational' },
+  { type: 'priority_encoder_4to2', name: '4:2 Priority Encoder', code: 'PRI-ENC', category: 'combinational' },
+  { type: 'parity_gen', name: 'Parity Generator', code: 'PARITY', category: 'combinational' },
 
   // Sequential
   { type: 'sr_latch', name: 'SR Latch', code: 'LATCH', category: 'sequential' },
+  { type: 'd_latch', name: 'D Latch', code: 'D-LATCH', category: 'sequential' },
   { type: 'd_flipflop', name: 'D Flip-Flop', code: 'D-FF', category: 'sequential' },
   { type: 'jk_flipflop', name: 'JK Flip-Flop', code: 'JK-FF', category: 'sequential' },
   { type: 't_flipflop', name: 'T Flip-Flop', code: 'T-FF', category: 'sequential' },
   { type: 'counter_4bit', name: '4-Bit Counter', code: 'COUNT', category: 'sequential' },
   { type: 'shift_reg_4bit', name: '4-Bit Shift Reg', code: 'SHIFT', category: 'sequential' },
 
-  // Displays
+  // Displays & Indicators
   { type: 'led', name: 'LED Indicator', code: 'DIODE', category: 'display' },
+  { type: 'rgb_led', name: 'RGB Multi-LED', code: 'RGB', category: 'display' },
+  { type: 'led_bar_4', name: '4-Bit LED Bar', code: 'LED-BAR', category: 'display' },
   { type: 'seven_segment', name: '7-Segment', code: 'LTS-547', category: 'display' },
   { type: 'hex_display', name: 'Hex Display', code: 'HEX-DEC', category: 'display' },
   { type: 'buzzer', name: 'Audio Buzzer', code: 'PIEZO', category: 'display' },
