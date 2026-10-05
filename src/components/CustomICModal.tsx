@@ -1,109 +1,140 @@
-import React, { useState, useMemo, useRef } from 'react';
-import type { Circuit, CustomICDefinition, CustomICPinMapping } from '../types/circuit';
+import React, { useState, useMemo, useEffect } from 'react';
+import type {
+  Circuit,
+  CustomICDefinition,
+  CustomICPinMapping,
+  InternalGateType,
+  InternalGateUnit,
+  LogicValue,
+} from '../types/circuit';
 import { saveUserCustomIC } from '../services/customIcStorage';
+import { apiSaveCustomIC } from '../services/apiClient';
 import { soundFx } from '../audio/soundEffects';
 
 interface CustomICModalProps {
   isOpen: boolean;
   onClose: () => void;
-  activeCircuit: Circuit;
+  activeCircuit?: Circuit;
   userId?: string;
   onSaveIC: (savedIC: CustomICDefinition, placeOnCanvas?: boolean) => void;
 }
 
+const GATE_TYPE_CONFIGS: Record<
+  InternalGateType,
+  { label: string; inCount: number; outCount: number; defaultName: string; category: string }
+> = {
+  and_2: { label: '2-Input AND Gate', inCount: 2, outCount: 1, defaultName: 'AND', category: 'Basic' },
+  or_2: { label: '2-Input OR Gate', inCount: 2, outCount: 1, defaultName: 'OR', category: 'Basic' },
+  nand_2: { label: '2-Input NAND Gate', inCount: 2, outCount: 1, defaultName: 'NAND', category: 'Basic' },
+  nor_2: { label: '2-Input NOR Gate', inCount: 2, outCount: 1, defaultName: 'NOR', category: 'Basic' },
+  xor_2: { label: '2-Input XOR Gate', inCount: 2, outCount: 1, defaultName: 'XOR', category: 'Basic' },
+  xnor_2: { label: '2-Input XNOR Gate', inCount: 2, outCount: 1, defaultName: 'XNOR', category: 'Basic' },
+  not: { label: '1-Input NOT (Inverter)', inCount: 1, outCount: 1, defaultName: 'NOT', category: 'Basic' },
+  buffer: { label: '1-Input Buffer', inCount: 1, outCount: 1, defaultName: 'BUF', category: 'Basic' },
+  and_3: { label: '3-Input AND Gate', inCount: 3, outCount: 1, defaultName: '3-AND', category: 'Multi-Input' },
+  or_3: { label: '3-Input OR Gate', inCount: 3, outCount: 1, defaultName: '3-OR', category: 'Multi-Input' },
+  nand_3: { label: '3-Input NAND Gate', inCount: 3, outCount: 1, defaultName: '3-NAND', category: 'Multi-Input' },
+  nor_3: { label: '3-Input NOR Gate', inCount: 3, outCount: 1, defaultName: '3-NOR', category: 'Multi-Input' },
+  and_4: { label: '4-Input AND Gate', inCount: 4, outCount: 1, defaultName: '4-AND', category: 'Multi-Input' },
+  or_4: { label: '4-Input OR Gate', inCount: 4, outCount: 1, defaultName: '4-OR', category: 'Multi-Input' },
+  and_6: { label: '6-Input AND Gate', inCount: 6, outCount: 1, defaultName: '6-AND', category: 'Multi-Input' },
+  and_8: { label: '8-Input AND Gate', inCount: 8, outCount: 1, defaultName: '8-AND', category: 'Multi-Input' },
+  mux_2to1: { label: '2-to-1 Multiplexer', inCount: 3, outCount: 1, defaultName: 'MUX', category: 'MSI' },
+  d_flipflop: { label: 'D Flip-Flop Unit', inCount: 2, outCount: 1, defaultName: 'D-FF', category: 'Sequential' },
+  jk_flipflop: { label: 'JK Flip-Flop Unit', inCount: 3, outCount: 1, defaultName: 'JK-FF', category: 'Sequential' },
+};
+
 export const CustomICModal: React.FC<CustomICModalProps> = ({
   isOpen,
   onClose,
-  activeCircuit,
+  activeCircuit: _activeCircuit,
   userId = 'guest',
   onSaveIC,
 }) => {
   const [partNumber, setPartNumber] = useState('74MY01');
-  const [icName, setIcName] = useState('Custom Logic IC');
-  const [description, setDescription] = useState('Custom subcircuit packaged into DIP IC');
+  const [icName, setIcName] = useState('Custom Multi-Gate IC');
+  const [description, setDescription] = useState('DIP Integrated Circuit with configured internal logic units');
   const [pinCount, setPinCount] = useState<14 | 16 | 20>(20);
-  const [sourceMode, setSourceMode] = useState<'canvas' | 'custom'>('canvas');
-  const [filterType, setFilterType] = useState<'all' | 'input' | 'output' | 'power' | 'nc'>('all');
-  const [searchPin, setSearchPin] = useState('');
-  const [selectedPinNum, setSelectedPinNum] = useState<number | null>(null);
+  const [vccPin, setVccPin] = useState<number>(20);
+  const [gndPin, setGndPin] = useState<number>(10);
 
-  const tableWrapperRef = useRef<HTMLDivElement>(null);
+  // Modular Internal Gate Units
+  const [gateUnits, setGateUnits] = useState<InternalGateUnit[]>([
+    {
+      id: 'unit_1',
+      type: 'and_2',
+      label: 'Gate 1 (AND)',
+      inputPins: [1, 2],
+      outputPins: [3],
+    },
+    {
+      id: 'unit_2',
+      type: 'or_2',
+      label: 'Gate 2 (OR)',
+      inputPins: [4, 5],
+      outputPins: [6],
+    },
+  ]);
 
-  // Detect canvas I/O components
-  const detectedInputs = useMemo(() => {
-    return activeCircuit.components.filter(
-      (c) =>
-        !c.isTrainerFixed &&
-        ['toggle', 'push_button', 'clock', 'input_pin'].includes(c.type)
-    );
-  }, [activeCircuit]);
+  // Live Test Simulation Inputs for Modal Verification
+  const [testPinInputs, setTestPinInputs] = useState<Record<number, LogicValue>>({});
 
-  const detectedOutputs = useMemo(() => {
-    return activeCircuit.components.filter(
-      (c) =>
-        !c.isTrainerFixed &&
-        ['probe', 'led', 'buzzer', 'seven_segment', 'hex_display', 'output_pin'].includes(c.type)
-    );
-  }, [activeCircuit]);
+  // Reset VCC and GND pins when pin count changes
+  useEffect(() => {
+    const newVcc = pinCount;
+    const newGnd = Math.floor(pinCount / 2);
+    setVccPin(newVcc);
+    setGndPin(newGnd);
+  }, [pinCount]);
 
-  // Dynamic pin mappings initialization based on pinCount
-  const [customPins, setCustomPins] = useState<CustomICPinMapping[]>(() => {
-    return generateDefaultPins(20, detectedInputs, detectedOutputs);
-  });
-
-  function generateDefaultPins(
-    count: 14 | 16 | 20,
-    inputs: typeof detectedInputs,
-    outputs: typeof detectedOutputs
-  ): CustomICPinMapping[] {
+  // Auto-generate pins from gateUnits
+  const pinMappings = useMemo<CustomICPinMapping[]>(() => {
     const list: CustomICPinMapping[] = [];
-    let inIdx = 0;
-    let outIdx = 0;
-    const gndPin = Math.floor(count / 2);
-    const vccPin = count;
+    const pinOccupancy = new Map<number, { name: string; type: 'input' | 'output' | 'power' | 'nc'; unitLabel?: string }>();
 
-    for (let p = 1; p <= count; p++) {
-      // VCC & GND assignments
-      if (p === vccPin) {
+    // Mark Power Pins
+    pinOccupancy.set(vccPin, { name: 'VCC', type: 'power', unitLabel: '+5V Power' });
+    pinOccupancy.set(gndPin, { name: 'GND', type: 'power', unitLabel: 'Ground' });
+
+    // Mark Gate Unit Pins
+    gateUnits.forEach((unit, uIdx) => {
+      const uNum = uIdx + 1;
+      const conf = GATE_TYPE_CONFIGS[unit.type];
+      unit.inputPins.forEach((pNum, inIdx) => {
+        if (pNum >= 1 && pNum <= pinCount) {
+          const pinChar = String.fromCharCode(65 + inIdx); // A, B, C, D...
+          pinOccupancy.set(pNum, {
+            name: `${uNum}${pinChar}`,
+            type: 'input',
+            unitLabel: `${unit.label || conf.defaultName} Input ${pinChar}`,
+          });
+        }
+      });
+
+      unit.outputPins.forEach((pNum, outIdx) => {
+        if (pNum >= 1 && pNum <= pinCount) {
+          const outName = unit.outputPins.length === 1 ? `${uNum}Y` : `${uNum}Y${outIdx + 1}`;
+          pinOccupancy.set(pNum, {
+            name: outName,
+            type: 'output',
+            unitLabel: `${unit.label || conf.defaultName} Output`,
+          });
+        }
+      });
+    });
+
+    // Build all pins 1..pinCount
+    for (let p = 1; p <= pinCount; p++) {
+      const occ = pinOccupancy.get(p);
+      if (occ) {
         list.push({
           pin: p,
           pinNumber: p,
-          name: 'VCC',
-          type: 'power',
+          name: occ.name,
+          type: occ.type,
           inverted: false,
         });
-      } else if (p === gndPin) {
-        list.push({
-          pin: p,
-          pinNumber: p,
-          name: 'GND',
-          type: 'power',
-          inverted: false,
-        });
-      } else if (inIdx < inputs.length && p < gndPin) {
-        const comp = inputs[inIdx++];
-        list.push({
-          pin: p,
-          pinNumber: p,
-          name: comp.label || `IN${inIdx}`,
-          type: 'input',
-          internalComponentId: comp.id,
-          internalCompId: comp.id,
-          inverted: false,
-        });
-      } else if (outIdx < outputs.length) {
-        const comp = outputs[outIdx++];
-        list.push({
-          pin: p,
-          pinNumber: p,
-          name: comp.label || `OUT${outIdx}`,
-          type: 'output',
-          internalComponentId: comp.id,
-          internalCompId: comp.id,
-          inverted: false,
-        });
-      } else if (count === 20 && p > 14 && p < 20) {
-        // 20-pin socket standard with 14 active pins pattern!
+      } else {
         list.push({
           pin: p,
           pinNumber: p,
@@ -111,676 +142,675 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
           type: 'nc',
           inverted: false,
         });
-      } else {
-        list.push({
-          pin: p,
-          pinNumber: p,
-          name: p % 2 === 0 ? `Y${p}` : `A${p}`,
-          type: p % 2 === 0 ? 'output' : 'input',
-          inverted: false,
-        });
       }
     }
+
     return list;
-  }
+  }, [pinCount, vccPin, gndPin, gateUnits]);
 
-  // Handle pin count change
-  const handlePinCountChange = (newCount: 14 | 16 | 20) => {
-    setPinCount(newCount);
-    setCustomPins(generateDefaultPins(newCount, detectedInputs, detectedOutputs));
-    setSelectedPinNum(null);
-    soundFx.playButtonTap();
-  };
+  // Compute live output for testing preview
+  const testOutputs = useMemo<Record<number, LogicValue>>(() => {
+    const isVccOn = (testPinInputs[vccPin] ?? '1') === '1'; // Default VCC to 1 for live test
+    const results: Record<number, LogicValue> = {};
 
-  const handlePinChange = (index: number, updates: Partial<CustomICPinMapping>) => {
-    setCustomPins((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], ...updates };
-      return next;
+    if (!isVccOn) {
+      pinMappings.forEach((p) => {
+        if (p.type === 'output') results[p.pin] = '0';
+      });
+      return results;
+    }
+
+    gateUnits.forEach((unit) => {
+      const inVals = unit.inputPins.map((pNum) => testPinInputs[pNum] ?? '0');
+      let outVal: LogicValue = '0';
+
+      switch (unit.type) {
+        case 'and_2':
+          outVal = inVals[0] === '1' && inVals[1] === '1' ? '1' : '0';
+          break;
+        case 'or_2':
+          outVal = inVals[0] === '1' || inVals[1] === '1' ? '1' : '0';
+          break;
+        case 'nand_2':
+          outVal = inVals[0] === '1' && inVals[1] === '1' ? '0' : '1';
+          break;
+        case 'nor_2':
+          outVal = inVals[0] === '0' && inVals[1] === '0' ? '1' : '0';
+          break;
+        case 'xor_2':
+          outVal = inVals[0] !== inVals[1] ? '1' : '0';
+          break;
+        case 'xnor_2':
+          outVal = inVals[0] === inVals[1] ? '1' : '0';
+          break;
+        case 'not':
+          outVal = inVals[0] === '1' ? '0' : '1';
+          break;
+        case 'buffer':
+          outVal = inVals[0];
+          break;
+        case 'and_3':
+          outVal = inVals.slice(0, 3).every((v) => v === '1') ? '1' : '0';
+          break;
+        case 'or_3':
+          outVal = inVals.slice(0, 3).some((v) => v === '1') ? '1' : '0';
+          break;
+        case 'nand_3':
+          outVal = inVals.slice(0, 3).every((v) => v === '1') ? '0' : '1';
+          break;
+        case 'nor_3':
+          outVal = inVals.slice(0, 3).every((v) => v === '0') ? '1' : '0';
+          break;
+        case 'and_4':
+          outVal = inVals.slice(0, 4).every((v) => v === '1') ? '1' : '0';
+          break;
+        case 'or_4':
+          outVal = inVals.slice(0, 4).some((v) => v === '1') ? '1' : '0';
+          break;
+        case 'and_6':
+          outVal = inVals.slice(0, 6).every((v) => v === '1') ? '1' : '0';
+          break;
+        case 'and_8':
+          outVal = inVals.slice(0, 8).every((v) => v === '1') ? '1' : '0';
+          break;
+        case 'mux_2to1':
+          outVal = inVals[2] === '1' ? inVals[1] : inVals[0];
+          break;
+        default:
+          outVal = inVals[0];
+      }
+
+      unit.outputPins.forEach((pNum) => {
+        results[pNum] = outVal;
+      });
     });
-  };
 
-  // Focus & highlight pin row when clicked on visual package
-  const handleSelectPinOnVisualizer = (pNum: number) => {
-    setSelectedPinNum(pNum);
-    const rowEl = document.getElementById(`pin-row-${pNum}`);
-    if (rowEl && tableWrapperRef.current) {
-      rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
+    return results;
+  }, [testPinInputs, vccPin, gateUnits, pinMappings]);
 
-  // Quick Preset Pin Templates
-  const handleApplyPreset = (template: 'automap' | 'quad_gates' | 'counter' | 'mux' | 'reset') => {
-    soundFx.playButtonTap();
-    const count = pinCount;
-    const gndPin = Math.floor(count / 2);
-    const vccPin = count;
+  // Add a new Logic Gate Unit
+  const handleAddGateUnit = (type: InternalGateType = 'and_2') => {
+    const conf = GATE_TYPE_CONFIGS[type];
+    const unitCount = gateUnits.length + 1;
 
-    if (template === 'automap') {
-      setCustomPins(generateDefaultPins(count, detectedInputs, detectedOutputs));
-      return;
+    // Find available pins not already taken
+    const usedPins = new Set<number>([vccPin, gndPin]);
+    gateUnits.forEach((u) => {
+      u.inputPins.forEach((p) => usedPins.add(p));
+      u.outputPins.forEach((p) => usedPins.add(p));
+    });
+
+    const freePins: number[] = [];
+    for (let p = 1; p <= pinCount; p++) {
+      if (!usedPins.has(p)) freePins.push(p);
     }
 
-    const list: CustomICPinMapping[] = [];
-
-    if (template === 'quad_gates') {
-      // Classic 7400/7408 Quad 2-Input Pinout
-      for (let p = 1; p <= count; p++) {
-        if (p === vccPin) list.push({ pin: p, pinNumber: p, name: 'VCC', type: 'power', inverted: false });
-        else if (p === gndPin) list.push({ pin: p, pinNumber: p, name: 'GND', type: 'power', inverted: false });
-        else if (p === 1) list.push({ pin: p, pinNumber: p, name: '1A', type: 'input', inverted: false });
-        else if (p === 2) list.push({ pin: p, pinNumber: p, name: '1B', type: 'input', inverted: false });
-        else if (p === 3) list.push({ pin: p, pinNumber: p, name: '1Y', type: 'output', inverted: false });
-        else if (p === 4) list.push({ pin: p, pinNumber: p, name: '2A', type: 'input', inverted: false });
-        else if (p === 5) list.push({ pin: p, pinNumber: p, name: '2B', type: 'input', inverted: false });
-        else if (p === 6) list.push({ pin: p, pinNumber: p, name: '2Y', type: 'output', inverted: false });
-        else if (p === (count === 20 ? 14 : count === 16 ? 8 : 8)) list.push({ pin: p, pinNumber: p, name: '3Y', type: 'output', inverted: false });
-        else if (p === (count === 20 ? 15 : count === 16 ? 9 : 9)) list.push({ pin: p, pinNumber: p, name: '3A', type: 'input', inverted: false });
-        else if (p === (count === 20 ? 16 : count === 16 ? 10 : 10)) list.push({ pin: p, pinNumber: p, name: '3B', type: 'input', inverted: false });
-        else if (p === (count === 20 ? 17 : count === 16 ? 11 : 11)) list.push({ pin: p, pinNumber: p, name: '4Y', type: 'output', inverted: false });
-        else if (p === (count === 20 ? 18 : count === 16 ? 12 : 12)) list.push({ pin: p, pinNumber: p, name: '4A', type: 'input', inverted: false });
-        else if (p === (count === 20 ? 19 : count === 16 ? 13 : 13)) list.push({ pin: p, pinNumber: p, name: '4B', type: 'input', inverted: false });
-        else list.push({ pin: p, pinNumber: p, name: 'NC', type: 'nc', inverted: false });
-      }
-    } else if (template === 'counter') {
-      // Counter / Shift Register Pinout
-      for (let p = 1; p <= count; p++) {
-        if (p === vccPin) list.push({ pin: p, pinNumber: p, name: 'VCC', type: 'power', inverted: false });
-        else if (p === gndPin) list.push({ pin: p, pinNumber: p, name: 'GND', type: 'power', inverted: false });
-        else if (p === 1) list.push({ pin: p, pinNumber: p, name: 'CLK', type: 'input', inverted: false });
-        else if (p === 2) list.push({ pin: p, pinNumber: p, name: 'CLR̄', type: 'input', inverted: true });
-        else if (p === 3) list.push({ pin: p, pinNumber: p, name: 'EN', type: 'input', inverted: false });
-        else if (p === 4) list.push({ pin: p, pinNumber: p, name: 'QA', type: 'output', inverted: false });
-        else if (p === 5) list.push({ pin: p, pinNumber: p, name: 'QB', type: 'output', inverted: false });
-        else if (p === 6) list.push({ pin: p, pinNumber: p, name: 'QC', type: 'output', inverted: false });
-        else if (p === (count === 20 ? 14 : count === 16 ? 10 : 9)) list.push({ pin: p, pinNumber: p, name: 'QD', type: 'output', inverted: false });
-        else if (p === (count === 20 ? 15 : count === 16 ? 11 : 10)) list.push({ pin: p, pinNumber: p, name: 'TC', type: 'output', inverted: false });
-        else list.push({ pin: p, pinNumber: p, name: 'NC', type: 'nc', inverted: false });
-      }
-    } else if (template === 'mux') {
-      // 4:1 Multiplexer Pinout
-      for (let p = 1; p <= count; p++) {
-        if (p === vccPin) list.push({ pin: p, pinNumber: p, name: 'VCC', type: 'power', inverted: false });
-        else if (p === gndPin) list.push({ pin: p, pinNumber: p, name: 'GND', type: 'power', inverted: false });
-        else if (p === 1) list.push({ pin: p, pinNumber: p, name: 'D0', type: 'input', inverted: false });
-        else if (p === 2) list.push({ pin: p, pinNumber: p, name: 'D1', type: 'input', inverted: false });
-        else if (p === 3) list.push({ pin: p, pinNumber: p, name: 'D2', type: 'input', inverted: false });
-        else if (p === 4) list.push({ pin: p, pinNumber: p, name: 'D3', type: 'input', inverted: false });
-        else if (p === 5) list.push({ pin: p, pinNumber: p, name: 'S0', type: 'input', inverted: false });
-        else if (p === 6) list.push({ pin: p, pinNumber: p, name: 'S1', type: 'input', inverted: false });
-        else if (p === (count === 20 ? 14 : count === 16 ? 9 : 8)) list.push({ pin: p, pinNumber: p, name: 'Ḡ', type: 'input', inverted: true });
-        else if (p === (count === 20 ? 15 : count === 16 ? 10 : 9)) list.push({ pin: p, pinNumber: p, name: 'Y', type: 'output', inverted: false });
-        else if (p === (count === 20 ? 16 : count === 16 ? 11 : 10)) list.push({ pin: p, pinNumber: p, name: 'W̄', type: 'output', inverted: true });
-        else list.push({ pin: p, pinNumber: p, name: 'NC', type: 'nc', inverted: false });
-      }
-    } else {
-      // Reset to plain numbering
-      for (let p = 1; p <= count; p++) {
-        if (p === vccPin) list.push({ pin: p, pinNumber: p, name: 'VCC', type: 'power', inverted: false });
-        else if (p === gndPin) list.push({ pin: p, pinNumber: p, name: 'GND', type: 'power', inverted: false });
-        else list.push({ pin: p, pinNumber: p, name: p % 2 === 0 ? `Y${p}` : `A${p}`, type: p % 2 === 0 ? 'output' : 'input', inverted: false });
-      }
+    const assignedInputs: number[] = [];
+    for (let i = 0; i < conf.inCount; i++) {
+      assignedInputs.push(freePins[i] ?? Math.min(pinCount - 1, 1 + i));
     }
 
-    setCustomPins(list);
-  };
+    const assignedOutputs: number[] = [];
+    for (let i = 0; i < conf.outCount; i++) {
+      assignedOutputs.push(freePins[conf.inCount + i] ?? Math.min(pinCount - 1, conf.inCount + 1 + i));
+    }
 
-  // Batch auto-rename / set NC
-  const handleBatchSetUnboundNC = () => {
-    soundFx.playButtonTap();
-    setCustomPins((prev) =>
-      prev.map((p) => {
-        if (p.type === 'power' || p.internalComponentId) return p;
-        return { ...p, name: 'NC', type: 'nc' };
-      })
-    );
-  };
-
-  const handleBatchAutoNumber = (type: 'input' | 'output') => {
-    soundFx.playButtonTap();
-    let num = 1;
-    const prefix = type === 'input' ? 'A' : 'Y';
-    setCustomPins((prev) =>
-      prev.map((p) => {
-        if (p.type === type) {
-          return { ...p, name: `${prefix}${num++}` };
-        }
-        return p;
-      })
-    );
-  };
-
-  const handleSave = (placeOnCanvas: boolean = false) => {
-    const cleanPins: CustomICPinMapping[] = customPins.map((p) => ({
-      pin: p.pin,
-      pinNumber: p.pin,
-      name: p.name.trim() || `PIN${p.pin}`,
-      type: p.type,
-      internalComponentId: p.internalComponentId,
-      internalCompId: p.internalComponentId,
-      inverted: p.inverted || false,
-    }));
-
-    // Clone internal circuit (stripping fixed trainer kit components)
-    const filteredComponents = activeCircuit.components.filter((c) => !c.isTrainerFixed);
-    const internalCircuit: Circuit = {
-      components: JSON.parse(JSON.stringify(filteredComponents)),
-      wires: JSON.parse(JSON.stringify(activeCircuit.wires)),
+    const newUnit: InternalGateUnit = {
+      id: `unit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type,
+      label: `Gate ${unitCount} (${conf.defaultName})`,
+      inputPins: assignedInputs,
+      outputPins: assignedOutputs,
     };
+
+    setGateUnits([...gateUnits, newUnit]);
+    soundFx.playButtonTap();
+  };
+
+  // Remove Gate Unit
+  const handleRemoveGateUnit = (id: string) => {
+    setGateUnits(gateUnits.filter((u) => u.id !== id));
+    soundFx.playButtonTap();
+  };
+
+  // Update Gate Unit
+  const handleUpdateGateUnit = (id: string, updates: Partial<InternalGateUnit>) => {
+    setGateUnits(
+      gateUnits.map((u) => {
+        if (u.id !== id) return u;
+        const next = { ...u, ...updates };
+        if (updates.type && updates.type !== u.type) {
+          const conf = GATE_TYPE_CONFIGS[updates.type];
+          next.inputPins = Array.from({ length: conf.inCount }, (_, i) => u.inputPins[i] || (i + 1));
+          next.outputPins = Array.from({ length: conf.outCount }, (_, i) => u.outputPins[i] || (conf.inCount + 1 + i));
+          next.label = `Gate (${conf.defaultName})`;
+        }
+        return next;
+      })
+    );
+  };
+
+  // Load Presets
+  const handleLoadPreset = (presetName: string) => {
+    soundFx.playButtonTap();
+    if (presetName === 'quad_and') {
+      setPartNumber('74LS08');
+      setIcName('Quad 2-Input AND Gate');
+      setPinCount(14);
+      setVccPin(14);
+      setGndPin(7);
+      setGateUnits([
+        { id: 'g1', type: 'and_2', label: 'Gate 1', inputPins: [1, 2], outputPins: [3] },
+        { id: 'g2', type: 'and_2', label: 'Gate 2', inputPins: [4, 5], outputPins: [6] },
+        { id: 'g3', type: 'and_2', label: 'Gate 3', inputPins: [9, 10], outputPins: [8] },
+        { id: 'g4', type: 'and_2', label: 'Gate 4', inputPins: [12, 13], outputPins: [11] },
+      ]);
+    } else if (presetName === 'quad_or') {
+      setPartNumber('74LS32');
+      setIcName('Quad 2-Input OR Gate');
+      setPinCount(14);
+      setVccPin(14);
+      setGndPin(7);
+      setGateUnits([
+        { id: 'g1', type: 'or_2', label: 'Gate 1', inputPins: [1, 2], outputPins: [3] },
+        { id: 'g2', type: 'or_2', label: 'Gate 2', inputPins: [4, 5], outputPins: [6] },
+        { id: 'g3', type: 'or_2', label: 'Gate 3', inputPins: [9, 10], outputPins: [8] },
+        { id: 'g4', type: 'or_2', label: 'Gate 4', inputPins: [12, 13], outputPins: [11] },
+      ]);
+    } else if (presetName === 'multi_combo') {
+      setPartNumber('74COMBO');
+      setIcName('2-AND + 2-OR + 6-AND Multi-Logic IC');
+      setPinCount(20);
+      setVccPin(20);
+      setGndPin(10);
+      setGateUnits([
+        { id: 'g1', type: 'and_2', label: 'Gate 1 (AND)', inputPins: [1, 2], outputPins: [3] },
+        { id: 'g2', type: 'or_2', label: 'Gate 2 (OR)', inputPins: [4, 5], outputPins: [6] },
+        { id: 'g3', type: 'and_6', label: 'Gate 3 (6-Input AND)', inputPins: [7, 8, 9, 11, 12, 13], outputPins: [14] },
+        { id: 'g4', type: 'not', label: 'Gate 4 (Inverter)', inputPins: [15], outputPins: [16] },
+      ]);
+    } else if (presetName === 'hex_inv') {
+      setPartNumber('74LS04');
+      setIcName('Hex Inverter NOT Gate');
+      setPinCount(14);
+      setVccPin(14);
+      setGndPin(7);
+      setGateUnits([
+        { id: 'g1', type: 'not', label: 'Inverter 1', inputPins: [1], outputPins: [2] },
+        { id: 'g2', type: 'not', label: 'Inverter 2', inputPins: [3], outputPins: [4] },
+        { id: 'g3', type: 'not', label: 'Inverter 3', inputPins: [5], outputPins: [6] },
+        { id: 'g4', type: 'not', label: 'Inverter 4', inputPins: [9], outputPins: [8] },
+        { id: 'g5', type: 'not', label: 'Inverter 5', inputPins: [11], outputPins: [10] },
+        { id: 'g6', type: 'not', label: 'Inverter 6', inputPins: [13], outputPins: [12] },
+      ]);
+    }
+  };
+
+  // Toggle Test Pin
+  const handleToggleTestPin = (pNum: number) => {
+    const cur = testPinInputs[pNum] ?? '0';
+    setTestPinInputs({ ...testPinInputs, [pNum]: cur === '1' ? '0' : '1' });
+    soundFx.playSwitchClick(cur !== '1');
+  };
+
+  // Save Custom IC Definition
+  const handleSave = async (placeOnCanvas: boolean) => {
+    const cleanPart = partNumber.trim() || 'CUSTOM_IC';
+    const cleanName = icName.trim() || 'Custom IC';
 
     const newIC: CustomICDefinition = {
       id: `custom_ic_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       userId,
-      name: icName.trim() || 'Custom Logic IC',
-      code: partNumber.trim() || '74CUSTOM',
-      partNumber: partNumber.trim() || '74CUSTOM',
+      partNumber: cleanPart,
+      name: cleanName,
+      code: cleanPart,
       description: description.trim(),
       pinCount,
-      internalCircuit,
-      circuit: internalCircuit,
-      pins: cleanPins,
-      pinMappings: cleanPins,
+      vccPin,
+      gndPin,
+      gateUnits,
+      pins: pinMappings,
+      pinMappings,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
 
+    // Save to local vault and backend database API
     saveUserCustomIC(newIC);
-    soundFx.playSuccessChime();
+    try {
+      await apiSaveCustomIC(newIC);
+    } catch {
+      // Offline or guest mode fallback
+    }
+
+    soundFx.playButtonTap();
     onSaveIC(newIC, placeOnCanvas);
     onClose();
   };
 
   if (!isOpen) return null;
 
-  // Pin category counts
-  const inputCount = customPins.filter((p) => p.type === 'input').length;
-  const outputCount = customPins.filter((p) => p.type === 'output').length;
-  const powerCount = customPins.filter((p) => p.type === 'power').length;
-  const ncCount = customPins.filter((p) => p.type === 'nc').length;
-
-  // Filtered rows for assignment matrix
-  const filteredPinsWithIndex = customPins
-    .map((p, idx) => ({ ...p, originalIndex: idx }))
-    .filter((p) => {
-      if (filterType !== 'all' && p.type !== filterType) return false;
-      if (searchPin.trim()) {
-        const query = searchPin.trim().toLowerCase();
-        return (
-          p.name.toLowerCase().includes(query) ||
-          String(p.pin).includes(query) ||
-          p.type.toLowerCase().includes(query)
-        );
-      }
-      return true;
-    });
-
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="custom-ic-modal-overlay" onClick={onClose}>
       <div
-        className="modal-content custom-ic-modal-studio"
+        className="custom-ic-studio-container"
+        style={{ maxWidth: '1200px', width: '95vw', height: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Studio Header */}
         <div className="custom-ic-studio-header">
-          <div className="studio-title-block">
-            <span className="studio-icon-badge">✨</span>
-            <div>
-              <div className="studio-title-row">
-                <h2 className="studio-heading">Custom IC Design & Packaging Studio</h2>
-                <span className="studio-package-pill">DIP-{pinCount} Package</span>
-              </div>
-              <p className="studio-subtext">
-                Encapsulate subcircuits, configure JEDEC pin mappings, and generate reusable IC components
-              </p>
+          <div className="studio-brand">
+            <div className="studio-icon">📐</div>
+            <div className="studio-titles">
+              <h2 className="studio-title">CUSTOM IC ARCHITECT & LOGIC DESIGNER</h2>
+              <span className="studio-subtitle">
+                Configure internal logic gates, pin mappings, and build reusable DIP IC chips
+              </span>
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose} title="Close Studio">
+          <button className="custom-ic-close-btn" onClick={onClose} title="Close Studio">
             ✕
           </button>
         </div>
 
-        {/* Studio Dual-Pane Workspace */}
-        <div className="custom-ic-studio-workspace">
-          {/* ================================================================= */}
-          {/* LEFT SIDEBAR: IC Identity, Visual Package & Quick Presets         */}
-          {/* ================================================================= */}
-          <div className="studio-sidebar-pane">
-            {/* Identity Form */}
-            <div className="studio-card">
-              <div className="studio-card-title">IC Identity & Form Factor</div>
+        {/* Configuration Bar */}
+        <div className="custom-ic-top-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '12px 20px', background: 'var(--bg-panel)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>PART NUMBER</label>
+            <input
+              type="text"
+              className="text-input"
+              value={partNumber}
+              onChange={(e) => setPartNumber(e.target.value.toUpperCase())}
+              placeholder="e.g. 74MY01"
+              style={{ width: '130px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}
+            />
+          </div>
 
-              <div className="studio-form-field">
-                <label className="studio-label">Part Number / Silkscreen Code</label>
-                <input
-                  type="text"
-                  className="studio-input mono uppercase"
-                  value={partNumber}
-                  onChange={(e) => setPartNumber(e.target.value.toUpperCase())}
-                  placeholder="e.g. 74MY01, ALU_4B"
-                  maxLength={12}
-                />
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>IC NAME</label>
+            <input
+              type="text"
+              className="text-input"
+              value={icName}
+              onChange={(e) => setIcName(e.target.value)}
+              placeholder="e.g. Quad 2-Input AND + Dual OR"
+            />
+          </div>
 
-              <div className="studio-form-field">
-                <label className="studio-label">IC Display Name</label>
-                <input
-                  type="text"
-                  className="studio-input"
-                  value={icName}
-                  onChange={(e) => setIcName(e.target.value)}
-                  placeholder="e.g. 4-Bit Arithmetic Unit"
-                />
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>DESCRIPTION</label>
+            <input
+              type="text"
+              className="text-input"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Internal logic and pin descriptions..."
+            />
+          </div>
 
-              <div className="studio-form-field">
-                <label className="studio-label">DIP Package Sockets</label>
-                <div className="studio-pkg-toggle-group">
-                  <button
-                    type="button"
-                    className={`pkg-toggle-btn ${pinCount === 14 ? 'active' : ''}`}
-                    onClick={() => handlePinCountChange(14)}
-                  >
-                    14-Pin
-                  </button>
-                  <button
-                    type="button"
-                    className={`pkg-toggle-btn ${pinCount === 16 ? 'active' : ''}`}
-                    onClick={() => handlePinCountChange(16)}
-                  >
-                    16-Pin
-                  </button>
-                  <button
-                    type="button"
-                    className={`pkg-toggle-btn ${pinCount === 20 ? 'active' : ''}`}
-                    onClick={() => handlePinCountChange(20)}
-                    title="20-Pin DIP Trainer Socket Standard"
-                  >
-                    20-Pin (Trainer)
-                  </button>
-                </div>
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>DIP PACKAGE</label>
+            <select
+              className="matrix-select"
+              value={pinCount}
+              onChange={(e) => setPinCount(Number(e.target.value) as 14 | 16 | 20)}
+              style={{ fontWeight: 800 }}
+            >
+              <option value={14}>14-Pin DIP</option>
+              <option value={16}>16-Pin DIP</option>
+              <option value={20}>20-Pin DIP (Trainer Base)</option>
+            </select>
+          </div>
 
-              <div className="studio-form-field">
-                <label className="studio-label">Description & Architecture Notes</label>
-                <textarea
-                  className="studio-textarea"
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="e.g. Custom subcircuit packaged into 20-pin DIP IC socket"
-                />
-              </div>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>PRESET TEMPLATES</label>
+            <select
+              className="matrix-select"
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleLoadPreset(e.target.value);
+                  e.target.value = '';
+                }
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>-- Load Template --</option>
+              <option value="quad_and">Quad 2-Input AND (7408)</option>
+              <option value="quad_or">Quad 2-Input OR (7432)</option>
+              <option value="hex_inv">Hex Inverter NOT (7404)</option>
+              <option value="multi_combo">2-AND + 2-OR + 6-AND (Combo IC)</option>
+            </select>
+          </div>
+        </div>
 
-            {/* Source Mode Switcher */}
-            <div className="studio-card">
-              <div className="studio-card-title">Source Architecture</div>
-              <div className="studio-source-toggle-row">
+        {/* Studio Main Workspace (Split View) */}
+        <div className="custom-ic-studio-body" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px', padding: '16px 20px', flex: 1, overflow: 'hidden' }}>
+          {/* Left Column: Modular Logic Gate Units Editor */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+                🧩 INTERNAL LOGIC UNITS ({gateUnits.length} Gate Units)
+              </h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   type="button"
-                  className={`source-toggle-btn ${sourceMode === 'canvas' ? 'active' : ''}`}
-                  onClick={() => setSourceMode('canvas')}
+                  className="header-btn primary"
+                  style={{ fontSize: '11px', padding: '4px 10px' }}
+                  onClick={() => handleAddGateUnit('and_2')}
                 >
-                  <span className="source-btn-icon">📄</span>
-                  <div className="source-btn-text">
-                    <strong>Package Active Canvas</strong>
-                    <small>{activeCircuit.components.filter((c) => !c.isTrainerFixed).length} components detected</small>
-                  </div>
+                  ➕ + 2-In AND
                 </button>
                 <button
                   type="button"
-                  className={`source-toggle-btn ${sourceMode === 'custom' ? 'active' : ''}`}
-                  onClick={() => setSourceMode('custom')}
+                  className="header-btn"
+                  style={{ fontSize: '11px', padding: '4px 10px' }}
+                  onClick={() => handleAddGateUnit('or_2')}
                 >
-                  <span className="source-btn-icon">🛠️</span>
-                  <div className="source-btn-text">
-                    <strong>Custom Pin Specification</strong>
-                    <small>Direct pinout assignment</small>
-                  </div>
+                  ➕ + 2-In OR
+                </button>
+                <button
+                  type="button"
+                  className="header-btn"
+                  style={{ fontSize: '11px', padding: '4px 10px' }}
+                  onClick={() => handleAddGateUnit('and_6')}
+                >
+                  ➕ + 6-In AND
+                </button>
+                <button
+                  type="button"
+                  className="header-btn"
+                  style={{ fontSize: '11px', padding: '4px 10px' }}
+                  onClick={() => handleAddGateUnit('not')}
+                >
+                  ➕ + Inverter
                 </button>
               </div>
             </div>
 
-            {/* Interactive DIP Package Visualizer */}
-            <div className="studio-card">
-              <div className="studio-card-title-row">
-                <span className="studio-card-title">Interactive DIP-{pinCount} Package</span>
-                <span className="studio-hint-pill">Click pin to focus</span>
-              </div>
-
-              <div className="studio-dip-visualizer">
-                <div className="studio-dip-chip">
-                  <div className="studio-dip-notch" />
-                  <div className="studio-dip-pin1-dot" />
-                  <div className="studio-dip-label">{partNumber || 'CUSTOM_IC'}</div>
-
-                  {/* Top Pins (N down to N/2 + 1) */}
-                  <div className="studio-dip-pins-row top-row">
-                    {customPins
-                      .slice(pinCount / 2, pinCount)
-                      .reverse()
-                      .map((p) => {
-                        const isSelected = selectedPinNum === p.pin;
-                        return (
-                          <div
-                            key={p.pin}
-                            className={`studio-dip-pin ${p.type} ${isSelected ? 'selected' : ''}`}
-                            onClick={() => handleSelectPinOnVisualizer(p.pin)}
-                            title={`Pin ${p.pin}: ${p.name} (${p.type.toUpperCase()}) — Click to jump`}
-                          >
-                            <span className="pin-num-tag">{p.pin}</span>
-                            <span className="pin-name-tag">{p.name}</span>
-                          </div>
-                        );
-                      })}
-                  </div>
-
-                  {/* Bottom Pins (1 up to N/2) */}
-                  <div className="studio-dip-pins-row bottom-row">
-                    {customPins.slice(0, pinCount / 2).map((p) => {
-                      const isSelected = selectedPinNum === p.pin;
-                      return (
-                        <div
-                          key={p.pin}
-                          className={`studio-dip-pin ${p.type} ${isSelected ? 'selected' : ''}`}
-                          onClick={() => handleSelectPinOnVisualizer(p.pin)}
-                          title={`Pin ${p.pin}: ${p.name} (${p.type.toUpperCase()}) — Click to jump`}
+            {/* Units Scroll Container */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '6px' }}>
+              {gateUnits.map((unit, uIdx) => {
+                return (
+                  <div
+                    key={unit.id}
+                    style={{
+                      background: 'var(--bg-card)',
+                      border: '1.5px solid var(--border-color)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--accent-primary)' }}>
+                          UNIT {uIdx + 1}:
+                        </span>
+                        <select
+                          className="matrix-select"
+                          value={unit.type}
+                          onChange={(e) =>
+                            handleUpdateGateUnit(unit.id, { type: e.target.value as InternalGateType })
+                          }
+                          style={{ fontWeight: 700 }}
                         >
-                          <span className="pin-name-tag">{p.name}</span>
-                          <span className="pin-num-tag">{p.pin}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
+                          {Object.entries(GATE_TYPE_CONFIGS).map(([typeKey, c]) => (
+                            <option key={typeKey} value={typeKey}>
+                              {c.label} ({c.inCount} in, {c.outCount} out)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        className="trainer-remove-board-btn"
+                        onClick={() => handleRemoveGateUnit(unit.id)}
+                        title="Remove Logic Unit"
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
 
-            {/* Quick Presets & Templates */}
-            <div className="studio-card">
-              <div className="studio-card-title">Quick Pinout Templates</div>
-              <div className="studio-presets-grid">
-                <button
-                  type="button"
-                  className="preset-btn"
-                  onClick={() => handleApplyPreset('automap')}
-                  title="Auto-map canvas inputs & outputs"
-                >
-                  ⚡ Auto-Map Canvas
-                </button>
-                <button
-                  type="button"
-                  className="preset-btn"
-                  onClick={() => handleApplyPreset('quad_gates')}
-                  title="Quad 2-Input logic gate pinout (7400/7408 style)"
-                >
-                  🔷 Quad 2-In Gates
-                </button>
-                <button
-                  type="button"
-                  className="preset-btn"
-                  onClick={() => handleApplyPreset('counter')}
-                  title="Clocked counter / register pinout"
-                >
-                  🔄 Counter / Reg
-                </button>
-                <button
-                  type="button"
-                  className="preset-btn"
-                  onClick={() => handleApplyPreset('mux')}
-                  title="4:1 Multiplexer / Data Selector pinout"
-                >
-                  🔀 MUX / Decoder
-                </button>
-                <button
-                  type="button"
-                  className="preset-btn danger"
-                  onClick={() => handleApplyPreset('reset')}
-                  title="Reset all pin assignments"
-                >
-                  ↺ Reset Defaults
-                </button>
-              </div>
+                    {/* Pin Mapping Selectors for this Gate */}
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', background: 'rgba(0,0,0,0.15)', padding: '8px', borderRadius: '6px' }}>
+                      {/* Input Pins */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#38bdf8' }}>📥 Inputs:</span>
+                        {unit.inputPins.map((pNum, inIdx) => (
+                          <div key={inIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                              {String.fromCharCode(65 + inIdx)}:
+                            </span>
+                            <select
+                              className="matrix-select"
+                              value={pNum}
+                              onChange={(e) => {
+                                const newInPins = [...unit.inputPins];
+                                newInPins[inIdx] = Number(e.target.value);
+                                handleUpdateGateUnit(unit.id, { inputPins: newInPins });
+                              }}
+                              style={{ width: '60px', padding: '2px 4px', fontSize: '11px', fontWeight: 800 }}
+                            >
+                              {Array.from({ length: pinCount }, (_, i) => i + 1).map((p) => (
+                                <option key={p} value={p} disabled={p === vccPin || p === gndPin}>
+                                  Pin {p} {p === vccPin ? '(VCC)' : p === gndPin ? '(GND)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Arrow */}
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: 900 }}>➔</span>
+
+                      {/* Output Pin */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#22c55e' }}>📤 Output:</span>
+                        {unit.outputPins.map((pNum, outIdx) => (
+                          <select
+                            key={outIdx}
+                            className="matrix-select"
+                            value={pNum}
+                            onChange={(e) => {
+                              const newOutPins = [...unit.outputPins];
+                              newOutPins[outIdx] = Number(e.target.value);
+                              handleUpdateGateUnit(unit.id, { outputPins: newOutPins });
+                            }}
+                            style={{ width: '60px', padding: '2px 4px', fontSize: '11px', fontWeight: 800, borderColor: '#22c55e' }}
+                          >
+                            {Array.from({ length: pinCount }, (_, i) => i + 1).map((p) => (
+                              <option key={p} value={p} disabled={p === vccPin || p === gndPin}>
+                                Pin {p}
+                              </option>
+                            ))}
+                          </select>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {gateUnits.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)', border: '2px dashed var(--border-color)', borderRadius: '8px' }}>
+                  No logic gate units added yet. Click "+ Add Logic Gate Unit" or load a preset above!
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ================================================================= */}
-          {/* RIGHT MAIN PANEL: Comprehensive Pin Assignment Matrix Table       */}
-          {/* ================================================================= */}
-          <div className="studio-matrix-pane">
-            {/* Matrix Control Bar */}
-            <div className="matrix-toolbar">
-              <div className="matrix-filter-pills">
-                <button
-                  type="button"
-                  className={`matrix-filter-pill ${filterType === 'all' ? 'active' : ''}`}
-                  onClick={() => setFilterType('all')}
-                >
-                  All Pins ({pinCount})
-                </button>
-                <button
-                  type="button"
-                  className={`matrix-filter-pill input ${filterType === 'input' ? 'active' : ''}`}
-                  onClick={() => setFilterType('input')}
-                >
-                  Inputs ({inputCount})
-                </button>
-                <button
-                  type="button"
-                  className={`matrix-filter-pill output ${filterType === 'output' ? 'active' : ''}`}
-                  onClick={() => setFilterType('output')}
-                >
-                  Outputs ({outputCount})
-                </button>
-                <button
-                  type="button"
-                  className={`matrix-filter-pill power ${filterType === 'power' ? 'active' : ''}`}
-                  onClick={() => setFilterType('power')}
-                >
-                  Power ({powerCount})
-                </button>
-                <button
-                  type="button"
-                  className={`matrix-filter-pill nc ${filterType === 'nc' ? 'active' : ''}`}
-                  onClick={() => setFilterType('nc')}
-                >
-                  NC ({ncCount})
-                </button>
+          {/* Right Column: Interactive DIP Visualizer & Live Truth Test */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-panel)', padding: '14px', borderRadius: '8px', border: '1.5px solid var(--border-color)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+                🔬 DIP PIN MAP & LIVE SIMULATOR
+              </h3>
+              <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Click input pins to test logic</span>
+            </div>
+
+            {/* Visual DIP Chip Representation */}
+            <div style={{ background: '#0f172a', padding: '16px', borderRadius: '8px', border: '2px solid #334155', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Top Row: Pins (pinCount down to pinCount/2 + 1) */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4px' }}>
+                {Array.from({ length: pinCount / 2 }, (_, i) => pinCount - i).map((pinNum) => {
+                  const pMap = pinMappings.find((p) => p.pin === pinNum);
+                  const isPower = pMap?.type === 'power';
+                  const isInput = pMap?.type === 'input';
+                  const isOutput = pMap?.type === 'output';
+                  const testVal = isOutput ? testOutputs[pinNum] : testPinInputs[pinNum] ?? (isPower && pinNum === vccPin ? '1' : '0');
+
+                  return (
+                    <div
+                      key={pinNum}
+                      onClick={() => isInput && handleToggleTestPin(pinNum)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '2px',
+                        cursor: isInput ? 'pointer' : 'default',
+                      }}
+                      title={`Pin ${pinNum}: ${pMap?.name} (${pMap?.type})${isInput ? ' - Click to toggle test input' : ''}`}
+                    >
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: '#94a3b8' }}>{pinNum}</span>
+                      <div
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '4px',
+                          border: `1.5px solid ${isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#475569'}`,
+                          background: testVal === '1' ? '#22c55e' : '#1e293b',
+                          color: testVal === '1' ? '#000' : '#fff',
+                          fontWeight: 900,
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: testVal === '1' ? '0 0 8px rgba(34, 197, 94, 0.6)' : 'none',
+                        }}
+                      >
+                        {testVal}
+                      </div>
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#64748b' }}>
+                        {pMap?.name}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="matrix-search-box">
-                <input
-                  type="text"
-                  className="matrix-search-input"
-                  placeholder="Filter by pin name or #..."
-                  value={searchPin}
-                  onChange={(e) => setSearchPin(e.target.value)}
-                />
-                {searchPin && (
-                  <button className="matrix-search-clear" onClick={() => setSearchPin('')}>
-                    ✕
-                  </button>
-                )}
+              {/* DIP Center Body */}
+              <div style={{ height: '36px', background: '#1e293b', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', border: '1px solid #334155' }}>
+                <div style={{ position: 'absolute', left: '-6px', width: '12px', height: '12px', borderRadius: '50%', background: '#0f172a' }} />
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 900, fontSize: '13px', letterSpacing: '2px', color: '#f8fafc' }}>
+                  {partNumber}
+                </span>
+              </div>
+
+              {/* Bottom Row: Pins 1 to pinCount/2 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4px' }}>
+                {Array.from({ length: pinCount / 2 }, (_, i) => i + 1).map((pinNum) => {
+                  const pMap = pinMappings.find((p) => p.pin === pinNum);
+                  const isPower = pMap?.type === 'power';
+                  const isInput = pMap?.type === 'input';
+                  const isOutput = pMap?.type === 'output';
+                  const testVal = isOutput ? testOutputs[pinNum] : testPinInputs[pinNum] ?? (isPower && pinNum === vccPin ? '1' : '0');
+
+                  return (
+                    <div
+                      key={pinNum}
+                      onClick={() => isInput && handleToggleTestPin(pinNum)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '2px',
+                        cursor: isInput ? 'pointer' : 'default',
+                      }}
+                      title={`Pin ${pinNum}: ${pMap?.name} (${pMap?.type})${isInput ? ' - Click to toggle test input' : ''}`}
+                    >
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#64748b' }}>
+                        {pMap?.name}
+                      </span>
+                      <div
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '4px',
+                          border: `1.5px solid ${isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#475569'}`,
+                          background: testVal === '1' ? '#22c55e' : '#1e293b',
+                          color: testVal === '1' ? '#000' : '#fff',
+                          fontWeight: 900,
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: testVal === '1' ? '0 0 8px rgba(34, 197, 94, 0.6)' : 'none',
+                        }}
+                      >
+                        {testVal}
+                      </div>
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: '#94a3b8' }}>{pinNum}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Batch Helper Actions Bar */}
-            <div className="matrix-batch-bar">
-              <span className="batch-label">Batch Actions:</span>
-              <button
-                type="button"
-                className="batch-btn"
-                onClick={() => handleBatchAutoNumber('input')}
-                title="Renumber inputs sequentially A1, A2..."
-              >
-                Auto-Name Inputs (A1..An)
-              </button>
-              <button
-                type="button"
-                className="batch-btn"
-                onClick={() => handleBatchAutoNumber('output')}
-                title="Renumber outputs sequentially Y1, Y2..."
-              >
-                Auto-Name Outputs (Y1..Yn)
-              </button>
-              <button
-                type="button"
-                className="batch-btn"
-                onClick={handleBatchSetUnboundNC}
-                title="Set unmapped pins to NC"
-              >
-                Set Unbound to NC
-              </button>
-            </div>
-
-            {/* Dedicated Scrollable High-Res Table */}
-            <div className="studio-table-container" ref={tableWrapperRef}>
-              <table className="studio-pin-table">
+            {/* Pin Details Summary Table */}
+            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
                 <thead>
-                  <tr>
-                    <th style={{ width: '60px', textAlign: 'center' }}>Pin #</th>
-                    <th style={{ width: '80px', textAlign: 'center' }}>Row</th>
-                    <th style={{ width: '140px' }}>Pin Name / Signal</th>
-                    <th style={{ width: '130px' }}>Signal Type</th>
-                    <th style={{ width: '80px', textAlign: 'center' }}>Active-Low</th>
-                    <th>Internal Canvas Component Binding</th>
+                  <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ padding: '6px 8px' }}>Pin</th>
+                    <th style={{ padding: '6px 8px' }}>Label</th>
+                    <th style={{ padding: '6px 8px' }}>Role</th>
+                    <th style={{ padding: '6px 8px' }}>Logic Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPinsWithIndex.map((p) => {
-                    const idx = p.originalIndex;
-                    const isTopRow = p.pin > pinCount / 2;
-                    const isSelected = selectedPinNum === p.pin;
+                  {pinMappings.map((p) => {
+                    const isOut = p.type === 'output';
+                    const isPow = p.type === 'power';
+                    const val = isOut ? testOutputs[p.pin] : testPinInputs[p.pin] ?? (isPow && p.pin === vccPin ? '1' : '0');
 
                     return (
-                      <tr
-                        key={p.pin}
-                        id={`pin-row-${p.pin}`}
-                        className={`pin-matrix-row ${isSelected ? 'highlighted' : ''} ${p.type}`}
-                      >
-                        {/* Pin Number Badge */}
-                        <td style={{ textAlign: 'center' }}>
-                          <span className={`matrix-pin-badge ${p.type}`}>
-                            {p.pin}
-                          </span>
-                        </td>
-
-                        {/* Top / Bottom Physical Position */}
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="matrix-row-indicator">
-                            {isTopRow ? 'Top' : 'Bottom'}
-                          </span>
-                        </td>
-
-                        {/* Pin Name Input */}
-                        <td>
-                          <input
-                            type="text"
-                            className="matrix-name-input"
-                            value={p.name}
-                            onChange={(e) =>
-                              handlePinChange(idx, { name: e.target.value.toUpperCase() })
-                            }
-                            placeholder={`PIN${p.pin}`}
-                          />
-                        </td>
-
-                        {/* Signal Type Selector */}
-                        <td>
-                          <select
-                            className={`matrix-type-select ${p.type}`}
-                            value={p.type}
-                            onChange={(e) =>
-                              handlePinChange(idx, {
-                                type: e.target.value as CustomICPinMapping['type'],
-                              })
-                            }
-                          >
-                            <option value="input">📥 Input (IN)</option>
-                            <option value="output">📤 Output (OUT)</option>
-                            <option value="power">⚡ Power Rail</option>
-                            <option value="nc">⚪ NC (Unconnected)</option>
-                          </select>
-                        </td>
-
-                        {/* Active-Low Inverted Bubble */}
-                        <td style={{ textAlign: 'center' }}>
-                          <label className="matrix-checkbox-label" title="Active-Low signal (adds inverted bar over pin)">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(p.inverted)}
-                              onChange={(e) =>
-                                handlePinChange(idx, { inverted: e.target.checked })
-                              }
-                            />
-                            <span className="checkbox-custom" />
-                          </label>
-                        </td>
-
-                        {/* Internal Canvas Binding */}
-                        <td>
-                          <select
-                            className="matrix-binding-select"
-                            value={p.internalComponentId || ''}
-                            onChange={(e) =>
-                              handlePinChange(idx, {
-                                internalComponentId: e.target.value || undefined,
-                              })
-                            }
-                          >
-                            <option value="">-- Direct Pin Node (No internal binding) --</option>
-                            {p.type === 'input' && (
-                              <optgroup label="Detected Canvas Inputs">
-                                {detectedInputs.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.label || c.type} [{c.type.toUpperCase()}] ({c.id.substring(0, 10)})
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                            {p.type === 'output' && (
-                              <optgroup label="Detected Canvas Outputs / Displays">
-                                {detectedOutputs.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.label || c.type} [{c.type.toUpperCase()}] ({c.id.substring(0, 10)})
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                          </select>
+                      <tr key={p.pin} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '4px 8px', fontWeight: 800 }}>Pin {p.pin}</td>
+                        <td style={{ padding: '4px 8px', fontWeight: 800, color: isPow ? '#f59e0b' : isOut ? '#22c55e' : '#38bdf8' }}>{p.name}</td>
+                        <td style={{ padding: '4px 8px', textTransform: 'uppercase', fontSize: '10px' }}>{p.type}</td>
+                        <td style={{ padding: '4px 8px', fontWeight: 900, color: val === '1' ? '#22c55e' : '#94a3b8' }}>
+                          {val === '1' ? 'HIGH (1)' : 'LOW (0)'}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-
-              {filteredPinsWithIndex.length === 0 && (
-                <div className="matrix-empty-msg">
-                  No pins match filter "{filterType}" {searchPin && `or query "${searchPin}"`}
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Studio Footer */}
-        <div className="custom-ic-studio-footer">
-          <div className="footer-summary-pills">
-            <span className="summary-pill input">📥 {inputCount} Inputs</span>
-            <span className="summary-pill output">📤 {outputCount} Outputs</span>
-            <span className="summary-pill power">⚡ {powerCount} Power</span>
-            <span className="summary-pill nc">⚪ {ncCount} NC</span>
+        {/* Studio Footer Actions */}
+        <div className="custom-ic-studio-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', background: 'var(--bg-panel)', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', gap: '8px', fontSize: '12px' }}>
+            <span className="summary-pill input">📥 {pinMappings.filter((p) => p.type === 'input').length} Inputs</span>
+            <span className="summary-pill output">📤 {pinMappings.filter((p) => p.type === 'output').length} Outputs</span>
+            <span className="summary-pill power">⚡ {pinMappings.filter((p) => p.type === 'power').length} Power</span>
           </div>
 
-          <div className="footer-action-buttons">
-            <button className="header-btn" onClick={onClose}>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button type="button" className="header-btn" onClick={onClose}>
               Cancel
             </button>
-            <button className="header-btn" onClick={() => handleSave(false)}>
-              💾 Save to IC Library
+            <button type="button" className="header-btn" onClick={() => handleSave(false)}>
+              💾 Save to IC Vault
             </button>
-            <button className="header-btn primary" onClick={() => handleSave(true)}>
+            <button type="button" className="header-btn primary" onClick={() => handleSave(true)}>
               ✨ Save & Mount to Canvas
             </button>
           </div>

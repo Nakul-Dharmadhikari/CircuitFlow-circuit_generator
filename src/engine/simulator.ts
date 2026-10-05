@@ -883,15 +883,19 @@ export function createComponent(
       label = customDef?.partNumber || customDef?.name || customLabel || 'CUSTOM_IC';
 
       if (customDef && customDef.pins && customDef.pins.length > 0) {
-        const pinDefs = customDef.pins.map((p: any) => ({
-          pin: p.pin,
-          id: String(p.pin),
-          name: p.name,
-          type: (p.type === 'power' ? 'input' : p.type) as 'input' | 'output',
-          inverted: p.inverted,
-          defaultValue: ('0' as const),
-        }));
-        const dip = createDipPins(pinDefs, 20, width, height);
+        const pinDefs = customDef.pins.map((p: any) => {
+          const pNum = p.pinNumber ?? p.pin;
+          const isVcc = p.name?.toUpperCase() === 'VCC' || pNum === customDef.vccPin;
+          return {
+            pin: pNum,
+            id: `pin${pNum}`,
+            name: p.name,
+            type: (p.type === 'power' || p.type === 'input' ? 'input' : 'output') as 'input' | 'output',
+            inverted: p.inverted,
+            defaultValue: (isVcc ? 'Z' : '0') as LogicValue,
+          };
+        });
+        const dip = createDipPins(pinDefs, customDef.pinCount || 20, width, height);
         inputs.push(...dip.inputs);
         outputs.push(...dip.outputs);
       } else {
@@ -904,13 +908,13 @@ export function createComponent(
         }> = [];
         for (let i = 1; i <= 20; i++) {
           if (i === 20) {
-            defaultPins.push({ pin: i, id: String(i), name: 'VCC', type: 'input', defaultValue: '0' });
+            defaultPins.push({ pin: i, id: `pin${i}`, name: 'VCC', type: 'input', defaultValue: '0' });
           } else if (i === 10) {
-            defaultPins.push({ pin: i, id: String(i), name: 'GND', type: 'input', defaultValue: '0' });
+            defaultPins.push({ pin: i, id: `pin${i}`, name: 'GND', type: 'input', defaultValue: '0' });
           } else if (i % 2 === 0) {
-            defaultPins.push({ pin: i, id: String(i), name: `Y${i / 2}`, type: 'output' });
+            defaultPins.push({ pin: i, id: `pin${i}`, name: `Y${i / 2}`, type: 'output' });
           } else {
-            defaultPins.push({ pin: i, id: String(i), name: `A${Math.ceil(i / 2)}`, type: 'input' });
+            defaultPins.push({ pin: i, id: `pin${i}`, name: `A${Math.ceil(i / 2)}`, type: 'input' });
           }
         }
         const dip = createDipPins(defaultPins, 20, width, height);
@@ -1446,15 +1450,23 @@ function evaluateSingleComponent(comp: CircuitComponent): {
   newState?: Record<string, any>;
 } {
   const getIn = (id: string, defaultVal: LogicValue = '0'): LogicValue => {
-    const p = comp.inputs.find((pin) => pin.id === id);
-    return p ? resolveLogic(p.value) : defaultVal;
+    const p = comp.inputs.find(
+      (pin) =>
+        pin.id === id ||
+        pin.id === `pin${id}` ||
+        (id.startsWith('pin') && pin.id === id.substring(3)) ||
+        pin.name === id
+    );
+    if (!p) return defaultVal;
+    if (p.value === 'Z') return defaultVal;
+    return resolveLogic(p.value);
   };
 
   const outputs: Record<string, LogicValue> = {};
   const newState: Record<string, any> = { ...comp.state };
 
-  // If this is an IC, check that physical VCC is connected to logic HIGH ('1')
-  if (comp.type.startsWith('ic_') || comp.type === 'custom_ic') {
+  // If this is an IC, check that physical VCC is connected to logic HIGH ('1') if explicitly connected
+  if (comp.type.startsWith('ic_')) {
     const vccPin = comp.inputs.find((p) => p.name?.toUpperCase() === 'VCC');
     if (vccPin && resolveLogic(vccPin.value) !== '1') {
       for (const outPin of comp.outputs) {
@@ -2160,17 +2172,136 @@ function evaluateSingleComponent(comp: CircuitComponent): {
 
     case 'custom_ic': {
       const customDef = comp.customProps?.customIC;
-      if (customDef && customDef.internalCircuit && customDef.internalCircuit.components.length > 0) {
+      if (!customDef) break;
+
+      if (!newState.pinValues) {
+        newState.pinValues = { ...(comp.state?.pinValues || {}) };
+      }
+
+      // 1. Power Gating Check (VCC) - if explicitly wired and LOW, IC is unpowered
+      const vccPinNum = customDef.vccPin ?? (customDef.pinCount === 14 ? 14 : customDef.pinCount === 16 ? 16 : 20);
+      const vccSignal = getIn(String(vccPinNum), '1'); // defaults to 1 unless driven to 0
+      const isVccPowered = vccSignal !== '0';
+
+      if (!isVccPowered) {
+        // Unpowered IC -> all outputs remain 0
+        comp.outputs.forEach((outPin) => {
+          outputs[outPin.id] = '0';
+          newState.pinValues[outPin.id] = '0';
+        });
+        break;
+      }
+
+      // 2. Evaluate Modular Gate Units (if defined)
+      if (customDef.gateUnits && customDef.gateUnits.length > 0) {
+        for (const unit of customDef.gateUnits) {
+          const inVals: LogicValue[] = (unit.inputPins || []).map((pinNum: number) => {
+            return getIn(String(pinNum), '0');
+          });
+
+          let unitOutput: LogicValue = '0';
+          const gType = (unit.gateType || (unit as any).type || '').toLowerCase();
+
+          switch (gType) {
+            case 'and':
+            case 'and_2':
+              unitOutput = andGate(inVals[0] || '0', inVals[1] || '0');
+              break;
+            case 'or':
+            case 'or_2':
+              unitOutput = orGate(inVals[0] || '0', inVals[1] || '0');
+              break;
+            case 'nand':
+            case 'nand_2':
+              unitOutput = nandGate(inVals[0] || '0', inVals[1] || '0');
+              break;
+            case 'nor':
+            case 'nor_2':
+              unitOutput = norGate(inVals[0] || '0', inVals[1] || '0');
+              break;
+            case 'xor':
+            case 'xor_2':
+              unitOutput = xorGate(inVals[0] || '0', inVals[1] || '0');
+              break;
+            case 'xnor':
+            case 'xnor_2':
+              unitOutput = xnorGate(inVals[0] || '0', inVals[1] || '0');
+              break;
+            case 'not':
+              unitOutput = notGate(inVals[0] || '0');
+              break;
+            case 'buffer':
+              unitOutput = inVals[0] || '0';
+              break;
+            case 'and3':
+            case 'and_3':
+              unitOutput = evaluateAnd3(inVals[0] || '0', inVals[1] || '0', inVals[2] || '0');
+              break;
+            case 'or3':
+            case 'or_3':
+              unitOutput = evaluateOr3(inVals[0] || '0', inVals[1] || '0', inVals[2] || '0');
+              break;
+            case 'nand3':
+            case 'nand_3':
+              unitOutput = evaluateNand3(inVals[0] || '0', inVals[1] || '0', inVals[2] || '0');
+              break;
+            case 'nor3':
+            case 'nor_3':
+              unitOutput = evaluateNor3(inVals[0] || '0', inVals[1] || '0', inVals[2] || '0');
+              break;
+            case 'and4':
+            case 'and_4':
+              unitOutput = inVals.slice(0, 4).every((v) => v === '1') ? '1' : '0';
+              break;
+            case 'or4':
+            case 'or_4':
+              unitOutput = inVals.slice(0, 4).some((v) => v === '1') ? '1' : '0';
+              break;
+            case 'and6':
+            case 'and_6':
+              unitOutput = inVals.slice(0, 6).every((v) => v === '1') ? '1' : '0';
+              break;
+            case 'and8':
+            case 'and_8':
+              unitOutput = inVals.slice(0, 8).every((v) => v === '1') ? '1' : '0';
+              break;
+            case 'mux2to1':
+            case 'mux_2to1': {
+              const d0 = inVals[0] || '0';
+              const d1 = inVals[1] || '0';
+              const sel = inVals[2] || '0';
+              unitOutput = sel === '1' ? d1 : d0;
+              break;
+            }
+            default:
+              unitOutput = inVals[0] || '0';
+              break;
+          }
+
+          if (unit.outputPins && unit.outputPins.length > 0) {
+            for (const outPin of unit.outputPins) {
+              outputs[String(outPin)] = unitOutput;
+              outputs[`pin${outPin}`] = unitOutput;
+              newState.pinValues[String(outPin)] = unitOutput;
+              newState.pinValues[`pin${outPin}`] = unitOutput;
+            }
+          }
+        }
+      }
+
+      // 3. Evaluate Internal Circuit (if defined)
+      if (customDef.internalCircuit && customDef.internalCircuit.components.length > 0) {
         const internalCircuit: Circuit =
           comp.state?.internalCircuitState ||
           JSON.parse(JSON.stringify(customDef.internalCircuit));
 
         // Inject custom IC input pins to internal components
-        for (const pinMap of customDef.pins) {
+        for (const pinMap of customDef.pins || []) {
+          const pNum = pinMap.pinNumber ?? pinMap.pin;
           if (pinMap.type === 'input' && pinMap.internalComponentId) {
             const intComp = internalCircuit.components.find((c) => c.id === pinMap.internalComponentId);
             if (intComp) {
-              const val = getIn(String(pinMap.pin));
+              const val = getIn(String(pNum));
               if (intComp.state) {
                 intComp.state.toggleState = val === '1';
                 intComp.state.buttonPressed = val === '1';
@@ -2187,7 +2318,8 @@ function evaluateSingleComponent(comp: CircuitComponent): {
         newState.internalCircuitState = simResult.circuit;
 
         // Map internal outputs back to custom IC output pins
-        for (const pinMap of customDef.pins) {
+        for (const pinMap of customDef.pins || []) {
+          const pNum = pinMap.pinNumber ?? pinMap.pin;
           if (pinMap.type === 'output' && pinMap.internalComponentId) {
             const intComp = simResult.circuit.components.find((c) => c.id === pinMap.internalComponentId);
             if (intComp) {
@@ -2197,10 +2329,19 @@ function evaluateSingleComponent(comp: CircuitComponent): {
               } else if (intComp.inputs && intComp.inputs.length > 0) {
                 outVal = intComp.inputs[0].value;
               }
-              outputs[String(pinMap.pin)] = pinMap.inverted ? (outVal === '1' ? '0' : '1') : outVal;
+              const finalOut = pinMap.inverted ? (outVal === '1' ? '0' : '1') : outVal;
+              outputs[String(pNum)] = finalOut;
+              outputs[`pin${pNum}`] = finalOut;
+              newState.pinValues[String(pNum)] = finalOut;
+              newState.pinValues[`pin${pNum}`] = finalOut;
             }
           }
         }
+      }
+
+      // Record input pin values into pinValues state
+      for (const inp of comp.inputs) {
+        newState.pinValues[inp.id] = inp.value;
       }
       break;
     }

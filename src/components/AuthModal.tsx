@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Circuit, User, SavedCircuit } from '../types/circuit';
 import {
   loginUser,
@@ -9,6 +9,14 @@ import {
   deleteUserCircuit,
   downloadCircuitToFile,
 } from '../services/storage';
+import {
+  apiLogin,
+  apiRegister,
+  apiLogout,
+  apiGetCircuits,
+  apiSaveCircuit,
+  apiDeleteCircuit,
+} from '../services/apiClient';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -31,75 +39,155 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [mode, setMode] = useState<'profile' | 'login' | 'register'>('profile');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [authError, setAuthError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   // Profile Save Form State
   const [isSavingCircuit, setIsSavingCircuit] = useState(false);
   const [saveCircuitName, setSaveCircuitName] = useState('');
   const [saveCircuitDesc, setSaveCircuitDesc] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [userCircuits, setUserCircuits] = useState<SavedCircuit[]>([]);
 
-  if (!isOpen) return null;
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-    const res = loginUser(username, password);
-    if (res.success && res.user) {
-      onUserChanged(res.user);
-      setUsername('');
-      setPassword('');
-      onClose();
-    } else {
-      setAuthError(res.error || 'Login failed.');
+  const fetchUserCircuits = async () => {
+    if (!currentUser) {
+      setUserCircuits([]);
+      return;
+    }
+    try {
+      const apiCircs = await apiGetCircuits();
+      const mapped: SavedCircuit[] = apiCircs.map((c) => ({
+        id: c.id,
+        userId: currentUser.id,
+        name: c.name,
+        description: '',
+        circuit: c.circuit,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        componentCount: c.circuit.components?.length || 0,
+        wireCount: c.circuit.wires?.length || 0,
+      }));
+      setUserCircuits(mapped);
+    } catch {
+      // Fallback to local storage
+      setUserCircuits(getUserCircuits(currentUser.id));
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isOpen && currentUser) {
+      fetchUserCircuits();
+    }
+  }, [isOpen, currentUser]);
+
+  if (!isOpen) return null;
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    const res = registerUser(username, password, displayName);
-    if (res.success && res.user) {
-      onUserChanged(res.user);
-      setUsername('');
-      setPassword('');
-      setDisplayName('');
-      onClose();
-    } else {
-      setAuthError(res.error || 'Registration failed.');
+    setLoading(true);
+    try {
+      const res = await apiLogin(username, password);
+      if (res.user) {
+        onUserChanged(res.user);
+        setUsername('');
+        setPassword('');
+        onClose();
+        return;
+      }
+    } catch (apiErr: any) {
+      // Fallback to local user storage
+      const res = loginUser(username, password);
+      if (res.success && res.user) {
+        onUserChanged(res.user);
+        setUsername('');
+        setPassword('');
+        onClose();
+        return;
+      }
+      setAuthError(apiErr.message || res.error || 'Invalid username or password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setLoading(true);
+    try {
+      const res = await apiRegister(
+        username,
+        email || `${username}@circuitflow.local`,
+        password,
+        displayName || username
+      );
+      if (res.user) {
+        onUserChanged(res.user);
+        setUsername('');
+        setEmail('');
+        setPassword('');
+        setDisplayName('');
+        onClose();
+        return;
+      }
+    } catch (apiErr: any) {
+      // Fallback to local storage register
+      const res = registerUser(username, password, displayName);
+      if (res.success && res.user) {
+        onUserChanged(res.user);
+        setUsername('');
+        setPassword('');
+        setDisplayName('');
+        onClose();
+        return;
+      }
+      setAuthError(apiErr.message || res.error || 'Registration failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleLogout = () => {
+    apiLogout();
     logoutUser();
     onLoggedOut?.();
     onClose();
   };
 
-  const handleSaveActiveCircuit = (e: React.FormEvent) => {
+  const handleSaveActiveCircuit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !currentCircuit || !saveCircuitName.trim()) return;
-    saveUserCircuit(currentUser.id, saveCircuitName, saveCircuitDesc, currentCircuit);
+    try {
+      await apiSaveCircuit(saveCircuitName.trim(), currentCircuit);
+    } catch {
+      saveUserCircuit(currentUser.id, saveCircuitName, saveCircuitDesc, currentCircuit);
+    }
     setSaveSuccessMsg(`Saved "${saveCircuitName.trim()}" to your private vault!`);
     setSaveCircuitName('');
     setSaveCircuitDesc('');
     setIsSavingCircuit(false);
+    fetchUserCircuits();
     setTimeout(() => setSaveSuccessMsg(''), 4000);
   };
 
-  const handleDeleteCircuit = (id: string, e: React.MouseEvent) => {
+  const handleDeleteCircuit = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentUser) return;
     if (window.confirm('Delete this circuit from your private vault?')) {
-      deleteUserCircuit(currentUser.id, id);
+      try {
+        await apiDeleteCircuit(id);
+      } catch {
+        deleteUserCircuit(currentUser.id, id);
+      }
+      fetchUserCircuits();
       setSaveSuccessMsg('Circuit deleted from vault.');
       setTimeout(() => setSaveSuccessMsg(''), 3000);
     }
   };
-
-  const userCircuits: SavedCircuit[] = currentUser ? getUserCircuits(currentUser.id) : [];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -423,8 +511,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              <button type="submit" className="header-btn primary" style={{ width: '100%', padding: '10px' }}>
-                Unlock & Log In
+              <button type="submit" className="header-btn primary" style={{ width: '100%', padding: '10px' }} disabled={loading}>
+                {loading ? 'Authenticating...' : 'Unlock & Log In'}
               </button>
             </form>
           )}
@@ -484,8 +572,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              <button type="submit" className="header-btn primary" style={{ width: '100%', padding: '10px' }}>
-                Create Account & Log In
+              <button type="submit" className="header-btn primary" style={{ width: '100%', padding: '10px' }} disabled={loading}>
+                {loading ? 'Creating Account...' : 'Create Account & Log In'}
               </button>
             </form>
           )}

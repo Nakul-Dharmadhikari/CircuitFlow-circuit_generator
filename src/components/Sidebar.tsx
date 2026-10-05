@@ -112,12 +112,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSelectComponent = (type: ComponentType) => {
     onAddComponent(type);
-    onClose?.(); // Auto-minimize drawer when an IC or gate is added!
   };
 
   const handleSelectCustomIC = (ic: CustomICDefinition) => {
     onAddCustomIC?.(ic);
-    onClose?.(); // Auto-minimize drawer when custom IC is added!
   };
 
   const filteredItems = TOOLBOX_ITEMS.filter(
@@ -134,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const categories: { id: ComponentCategory; title: string; badge?: string }[] = [
-    { id: 'dip_ics', title: '74-Series DIP-20 ICs', badge: '20-Pin' },
+    { id: 'dip_ics', title: '74-Series DIP ICs', badge: '20-Pin' },
     { id: 'gates', title: 'Logic Gates', badge: 'Basic' },
     { id: 'my_ics', title: 'My Custom ICs', badge: `${customICs.length} ICs` },
     { id: 'io', title: 'Inputs & Controls' },
@@ -144,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="component-toolbox drawer-mode">
+    <aside className="component-toolbox drawer-mode" aria-label="Component Library">
       <div className="toolbox-header">
         <div className="toolbox-header-top">
           <span className="toolbox-header-title">COMPONENT LIBRARY</span>
@@ -205,8 +203,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div
                         key={ic.id}
                         className="component-card custom-ic-card"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/circuitflow-custom-ic', JSON.stringify(ic));
+                          e.dataTransfer.setData('text/plain', `custom_ic:${ic.id}`);
+                        }}
                         onClick={() => handleSelectCustomIC(ic)}
-                        title={`Place ${ic.partNumber || ic.code} on canvas`}
+                        title={`Click or Drag to place ${ic.partNumber || ic.code} on canvas`}
                       >
                         <div className="card-icon-svg">
                           <GateSymbol type="custom_ic" width={42} height={24} />
@@ -249,8 +252,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div
                     key={item.type}
                     className="component-card"
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('application/circuitflow-component', item.type);
+                      e.dataTransfer.setData('text/plain', item.type);
+                    }}
                     onClick={() => handleSelectComponent(item.type)}
-                    title={`Click to place ${item.name} on canvas`}
+                    title={`Click or Drag to place ${item.name} on canvas`}
                   >
                     <div className="card-icon-svg">
                       <GateSymbol type={item.type} width={42} height={24} />
@@ -267,3 +275,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
   );
 };
+export default Sidebar;
+

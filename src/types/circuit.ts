@@ -92,6 +92,37 @@ export type ComponentType =
   | 'breadboard_mini' // Mini Solderless Breadboard (170 tie-points)
   | 'junction';
 
+export type InternalGateType =
+  | 'and_2'
+  | 'or_2'
+  | 'nand_2'
+  | 'nor_2'
+  | 'xor_2'
+  | 'xnor_2'
+  | 'not'
+  | 'buffer'
+  | 'and_3'
+  | 'or_3'
+  | 'nand_3'
+  | 'nor_3'
+  | 'and_4'
+  | 'or_4'
+  | 'and_6'
+  | 'and_8'
+  | 'mux_2to1'
+  | 'd_flipflop'
+  | 'jk_flipflop';
+
+export interface InternalGateUnit {
+  id: string;
+  type: InternalGateType;
+  label?: string;
+  inputPins: number[];   // e.g. [1, 2] for 2-in AND, [7, 8, 9, 10, 11, 12] for 6-in AND
+  outputPins: number[];  // e.g. [3]
+  clockPin?: number;
+  enablePin?: number;
+}
+
 export interface CustomICPinMapping {
   pin: number; // 1..pinCount
   pinNumber?: number;
@@ -111,6 +142,9 @@ export interface CustomICDefinition {
   partNumber?: string;
   description?: string;
   pinCount: 14 | 16 | 20;
+  vccPin?: number;
+  gndPin?: number;
+  gateUnits?: InternalGateUnit[];
   circuit?: Circuit;
   internalCircuit?: Circuit;
   pins: CustomICPinMapping[];
@@ -150,6 +184,7 @@ export interface CircuitComponent {
   y: number;
   width: number;
   height: number;
+  rotation?: number; // 0, 90, 180, 270 degrees
   inputs: Pin[];
   outputs: Pin[];
   state?: {

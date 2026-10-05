@@ -91,6 +91,7 @@ export function App() {
 
   // Selection: Component, Wire, Trainer Board, or Complete Circuit
   const [selectedCompId, setSelectedCompId] = useState<string | null>(null);
+  const [selectedCompIds, setSelectedCompIds] = useState<string[]>([]);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
   const [selectedBoardIndex, setSelectedBoardIndex] = useState<number | null>(null);
   const [isAllSelected, setIsAllSelected] = useState<boolean>(false);
@@ -109,6 +110,8 @@ export function App() {
   const [isSavedCircuitsOpen, setIsSavedCircuitsOpen] = useState(false);
   const [isCustomICModalOpen, setIsCustomICModalOpen] = useState(false);
   const [isComponentLibraryOpen, setIsComponentLibraryOpen] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
   const [pickerBaseIndex, setPickerBaseIndex] = useState<number | null>(null);
 
   // Waveform History Buffer
@@ -164,6 +167,165 @@ export function App() {
       }),
     }));
   };
+
+  // Fit Circuit to Screen
+  const handleFitCircuit = useCallback(() => {
+    const comps =
+      workbenchMode === 'freeform'
+        ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_'))
+        : circuit.components;
+    if (comps.length === 0) {
+      setPan({ x: 20, y: 15 });
+      setZoom(1);
+      return;
+    }
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    comps.forEach((c) => {
+      const w = c.width || 80;
+      const h = c.height || 60;
+      minX = Math.min(minX, c.x);
+      minY = Math.min(minY, c.y);
+      maxX = Math.max(maxX, c.x + w);
+      maxY = Math.max(maxY, c.y + h);
+    });
+    const margin = 80;
+    const availableW =
+      window.innerWidth - (isPropertiesOpen ? 260 : 0) - (isComponentLibraryOpen ? 240 : 0);
+    const availableH = window.innerHeight - 50;
+    const circuitW = maxX - minX + margin * 2;
+    const circuitH = maxY - minY + margin * 2;
+    const fitZoom = Math.min(
+      Math.max(Math.min(availableW / circuitW, availableH / circuitH), 0.35),
+      1.75
+    );
+    const centerX = minX + (maxX - minX) / 2;
+    const centerY = minY + (maxY - minY) / 2;
+    setZoom(fitZoom);
+    setPan({
+      x: Math.round(availableW / 2 - centerX * fitZoom),
+      y: Math.round(availableH / 2 - centerY * fitZoom),
+    });
+    soundFx.playButtonTap();
+    showToast('Fit circuit to screen');
+  }, [circuit.components, isComponentLibraryOpen, isPropertiesOpen, workbenchMode]);
+
+  // Rotate Component (90 degrees)
+  const handleRotateComponent = useCallback(
+    (id: string) => {
+      setCircuitDirect((prev) => ({
+        ...prev,
+        components: prev.components.map((c) => {
+          if (c.id !== id || c.isTrainerFixed) return c;
+          const currentRot = c.rotation || 0;
+          const newRot = (currentRot + 90) % 360;
+          return { ...c, rotation: newRot };
+        }),
+      }));
+      soundFx.playButtonTap();
+      showToast('Rotated component (90°)');
+    },
+    []
+  );
+
+  // Export Circuit JSON
+  const handleExportJson = useCallback(() => {
+    const data = JSON.stringify(circuit, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `circuitflow_design_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    soundFx.playButtonTap();
+    showToast('Circuit exported as JSON');
+  }, [circuit]);
+
+  // Import Circuit JSON
+  const handleImportJson = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (parsed && Array.isArray(parsed.components) && Array.isArray(parsed.wires)) {
+          const res = simulateCircuit(parsed);
+          pushState(res.circuit);
+          soundFx.playButtonTap();
+          showToast('Circuit imported successfully');
+        } else {
+          showToast('Invalid circuit file structure');
+        }
+      } catch {
+        showToast('Failed to parse circuit JSON file');
+      }
+    };
+    input.click();
+  }, [pushState]);
+
+  // Drag and drop placement handlers from sidebar library
+  const handleDropComponent = useCallback(
+    (type: ComponentType, pos: { x: number; y: number }) => {
+      const newComp = createComponent(type, pos.x, pos.y);
+      const nextCircuit = {
+        ...circuit,
+        components: [...circuit.components, newComp],
+      };
+      const res = simulateCircuit(nextCircuit);
+      pushState(res.circuit);
+      setSelectedCompId(newComp.id);
+      setSelectedWireId(null);
+      soundFx.playButtonTap();
+      showToast(`Placed ${newComp.label} on canvas`);
+    },
+    [circuit, pushState]
+  );
+
+  const handleDropCustomIC = useCallback(
+    (ic: CustomICDefinition, pos: { x: number; y: number }) => {
+      const newComp = createComponent(
+        'custom_ic',
+        pos.x,
+        pos.y,
+        ic.partNumber || ic.code,
+        { customIC: ic }
+      );
+      const nextCircuit = {
+        ...circuit,
+        components: [...circuit.components, newComp],
+      };
+      const res = simulateCircuit(nextCircuit);
+      pushState(res.circuit);
+      setSelectedCompId(newComp.id);
+      setSelectedWireId(null);
+      soundFx.playButtonTap();
+      showToast(`Placed ${ic.partNumber || ic.name} on canvas`);
+    },
+    [circuit, pushState]
+  );
+
+  // Rotate selected component
+  const handleRotateSelectedComponent = useCallback(() => {
+    if (!selectedCompId) return;
+    const comp = circuit.components.find((c) => c.id === selectedCompId);
+    if (!comp || comp.isTrainerFixed) return;
+    const currentRot = comp.rotation || 0;
+    const nextRot = (currentRot + 90) % 360;
+    const updatedComps = circuit.components.map((c) =>
+      c.id === selectedCompId ? { ...c, rotation: nextRot } : c
+    );
+    const res = simulateCircuit({ ...circuit, components: updatedComps });
+    pushState(res.circuit);
+    soundFx.playButtonTap();
+    showToast(`Rotated ${comp.label} to ${nextRot}°`);
+  }, [circuit, selectedCompId, pushState]);
 
   // Record a sample for the waveform analyzer
   const recordWaveformSample = useCallback((c: Circuit) => {
@@ -1064,7 +1226,8 @@ export function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'SELECT'
+        document.activeElement?.tagName === 'SELECT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
       ) {
         return;
       }
@@ -1132,8 +1295,39 @@ export function App() {
         return;
       }
 
-      // Space: Run/Pause
-      if (e.code === 'Space') {
+      // Fit Circuit: F
+      if (!isCtrlOrCmd && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        handleFitCircuit();
+        return;
+      }
+
+      // Toggle Grid: G
+      if (!isCtrlOrCmd && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        setShowGrid((g) => !g);
+        showToast(showGrid ? 'Grid hidden' : 'Grid visible');
+        return;
+      }
+
+      // Rotate Component: R
+      if (!isCtrlOrCmd && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        handleRotateSelectedComponent();
+        return;
+      }
+
+      // Reset Zoom / Center: Ctrl+0
+      if (isCtrlOrCmd && e.key === '0') {
+        e.preventDefault();
+        setZoom(1);
+        setPan({ x: 20, y: 15 });
+        showToast('View reset to 100%');
+        return;
+      }
+
+      // Space: Run/Pause (handled when not panning)
+      if (e.code === 'Space' && !e.shiftKey) {
         e.preventDefault();
         setIsRunning((r) => !r);
       } else if (e.key === 't' || e.key === 'T') {
@@ -1183,17 +1377,22 @@ export function App() {
     canRedo,
     undo,
     redo,
+    showGrid,
     handleSelectAll,
     handleCopy,
     handlePaste,
     handleClearCanvas,
+    handleFitCircuit,
+    handleRotateSelectedComponent,
     runSimulationStep,
     handleDeleteComponent,
     handleDeleteWire,
     handleRemoveTrainerBoard,
+    handleNewCircuit,
   ]);
 
   const selectedComponent = circuit.components.find((c) => c.id === selectedCompId) || null;
+  const selectedWire = circuit.wires.find((w) => w.id === selectedWireId) || null;
 
   const currentMountedIC =
     pickerBaseIndex !== null
@@ -1262,14 +1461,18 @@ export function App() {
         </div>
       )}
 
-      {/* Top Header Controls (Minimalistic Green Theme with Direct Circuit Analysis) */}
+      {/* Top Header Fixed Navigation & Actions Bar */}
       <Header
         isRunning={isRunning}
         onToggleRun={() => setIsRunning((r) => !r)}
         onStep={runSimulationStep}
         zoom={zoom}
         onZoomChange={setZoom}
-        onResetZoom={() => setZoom(1)}
+        onResetZoom={() => {
+          setZoom(1);
+          setPan({ x: 20, y: 15 });
+        }}
+        onFitCircuit={handleFitCircuit}
         isWaveformOpen={isWaveformOpen}
         onToggleWaveform={() => setIsWaveformOpen((v) => !v)}
         onOpenTruthTable={() => setIsTruthTableOpen(true)}
@@ -1279,6 +1482,9 @@ export function App() {
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenSavedCircuits={() => setIsSavedCircuitsOpen(true)}
         onNewCircuit={handleNewCircuit}
+        onSaveCircuit={() => setIsSavedCircuitsOpen(true)}
+        onExportJson={handleExportJson}
+        onImportJson={handleImportJson}
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
         theme={theme}
@@ -1289,11 +1495,37 @@ export function App() {
         workbenchMode={workbenchMode}
         onToggleWorkbenchMode={setWorkbenchMode}
         onAddTrainerBoard={handleAddTrainerBoard}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+        onCopy={handleCopy}
+        onPaste={() => handlePaste()}
+        onSelectAll={handleSelectAll}
+        onDeleteSelected={() => {
+          if (isAllSelected) {
+            handleClearCanvas();
+          } else if (selectedBoardIndex !== null) {
+            handleRemoveTrainerBoard(selectedBoardIndex);
+            setSelectedBoardIndex(null);
+          } else if (selectedCompId) {
+            handleDeleteComponent(selectedCompId);
+          } else if (selectedWireId) {
+            handleDeleteWire(selectedWireId);
+          }
+        }}
+        onClearCanvas={handleClearCanvas}
+        showGrid={showGrid}
+        onToggleGrid={() => setShowGrid((g) => !g)}
+        isLibraryOpen={isComponentLibraryOpen}
+        onToggleLibrary={() => setIsComponentLibraryOpen((prev) => !prev)}
+        isPropertiesOpen={isPropertiesOpen}
+        onToggleProperties={() => setIsPropertiesOpen((prev) => !prev)}
       />
 
-      {/* Main Workspace */}
+      {/* Main Workspace Layout (Left Sidebar, Center Canvas, Right Properties Panel) */}
       <div className="main-workspace">
-        {/* Left Component Toolbox Drawer (Auto-minimizes on component placement) */}
+        {/* Left Component Toolbox Drawer */}
         <Sidebar
           isOpen={isComponentLibraryOpen}
           onClose={() => setIsComponentLibraryOpen(false)}
@@ -1304,27 +1536,41 @@ export function App() {
           onDeleteCustomIC={handleDeleteCustomIC}
         />
 
-        {/* Center Interactive Circuit Canvas */}
+        {/* Center Interactive Infinite Circuit Canvas */}
         <Canvas
           circuit={circuit}
           selectedCompId={selectedCompId}
+          selectedCompIds={selectedCompIds}
           selectedWireId={selectedWireId}
           selectedBoardIndex={selectedBoardIndex}
           isAllSelected={isAllSelected}
+          showGrid={showGrid}
           onSelectComponent={(id) => {
             setSelectedCompId(id);
+            setSelectedCompIds(id ? [id] : []);
             setIsAllSelected(false);
             if (id) {
               setSelectedWireId(null);
               setSelectedBoardIndex(null);
+              setIsPropertiesOpen(true);
             }
+          }}
+          onSelectMultipleComponents={(ids) => {
+            setSelectedCompIds(ids);
+            setSelectedCompId(ids[0] || null);
+            setIsAllSelected(false);
+            setSelectedWireId(null);
+            setSelectedBoardIndex(null);
+            setIsPropertiesOpen(true);
           }}
           onSelectWire={(id) => {
             setSelectedWireId(id);
             setIsAllSelected(false);
             if (id) {
               setSelectedCompId(null);
+              setSelectedCompIds([]);
               setSelectedBoardIndex(null);
+              setIsPropertiesOpen(true);
             }
           }}
           onSelectBoard={(bIdx) => {
@@ -1332,7 +1578,9 @@ export function App() {
             setIsAllSelected(false);
             if (bIdx !== null) {
               setSelectedCompId(null);
+              setSelectedCompIds([]);
               setSelectedWireId(null);
+              setIsPropertiesOpen(true);
             }
           }}
           onUpdateComponentPosition={handleUpdateComponentPosition}
@@ -1359,12 +1607,21 @@ export function App() {
             } else if (selectedBoardIndex !== null) {
               handleRemoveTrainerBoard(selectedBoardIndex);
               setSelectedBoardIndex(null);
+            } else if (selectedCompIds.length > 1) {
+              selectedCompIds.forEach((id) => handleDeleteComponent(id));
+              setSelectedCompIds([]);
+              setSelectedCompId(null);
             } else if (selectedCompId) {
               handleDeleteComponent(selectedCompId);
+              setSelectedCompId(null);
             } else if (selectedWireId) {
               handleDeleteWire(selectedWireId);
+              setSelectedWireId(null);
             }
           }}
+          onRotateComponent={handleRotateComponent}
+          onFitCircuit={handleFitCircuit}
+          onToggleGrid={() => setShowGrid((g) => !g)}
           canUndo={canUndo}
           canRedo={canRedo}
           onUndo={undo}
@@ -1379,15 +1636,24 @@ export function App() {
           pan={pan}
           onPanChange={setPan}
           onZoomChange={setZoom}
+          onDropComponent={handleDropComponent}
+          onDropCustomIC={handleDropCustomIC}
         />
 
-        {/* Floating Component Properties Inspector */}
+        {/* Right Docked Properties Inspector */}
         <PropertiesPanel
           component={selectedComponent}
+          selectedWire={selectedWire}
+          selectedBoardIndex={selectedBoardIndex}
+          circuit={circuit}
+          isOpen={isPropertiesOpen}
+          onClose={() => setIsPropertiesOpen(false)}
           onUpdateLabel={handleUpdateLabel}
           onUpdateProps={handleUpdateProps}
           onDeleteComponent={handleDeleteComponent}
-          onClose={() => setSelectedCompId(null)}
+          onDeleteWire={handleDeleteWire}
+          onRemoveBoard={handleRemoveTrainerBoard}
+          onCopyBoard={handleCopyBoard}
         />
       </div>
 
