@@ -43,6 +43,8 @@ interface TopBarProps {
   onZoomOut?: () => void;
   zoom?: number;
   onSaveCircuit?: () => void;
+  onExportJson?: () => void;
+  onImportJson?: () => void;
   onToggleLibrary?: () => void;
   onToggleInspector?: () => void;
   clockHz: number;
@@ -90,6 +92,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onZoomOut,
   zoom = 1,
   onSaveCircuit,
+  onExportJson,
+  onImportJson,
   onToggleLibrary,
   onToggleInspector,
   clockHz,
@@ -221,6 +225,31 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span>Save As / Project Vault...</span>
                 </button>
+                <div className="dropdown-divider" />
+                {onExportJson && (
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      onExportJson();
+                      closeMenu();
+                    }}
+                  >
+                    <span>Export Circuit JSON</span>
+                  </button>
+                )}
+                {onImportJson && (
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      onImportJson();
+                      closeMenu();
+                    }}
+                  >
+                    <span>Import Circuit JSON</span>
+                  </button>
+                )}
                 <div className="dropdown-divider" />
                 <button
                   type="button"

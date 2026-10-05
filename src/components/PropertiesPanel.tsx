@@ -382,7 +382,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <div className="overview-stats-grid">
               <div className="overview-stat-tile">
                 <span className="stat-label">IC Sockets</span>
-                <span className="stat-value">{activeModule.icSlotsCount}</span>
+                <span className="stat-value">{activeModule.icCount}</span>
               </div>
               <div className="overview-stat-tile">
                 <span className="stat-label">Inputs</span>

@@ -59,7 +59,7 @@ export interface ComponentViewState {
   y: number;
   width: number;
   height: number;
-  rotation?: 0 | 90 | 180 | 270;
+  rotation?: number;
   pins?: { id: string; x: number; y: number }[];
   selected?: boolean;
   zIndex?: number;

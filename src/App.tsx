@@ -230,23 +230,7 @@ export function App() {
     showToast('Fit circuit to screen');
   }, [circuit.components, isComponentLibraryOpen, isPropertiesOpen, workbenchMode]);
 
-  // Rotate Component (90 degrees)
-  const handleRotateComponent = useCallback(
-    (id: string) => {
-      setCircuitDirect((prev) => ({
-        ...prev,
-        components: prev.components.map((c) => {
-          if (c.id !== id || c.isTrainerFixed) return c;
-          const currentRot = c.rotation || 0;
-          const newRot = (currentRot + 90) % 360;
-          return { ...c, rotation: newRot };
-        }),
-      }));
-      soundFx.playButtonTap();
-      showToast('Rotated component (90°)');
-    },
-    []
-  );
+
 
   // Export Circuit JSON
   const handleExportJson = useCallback(() => {
@@ -1612,6 +1596,8 @@ export function App() {
       onZoomIn={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}
       onZoomOut={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))}
       onSaveCircuit={() => downloadCircuitToFile(circuit, projectName)}
+      onExportJson={handleExportJson}
+      onImportJson={handleImportJson}
       onToggleLibrary={() => setIsComponentLibraryOpen((prev) => !prev)}
       clockHz={clockHz}
       onClockHzChange={setClockHz}

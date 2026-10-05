@@ -27,10 +27,10 @@ circuit = { ...circuit, components: movedComponents };
 
 const movedBoards = getTrainerBoards(circuit.components);
 console.log(`Board offset after drag: (${movedBoards[0].offsetX}, ${movedBoards[0].offsetY})`);
-if (movedBoards[0].offsetX === 150 && movedBoards[0].offsetY === 80) {
+if (movedBoards[0].offsetX === initialBoards[0].offsetX + deltaX && movedBoards[0].offsetY === initialBoards[0].offsetY + deltaY) {
   console.log('✅ PASS: getTrainerBoards dynamically computes the dragged position offset!');
 } else {
-  console.error(`❌ FAIL: Expected offset (150, 80), got (${movedBoards[0].offsetX}, ${movedBoards[0].offsetY})`);
+  console.error(`❌ FAIL: Expected offset (${initialBoards[0].offsetX + deltaX}, ${initialBoards[0].offsetY + deltaY}), got (${movedBoards[0].offsetX}, ${movedBoards[0].offsetY})`);
 }
 
 // 2. Test Pasting a Trainer Board at Target Location

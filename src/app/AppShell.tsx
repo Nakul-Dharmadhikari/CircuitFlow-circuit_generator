@@ -45,6 +45,8 @@ interface AppShellProps {
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onSaveCircuit?: () => void;
+  onExportJson?: () => void;
+  onImportJson?: () => void;
   onToggleLibrary?: () => void;
   onToggleInspector?: () => void;
   clockHz: number;
@@ -100,6 +102,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   onZoomIn,
   onZoomOut,
   onSaveCircuit,
+  onExportJson,
+  onImportJson,
   onToggleLibrary,
   onToggleInspector,
   clockHz,
@@ -158,6 +162,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         onZoomOut={onZoomOut}
         zoom={zoom}
         onSaveCircuit={onSaveCircuit}
+        onExportJson={onExportJson}
+        onImportJson={onImportJson}
         onToggleLibrary={onToggleLibrary}
         onToggleInspector={onToggleInspector}
         clockHz={clockHz}

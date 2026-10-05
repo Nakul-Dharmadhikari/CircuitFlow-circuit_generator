@@ -291,6 +291,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', serverTime: Date.now(), service: 'CircuitFlow Backend API' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`[CircuitFlow Backend] Production API running on http://localhost:${PORT}`);
 });
