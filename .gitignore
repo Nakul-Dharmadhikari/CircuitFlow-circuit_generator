@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# SQLite runtime and database files
+server/*.db
+server/*.db-shm
+server/*.db-wal
+*.db
+*.db-shm
+*.db-wal
