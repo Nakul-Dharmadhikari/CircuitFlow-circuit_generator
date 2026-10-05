@@ -6,6 +6,7 @@ import { TrainerBoard } from './TrainerBoard';
 import { VerticalToolbar } from './VerticalToolbar';
 import { soundFx } from '../audio/soundEffects';
 import { TRAINER_BOARD_LAYOUT, getTrainerBoards } from '../engine/trainerKit';
+import { getRotatedPinCoords } from '../utils/geometry';
 
 interface InProgressWire {
   fromCompId: string;
@@ -23,7 +24,7 @@ interface CanvasProps {
   isAllSelected?: boolean;
   onSelectComponent: (id: string | null) => void;
   onSelectWire?: (wireId: string | null) => void;
-  onSelectBoard?: (boardIndex: number | null) => void;
+  onSelectBoard?: (boardIndexOrId: any) => void;
   onUpdateComponentPosition: (id: string, x: number, y: number) => void;
   onUpdateMultipleComponentPositions?: (updates: Array<{ id: string; x: number; y: number }>) => void;
   onDragStart?: (compId: string) => void;
@@ -48,6 +49,7 @@ interface CanvasProps {
   onCopyBoard?: (boardIndex: number) => void;
   onPasteAtPosition?: (pos: { x: number; y: number }) => void;
   onDeleteSelected?: () => void;
+  onRotateComponent?: (id: string) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -60,6 +62,12 @@ interface CanvasProps {
   pan: { x: number; y: number };
   onPanChange: (pan: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
+  isSchematicMode?: boolean;
+  onAddModule?: () => void;
+  onRemoveModule?: (moduleId?: string) => void;
+  onSelectModule?: (moduleId: string | null) => void;
+  selectedBoardId?: string | null;
+  selectedModuleId?: string | null;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -90,6 +98,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onCopyBoard,
   onPasteAtPosition,
   onDeleteSelected,
+  onRotateComponent,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -102,6 +111,13 @@ export const Canvas: React.FC<CanvasProps> = ({
   pan,
   onPanChange,
   onZoomChange,
+  isSchematicMode = false,
+  onAddModule,
+  onRemoveModule,
+  onSelectBoard,
+  onSelectModule,
+  selectedBoardId,
+  selectedModuleId,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mouseWorldPosRef = useRef<{ x: number; y: number }>({ x: 300, y: 300 });
@@ -114,6 +130,14 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Rubber-band selection box state
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
 
   // Wiring states
   const [inProgressWire, setInProgressWire] = useState<InProgressWire | null>(null);
@@ -219,10 +243,21 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleMouseDown = (e: React.MouseEvent) => {
     if (contextMenu) setContextMenu(null);
 
-    if (e.button === 1 || e.altKey || (e.button === 0 && e.target === containerRef.current)) {
+    if (e.button === 1 || e.altKey) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    } else if (e.target === containerRef.current) {
+    } else if (e.target === containerRef.current && e.button === 0) {
+      if (interactionMode === 'move') {
+        setIsPanning(true);
+        setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      } else {
+        setSelectionBox({
+          startX: e.clientX,
+          startY: e.clientY,
+          currentX: e.clientX,
+          currentY: e.clientY,
+        });
+      }
       onSelectComponent(null);
       onSelectWire?.(null);
       onSelectBoard?.(null);
@@ -241,8 +276,9 @@ export const Canvas: React.FC<CanvasProps> = ({
         const allPins = [...comp.inputs, ...comp.outputs];
         for (const pin of allPins) {
           if (comp.id === excludeCompId && pin.id === excludePinId) continue;
-          const pinWorldX = comp.x + pin.x;
-          const pinWorldY = comp.y + pin.y;
+          const pinCoords = getRotatedPinCoords(comp, pin);
+          const pinWorldX = pinCoords.x;
+          const pinWorldY = pinCoords.y;
           const dist = Math.hypot(worldX - pinWorldX, worldY - pinWorldY);
           if (dist < maxDist && (!nearest || dist < nearest.dist)) {
             nearest = { compId: comp.id, pin, x: pinWorldX, y: pinWorldY, dist };
@@ -360,6 +396,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       return;
     }
 
+<<<<<<< HEAD
     // Dragging an entire Digital Trainer Board
     if (draggingBoardIndex !== null && boardInitialCompPositionsRef.current.size > 0) {
       const deltaX = world.x - boardDragStartWorldRef.current.x;
@@ -382,6 +419,12 @@ export const Canvas: React.FC<CanvasProps> = ({
         updates.forEach((u) => onUpdateComponentPosition(u.id, u.x, u.y));
       }
       return;
+=======
+    if (selectionBox) {
+      setSelectionBox((prev) =>
+        prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null
+      );
+>>>>>>> 24ab5d6 (feat: expandable breadboard modules)
     }
 
     if (draggingCompId) {
@@ -410,13 +453,44 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
-  // Mouse Up & Drag End (with auto snap-connect)
+  // Mouse Up & Drag End (with auto snap-connect and box selection)
   const handleMouseUp = (e: React.MouseEvent) => {
     if (isPanning) setIsPanning(false);
+<<<<<<< HEAD
     if (draggingBoardIndex !== null) {
       onBoardDragEnd?.(draggingBoardIndex);
       setDraggingBoardIndex(null);
     }
+=======
+
+    if (selectionBox) {
+      const minX = Math.min(selectionBox.startX, selectionBox.currentX);
+      const maxX = Math.max(selectionBox.startX, selectionBox.currentX);
+      const minY = Math.min(selectionBox.startY, selectionBox.currentY);
+      const maxY = Math.max(selectionBox.startY, selectionBox.currentY);
+
+      if (maxX - minX > 10 && maxY - minY > 10) {
+        const w1 = screenToWorld(minX, minY);
+        const w2 = screenToWorld(maxX, maxY);
+
+        const insideComps = circuit.components.filter(
+          (c) =>
+            !c.isTrainerFixed &&
+            c.x + c.width >= w1.x &&
+            c.x <= w2.x &&
+            c.y + c.height >= w1.y &&
+            c.y <= w2.y
+        );
+
+        if (insideComps.length > 0) {
+          onSelectComponent(insideComps[0].id);
+          soundFx.playButtonTap();
+        }
+      }
+      setSelectionBox(null);
+    }
+
+>>>>>>> 24ab5d6 (feat: expandable breadboard modules)
     if (draggingCompId) {
       onDragEnd?.(draggingCompId);
       setDraggingCompId(null);
@@ -438,32 +512,65 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
-  // Global mouse up safety & Context menu dismissal on Escape
+  // Global mouse up safety & Shortcuts on KeyDown
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       setIsPanning(false);
+<<<<<<< HEAD
       if (draggingBoardIndex !== null) {
         onBoardDragEnd?.(draggingBoardIndex);
         setDraggingBoardIndex(null);
       }
+=======
+      setSelectionBox(null);
+>>>>>>> 24ab5d6 (feat: expandable breadboard modules)
       if (draggingCompId) {
         onDragEnd?.(draggingCompId);
         setDraggingCompId(null);
       }
       setInProgressWire(null);
     };
+
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      if (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable) {
+        return;
+      }
+
       if (e.key === 'Escape') {
         setContextMenu(null);
+        setInProgressWire(null);
+        setSelectionBox(null);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        onDeleteSelected?.();
+      } else if (e.key === 'r' || e.key === 'R') {
+        if (selectedCompId) {
+          onRotateComponent?.(selectedCompId);
+        }
+      } else if (e.key === 'w' || e.key === 'W') {
+        setInteractionMode('wire');
+        soundFx.playButtonTap();
+      } else if (e.key === 'm' || e.key === 'M') {
+        setInteractionMode('move');
+        soundFx.playButtonTap();
+      } else if (e.key === 'd' || e.key === 'D') {
+        setInteractionMode('delete');
+        soundFx.playButtonTap();
       }
     };
+
     window.addEventListener('mouseup', handleGlobalMouseUp);
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => {
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       window.removeEventListener('keydown', handleGlobalKeyDown);
     };
+<<<<<<< HEAD
   }, [draggingBoardIndex, draggingCompId, onBoardDragEnd, onDragEnd]);
+=======
+  }, [draggingCompId, onDragEnd, selectedCompId, onRotateComponent, onDeleteSelected]);
+>>>>>>> 24ab5d6 (feat: expandable breadboard modules)
 
   // Wire double-click handler for creating in-line junction node
   const handleWireDoubleClick = (wireId: string, clientX: number, clientY: number) => {
@@ -491,13 +598,32 @@ export const Canvas: React.FC<CanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`canvas-viewport ${isPanning ? 'panning' : ''}`}
+      className={`canvas-viewport ${isPanning ? 'panning' : ''} ${isSchematicMode ? 'schematic-mode' : ''}`}
+      style={{
+        backgroundPosition: `${pan.x}px ${pan.y}px`,
+        backgroundSize: isSchematicMode
+          ? `${20 * zoom}px ${20 * zoom}px, ${20 * zoom}px ${20 * zoom}px, ${100 * zoom}px ${100 * zoom}px, ${100 * zoom}px ${100 * zoom}px`
+          : undefined,
+      }}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onContextMenu={handleContextMenu}
     >
+      {/* Rubber-band Drag Selection Box */}
+      {selectionBox && (
+        <div
+          className="canvas-selection-box"
+          style={{
+            left: `${Math.min(selectionBox.startX, selectionBox.currentX)}px`,
+            top: `${Math.min(selectionBox.startY, selectionBox.currentY)}px`,
+            width: `${Math.abs(selectionBox.currentX - selectionBox.startX)}px`,
+            height: `${Math.abs(selectionBox.currentY - selectionBox.startY)}px`,
+          }}
+        />
+      )}
+
       {/* Sleek Floating Workbench Toolbar (matching reference design) */}
       <VerticalToolbar
         interactionMode={interactionMode}
@@ -629,9 +755,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
         }}
       >
-        {/* Hardware Trainer Board (Outputs, Horizontal IC Sockets, Inputs) */}
-        {workbenchMode !== 'freeform' && (
+        {/* Hardware Trainer Board (Outputs, Horizontal IC Sockets, Inputs) - Active in Hardware Lab view */}
+        {!isSchematicMode && workbenchMode !== 'freeform' && (
           <TrainerBoard
+            circuit={circuit}
             components={circuit.components}
             selectedBoardIndex={selectedBoardIndex}
             onSelectBoard={onSelectBoard}
@@ -639,6 +766,11 @@ export const Canvas: React.FC<CanvasProps> = ({
             onRemoveBoard={onRemoveTrainerBoard}
             onStartDragBoard={handleStartDragBoard}
             onCopyBoard={onCopyBoard}
+            onAddModule={onAddModule}
+            onRemoveModule={onRemoveModule}
+            onSelectModule={onSelectModule}
+            selectedBoardId={selectedBoardId}
+            selectedModuleId={selectedModuleId}
           />
         )}
 
@@ -659,6 +791,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           selectedWireId={selectedWireId}
           isAllSelected={isAllSelected}
           isDeleteMode={interactionMode === 'delete'}
+          isSchematicMode={isSchematicMode}
           inProgressWire={inProgressWire}
           onSelectWire={onSelectWire}
           onDeleteWire={onDeleteWire}
