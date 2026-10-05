@@ -114,7 +114,6 @@ export const Canvas: React.FC<CanvasProps> = ({
   isSchematicMode = false,
   onAddModule,
   onRemoveModule,
-  onSelectBoard,
   onSelectModule,
   selectedBoardId,
   selectedModuleId,
@@ -396,7 +395,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       return;
     }
 
-<<<<<<< HEAD
     // Dragging an entire Digital Trainer Board
     if (draggingBoardIndex !== null && boardInitialCompPositionsRef.current.size > 0) {
       const deltaX = world.x - boardDragStartWorldRef.current.x;
@@ -419,12 +417,12 @@ export const Canvas: React.FC<CanvasProps> = ({
         updates.forEach((u) => onUpdateComponentPosition(u.id, u.x, u.y));
       }
       return;
-=======
+    }
+
     if (selectionBox) {
       setSelectionBox((prev) =>
         prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null
       );
->>>>>>> 24ab5d6 (feat: expandable breadboard modules)
     }
 
     if (draggingCompId) {
@@ -456,12 +454,10 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Mouse Up & Drag End (with auto snap-connect and box selection)
   const handleMouseUp = (e: React.MouseEvent) => {
     if (isPanning) setIsPanning(false);
-<<<<<<< HEAD
     if (draggingBoardIndex !== null) {
       onBoardDragEnd?.(draggingBoardIndex);
       setDraggingBoardIndex(null);
     }
-=======
 
     if (selectionBox) {
       const minX = Math.min(selectionBox.startX, selectionBox.currentX);
@@ -490,7 +486,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       setSelectionBox(null);
     }
 
->>>>>>> 24ab5d6 (feat: expandable breadboard modules)
     if (draggingCompId) {
       onDragEnd?.(draggingCompId);
       setDraggingCompId(null);
@@ -516,14 +511,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       setIsPanning(false);
-<<<<<<< HEAD
       if (draggingBoardIndex !== null) {
         onBoardDragEnd?.(draggingBoardIndex);
         setDraggingBoardIndex(null);
       }
-=======
       setSelectionBox(null);
->>>>>>> 24ab5d6 (feat: expandable breadboard modules)
       if (draggingCompId) {
         onDragEnd?.(draggingCompId);
         setDraggingCompId(null);
@@ -566,11 +558,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       window.removeEventListener('keydown', handleGlobalKeyDown);
     };
-<<<<<<< HEAD
-  }, [draggingBoardIndex, draggingCompId, onBoardDragEnd, onDragEnd]);
-=======
-  }, [draggingCompId, onDragEnd, selectedCompId, onRotateComponent, onDeleteSelected]);
->>>>>>> 24ab5d6 (feat: expandable breadboard modules)
+  }, [draggingBoardIndex, draggingCompId, onBoardDragEnd, onDragEnd, selectedCompId, onRotateComponent, onDeleteSelected]);
 
   // Wire double-click handler for creating in-line junction node
   const handleWireDoubleClick = (wireId: string, clientX: number, clientY: number) => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Circuit, CircuitComponent } from '../types/circuit';
-import { TRAINER_BOARD_LAYOUT, getTrainerBoards } from '../engine/trainerKit';
+import { getTrainerBoards } from '../engine/trainerKit';
 import {
   TRAINER_CONSTANTS,
   type TrainerBoardModel,

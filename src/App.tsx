@@ -108,12 +108,9 @@ export function App() {
   // Selection: Component, Wire, Trainer Board, or Complete Circuit
   const [selectedCompId, setSelectedCompId] = useState<string | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
-<<<<<<< HEAD
   const [selectedBoardIndex, setSelectedBoardIndex] = useState<number | null>(null);
-=======
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
->>>>>>> ddb7874 (feat: trainer persistence)
   const [isAllSelected, setIsAllSelected] = useState<boolean>(false);
 
   // Simulation Controls
@@ -274,14 +271,6 @@ export function App() {
     commitAction(circuitRef.current, nextCircuit);
     soundFx.playButtonTap();
     showToast('Removed module from Trainer Board');
-  }, [commitAction]);
-
-  // Copy Board
-  const handleCopyBoard = useCallback((boardId: string) => {
-    const res = copyTrainerBoard(circuitRef.current, boardId);
-    commitAction(circuitRef.current, res.circuit);
-    soundFx.playButtonTap();
-    showToast('Duplicated Trainer Board');
   }, [commitAction]);
 
   // Delete Board
@@ -736,9 +725,18 @@ export function App() {
     showToast(`Complete circuit selected (${circuit.components.length} components, ${circuit.wires.length} wires)`);
   }, [circuit]);
 
-  // Copy specific Trainer Board
+  // Copy or Duplicate Trainer Board
   const handleCopyBoard = useCallback(
-    (boardIndex: number) => {
+    (boardIndexOrId: number | string) => {
+      if (typeof boardIndexOrId === 'string') {
+        const res = copyTrainerBoard(circuitRef.current, boardIndexOrId);
+        commitAction(circuitRef.current, res.circuit);
+        soundFx.playButtonTap();
+        showToast('Duplicated Trainer Board');
+        return;
+      }
+
+      const boardIndex = boardIndexOrId;
       const isBoardComp = (c: CircuitComponent) => {
         if (c.customProps?.boardIndex === boardIndex) return true;
         if (
@@ -781,7 +779,7 @@ export function App() {
       soundFx.playButtonTap();
       showToast(`Copied Digital Trainer Board #${boardIndex + 1} (${toCopyComps.length} components)`);
     },
-    [circuit]
+    [circuit, commitAction]
   );
 
   // Copy & Paste Circuit Parts (or whole circuit / selected trainer board)
@@ -1454,93 +1452,58 @@ export function App() {
         </div>
       )}
 
-<<<<<<< HEAD
-      {/* Top Header Controls (Minimalistic Green Theme with Direct Circuit Analysis) */}
-      <Header
-        isRunning={isRunning}
-        onToggleRun={() => setIsRunning((r) => !r)}
-        onStep={runSimulationStep}
-        zoom={zoom}
-        onZoomChange={setZoom}
-        onResetZoom={() => setZoom(1)}
-        isWaveformOpen={isWaveformOpen}
-        onToggleWaveform={() => setIsWaveformOpen((v) => !v)}
-        onOpenTruthTable={() => setIsTruthTableOpen(true)}
-        onOpenLabPresets={() => setIsLabPresetsOpen(true)}
-        onOpenShortcuts={() => setIsShortcutsOpen(true)}
-        currentUser={currentUser}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onOpenSavedCircuits={() => setIsSavedCircuitsOpen(true)}
-        onNewCircuit={handleNewCircuit}
-        soundEnabled={soundEnabled}
-        onToggleSound={handleToggleSound}
-        theme={theme}
-        onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-        clockHz={clockHz}
-        onClockHzChange={setClockHz}
+      {/* Left Component Toolbox Drawer (Auto-minimizes on component placement) */}
+      <Sidebar
+        isOpen={isComponentLibraryOpen}
+        onClose={() => setIsComponentLibraryOpen(false)}
+        onAddComponent={handleAddComponent}
+        customICs={customICs}
         onOpenCreateIC={() => setIsCustomICModalOpen(true)}
-        workbenchMode={workbenchMode}
-        onToggleWorkbenchMode={setWorkbenchMode}
-        onAddTrainerBoard={handleAddTrainerBoard}
+        onAddCustomIC={handleAddCustomIC}
+        onDeleteCustomIC={handleDeleteCustomIC}
       />
 
-      {/* Main Workspace */}
-      <div className="main-workspace">
-        {/* Left Component Toolbox Drawer (Auto-minimizes on component placement) */}
-=======
-      {/* Left Component Toolbox Drawer (Auto-minimizes on component placement) */}
->>>>>>> ddb7874 (feat: trainer persistence)
-        <Sidebar
-          isOpen={isComponentLibraryOpen}
-          onClose={() => setIsComponentLibraryOpen(false)}
-          onAddComponent={handleAddComponent}
-          customICs={customICs}
-          onOpenCreateIC={() => setIsCustomICModalOpen(true)}
-          onAddCustomIC={handleAddCustomIC}
-          onDeleteCustomIC={handleDeleteCustomIC}
-        />
-
-        {/* Center Interactive Circuit Canvas */}
-        <Canvas
-          circuit={circuit}
-          selectedCompId={selectedCompId}
-          selectedWireId={selectedWireId}
-          selectedBoardIndex={selectedBoardIndex}
-          isAllSelected={isAllSelected}
-          onSelectComponent={(id) => {
-            setSelectedCompId(id);
-            setIsAllSelected(false);
-            if (id) {
-              setSelectedWireId(null);
-<<<<<<< HEAD
-              setSelectedBoardIndex(null);
-=======
-              setSelectedBoardId(null);
-              setSelectedModuleId(null);
->>>>>>> ddb7874 (feat: trainer persistence)
-            }
-          }}
-          onSelectWire={(id) => {
-            setSelectedWireId(id);
-            setIsAllSelected(false);
-            if (id) {
-              setSelectedCompId(null);
-<<<<<<< HEAD
-              setSelectedBoardIndex(null);
-            }
-          }}
-          onSelectBoard={(bIdx) => {
-            setSelectedBoardIndex(bIdx);
-            setIsAllSelected(false);
-            if (bIdx !== null) {
-              setSelectedCompId(null);
-              setSelectedWireId(null);
-=======
-              setSelectedBoardId(null);
-              setSelectedModuleId(null);
->>>>>>> ddb7874 (feat: trainer persistence)
-            }
-          }}
+      {/* Center Interactive Circuit Canvas */}
+      <Canvas
+        circuit={circuit}
+        selectedCompId={selectedCompId}
+        selectedWireId={selectedWireId}
+        selectedBoardIndex={selectedBoardIndex}
+        isAllSelected={isAllSelected}
+        onSelectComponent={(id) => {
+          setSelectedCompId(id);
+          setIsAllSelected(false);
+          if (id) {
+            setSelectedWireId(null);
+            setSelectedBoardIndex(null);
+            setSelectedBoardId(null);
+            setSelectedModuleId(null);
+          }
+        }}
+        onSelectWire={(id) => {
+          setSelectedWireId(id);
+          setIsAllSelected(false);
+          if (id) {
+            setSelectedCompId(null);
+            setSelectedBoardIndex(null);
+            setSelectedBoardId(null);
+            setSelectedModuleId(null);
+          }
+        }}
+        onSelectBoard={(boardIndexOrId) => {
+          if (typeof boardIndexOrId === 'number' || boardIndexOrId === null) {
+            setSelectedBoardIndex(boardIndexOrId);
+          }
+          if (typeof boardIndexOrId === 'string' || boardIndexOrId === null) {
+            setSelectedBoardId(boardIndexOrId);
+          }
+          setIsAllSelected(false);
+          if (boardIndexOrId !== null) {
+            setSelectedCompId(null);
+            setSelectedWireId(null);
+            setSelectedModuleId(null);
+          }
+        }}
           onUpdateComponentPosition={handleUpdateComponentPosition}
           onUpdateMultipleComponentPositions={handleUpdateMultipleComponentPositions}
           onDragStart={handleDragStart}
@@ -1589,7 +1552,6 @@ export function App() {
           isSchematicMode={currentView === 'circuit'}
           onAddModule={handleAddModule}
           onRemoveModule={handleRemoveModule}
-          onSelectBoard={handleSelectBoard}
           onSelectModule={handleSelectModule}
           selectedBoardId={selectedBoardId}
           selectedModuleId={selectedModuleId}
