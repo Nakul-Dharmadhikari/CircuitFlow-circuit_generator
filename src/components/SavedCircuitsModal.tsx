@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Circuit, SavedCircuit, User } from '../types/circuit';
 import {
   deleteUserCircuit,
@@ -7,6 +7,11 @@ import {
   importCircuitFromFile,
   saveUserCircuit,
 } from '../services/storage';
+import {
+  apiGetCircuits,
+  apiSaveCircuit,
+  apiDeleteCircuit,
+} from '../services/apiClient';
 
 interface SavedCircuitsModalProps {
   isOpen: boolean;
@@ -25,35 +30,67 @@ export const SavedCircuitsModal: React.FC<SavedCircuitsModalProps> = ({
   onLoadCircuit,
   onNewCircuit,
 }) => {
-  const [circuits, setCircuits] = useState<SavedCircuit[]>(() =>
-    currentUser ? getUserCircuits(currentUser.id) : []
-  );
+  const [circuits, setCircuits] = useState<SavedCircuit[]>([]);
   const [isSavingCurrent, setIsSavingCurrent] = useState(false);
   const [circuitName, setCircuitName] = useState('');
   const [circuitDesc, setCircuitDesc] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen || !currentUser) return null;
-
-  const refreshList = () => {
-    setCircuits(getUserCircuits(currentUser.id));
+  const refreshList = async () => {
+    if (!currentUser) {
+      setCircuits([]);
+      return;
+    }
+    try {
+      const apiCircs = await apiGetCircuits();
+      const mapped: SavedCircuit[] = apiCircs.map((c) => ({
+        id: c.id,
+        userId: currentUser.id,
+        name: c.name,
+        description: '',
+        circuit: c.circuit,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        componentCount: c.circuit.components?.length || 0,
+        wireCount: c.circuit.wires?.length || 0,
+      }));
+      setCircuits(mapped);
+    } catch {
+      setCircuits(getUserCircuits(currentUser.id));
+    }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isOpen && currentUser) {
+      refreshList();
+    }
+  }, [isOpen, currentUser]);
+
+  if (!isOpen || !currentUser) return null;
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!circuitName.trim()) return;
-    saveUserCircuit(currentUser.id, circuitName, circuitDesc, currentCircuit);
-    refreshList();
+    try {
+      await apiSaveCircuit(circuitName.trim(), currentCircuit);
+    } catch {
+      saveUserCircuit(currentUser.id, circuitName, circuitDesc, currentCircuit);
+    }
+    await refreshList();
     setIsSavingCurrent(false);
     setCircuitName('');
     setCircuitDesc('');
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Delete this saved circuit from your library?')) {
-      deleteUserCircuit(currentUser.id, id);
-      refreshList();
+      try {
+        await apiDeleteCircuit(id);
+      } catch {
+        deleteUserCircuit(currentUser.id, id);
+      }
+      await refreshList();
     }
   };
 

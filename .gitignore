@@ -23,7 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# SQLite runtime and database files
+# SQLite database files
 server/*.db
 server/*.db-shm
 server/*.db-wal

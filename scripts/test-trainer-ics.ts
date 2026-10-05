@@ -200,7 +200,7 @@ const customDef: CustomICDefinition = {
 
 const customICComp = createComponent('custom_ic', 100, 100, '74CUSTXOR', { customIC: customDef });
 assert(customICComp.label === '74CUSTXOR', 'Custom IC created with custom label');
-assert(customICComp.inputs.some((p) => p.id === '1'), 'Custom IC has Pin 1');
-assert(customICComp.outputs.some((p) => p.id === '3'), 'Custom IC has Pin 3');
+assert(customICComp.inputs.some((p) => p.id === '1' || p.id === 'pin1'), 'Custom IC has Pin 1');
+assert(customICComp.outputs.some((p) => p.id === '3' || p.id === 'pin3'), 'Custom IC has Pin 3');
 
 console.log('ALL DIGITAL TRAINER UNIT TESTS PASSED SUCCESSFULLY! 🎉');

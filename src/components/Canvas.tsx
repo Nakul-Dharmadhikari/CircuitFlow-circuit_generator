@@ -1,28 +1,24 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import type { Circuit, Pin, Wire } from '../types/circuit';
+import React, { useRef, useCallback, useEffect } from 'react';
+import type { Circuit, ComponentType, CustomICDefinition, Wire } from '../types/circuit';
 import { GateComponent } from './GateComponent';
 import { WireRenderer } from './WireRenderer';
 import { TrainerBoard } from './TrainerBoard';
 import { VerticalToolbar } from './VerticalToolbar';
 import { soundFx } from '../audio/soundEffects';
-import { TRAINER_BOARD_LAYOUT, getTrainerBoards } from '../engine/trainerKit';
-import { getRotatedPinCoords } from '../utils/geometry';
-
-interface InProgressWire {
-  fromCompId: string;
-  fromPinId: string;
-  fromPinType: 'input' | 'output';
-  toX: number;
-  toY: number;
-}
+import { calculateZoomAtPoint, screenToWorld, type Point } from '../hooks/useViewport';
+import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
+import { useWireInteraction } from '../hooks/useWireInteraction';
 
 interface CanvasProps {
   circuit: Circuit;
   selectedCompId: string | null;
+  selectedCompIds?: string[];
   selectedWireId?: string | null;
   selectedBoardIndex?: number | null;
   isAllSelected?: boolean;
+  showGrid?: boolean;
   onSelectComponent: (id: string | null) => void;
+  onSelectMultipleComponents?: (ids: string[]) => void;
   onSelectWire?: (wireId: string | null) => void;
   onSelectBoard?: (boardIndexOrId: any) => void;
   onUpdateComponentPosition: (id: string, x: number, y: number) => void;
@@ -68,15 +64,22 @@ interface CanvasProps {
   onSelectModule?: (moduleId: string | null) => void;
   selectedBoardId?: string | null;
   selectedModuleId?: string | null;
+  onDropComponent?: (type: ComponentType, pos: { x: number; y: number }) => void;
+  onDropCustomIC?: (ic: CustomICDefinition, pos: { x: number; y: number }) => void;
+  onFitCircuit?: () => void;
+  onToggleGrid?: () => void;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
   circuit,
   selectedCompId,
+  selectedCompIds = [],
   selectedWireId,
   selectedBoardIndex = null,
   isAllSelected,
+  showGrid = true,
   onSelectComponent,
+  onSelectMultipleComponents,
   onSelectWire,
   onSelectBoard,
   onUpdateComponentPosition,
@@ -117,75 +120,118 @@ export const Canvas: React.FC<CanvasProps> = ({
   onSelectModule,
   selectedBoardId,
   selectedModuleId,
+  onDropComponent,
+  onDropCustomIC,
+  onFitCircuit,
+  onToggleGrid,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mouseWorldPosRef = useRef<{ x: number; y: number }>({ x: 300, y: 300 });
+  const mouseWorldPosRef = useRef<Point>({ x: 300, y: 300 });
 
-  // Canvas interaction mode: 'wire' (default, locks parts) | 'move' (hand tool) | 'delete' (instant wire eraser)
-  const [interactionMode, setInteractionMode] = useState<'wire' | 'move' | 'delete'>('wire');
+  // Coordinate Conversion Helpers (Screen <-> World)
+  const screenToWorldCoord = useCallback(
+    (screenPt: Point): Point => {
+      const rect = containerRef.current?.getBoundingClientRect() || null;
+      return screenToWorld(screenPt, { x: pan.x, y: pan.y, zoom }, rect);
+    },
+    [pan, zoom]
+  );
 
-  // Dragging states
-  const [draggingCompId, setDraggingCompId] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Pan by Delta Helper
+  const handlePanByDelta = useCallback(
+    (deltaX: number, deltaY: number) => {
+      onPanChange({ x: pan.x + deltaX, y: pan.y + deltaY });
+    },
+    [pan, onPanChange]
+  );
 
-  // Rubber-band selection box state
-  const [selectionBox, setSelectionBox] = useState<{
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-  } | null>(null);
+  // Canvas Interactions Hook (Pan, Drag, Marquee Selection)
+  const {
+    toolMode,
+    setToolMode,
+    isSpacePressed,
+    isPanning,
+    marqueeBox,
+    handleCanvasMouseDown,
+    handleCanvasMouseMove,
+    handleCanvasMouseUp,
+    handleComponentDragStart,
+    handleBoardDragStart,
+  } = useCanvasInteraction({
+    components: circuit.components,
+    selectedCompId,
+    selectedCompIds,
+    selectedBoardIndex,
+    onSelectComponent,
+    onSelectMultipleComponents,
+    onSelectBoard,
+    onUpdateComponentPosition,
+    onUpdateMultipleComponentPositions,
+    onDragStart,
+    onDragEnd,
+    onBoardDragStart,
+    onBoardDragEnd,
+    screenToWorld: screenToWorldCoord,
+    onPanByDelta: handlePanByDelta,
+    onDeleteSelected,
+    onRotateComponent,
+    onFitCircuit,
+    onToggleGrid,
+  });
 
-  // Wiring states
-  const [inProgressWire, setInProgressWire] = useState<InProgressWire | null>(null);
+  // Wire Interactions Hook (Creation, Routing Preview, Junctions)
+  const {
+    inProgressWire,
+    handlePinMouseDown,
+    handlePinMouseUp,
+    updateInProgressWire,
+    handleCanvasMouseUpForWire,
+    handleWireDoubleClick,
+    handleWireMouseUp,
+  } = useWireInteraction({
+    wires: circuit.wires,
+    components: circuit.components,
+    onAddWire,
+    onBranchWire,
+    screenToWorld: screenToWorldCoord,
+  });
 
-  // Board Dragging states
-  const [draggingBoardIndex, setDraggingBoardIndex] = useState<number | null>(null);
-  const boardDragStartWorldRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const boardInitialCompPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  // Wheel Zoom with Cursor Anchoring (Zero Browser Page Scrolling)
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+    const targetZoom = zoom * zoomFactor;
 
-  const handleStartDragBoard = (boardIndex: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    onSelectComponent(null);
-    onSelectWire?.(null);
-    onSelectBoard?.(boardIndex);
-
-    const world = screenToWorld(e.clientX, e.clientY);
-    boardDragStartWorldRef.current = world;
-
-    const initialMap = new Map<string, { x: number; y: number }>();
-    const prefix = boardIndex === 0 ? 'trainer_' : `trainer_b${boardIndex}_`;
-
-    const boards = getTrainerBoards(circuit.components);
-    const thisBoard = boards.find((b) => b.boardIndex === boardIndex);
-    const bOffsetX = thisBoard?.offsetX ?? 0;
-    const bOffsetY = thisBoard?.offsetY ?? boardIndex * 560;
-    const bMinX = TRAINER_BOARD_LAYOUT.boardX + bOffsetX - 20;
-    const bMaxX = bMinX + TRAINER_BOARD_LAYOUT.boardWidth + 40;
-    const bMinY = TRAINER_BOARD_LAYOUT.boardY + bOffsetY - 20;
-    const bMaxY = bMinY + TRAINER_BOARD_LAYOUT.boardHeight + 40;
-
-    for (const c of circuit.components) {
-      const isBoardComp =
-        c.customProps?.boardIndex === boardIndex ||
-        (boardIndex === 0 && c.id.startsWith('trainer_') && !c.id.match(/^trainer_b\d+_/)) ||
-        c.id.startsWith(prefix) ||
-        (c.x >= bMinX && c.x <= bMaxX && c.y >= bMinY && c.y <= bMaxY);
-
-      if (isBoardComp) {
-        initialMap.set(c.id, { x: c.x, y: c.y });
-      }
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const nextVp = calculateZoomAtPoint(
+        { x: e.clientX, y: e.clientY },
+        targetZoom,
+        { x: pan.x, y: pan.y, zoom },
+        rect
+      );
+      onPanChange({ x: nextVp.x, y: nextVp.y });
+      onZoomChange(nextVp.zoom);
     }
-
-    boardInitialCompPositionsRef.current = initialMap;
-    setDraggingBoardIndex(boardIndex);
-    onBoardDragStart?.(boardIndex);
   };
 
-  // Context menu state
-  const [contextMenu, setContextMenu] = useState<{
+  // Global Wheel listener with passive: false to prevent browser zooming / scrolling
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const preventDefaultScroll = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+
+    el.addEventListener('wheel', preventDefaultScroll, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', preventDefaultScroll);
+    };
+  }, []);
+
+  // Right-Click Context Menu State
+  const [contextMenu, setContextMenu] = React.useState<{
     visible: boolean;
     screenX: number;
     screenY: number;
@@ -193,42 +239,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     worldY: number;
   } | null>(null);
 
-  // Convert mouse screen coordinates to canvas world coordinates
-  const screenToWorld = useCallback(
-    (screenX: number, screenY: number) => {
-      if (!containerRef.current) return { x: 0, y: 0 };
-      const rect = containerRef.current.getBoundingClientRect();
-      const x = (screenX - rect.left - pan.x) / zoom;
-      const y = (screenY - rect.top - pan.y) / zoom;
-      return { x, y };
-    },
-    [pan, zoom]
-  );
-
-  // Mouse wheel zoom
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.4), 2.5);
-
-    // Zoom centered towards mouse pointer
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      const newPanX = mouseX - (mouseX - pan.x) * (newZoom / zoom);
-      const newPanY = mouseY - (mouseY - pan.y) * (newZoom / zoom);
-
-      onPanChange({ x: newPanX, y: newPanY });
-      onZoomChange(newZoom);
-    }
-  };
-
-  // Right-click context menu handler
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    const world = screenToWorld(e.clientX, e.clientY);
+    const world = screenToWorldCoord({ x: e.clientX, y: e.clientY });
     setContextMenu({
       visible: true,
       screenX: Math.min(e.clientX, window.innerWidth - 200),
@@ -238,385 +251,83 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
   };
 
-  // Canvas background click & pan start
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Compound Mouse Handlers
+  const onMouseDown = (e: React.MouseEvent) => {
     if (contextMenu) setContextMenu(null);
-
-    if (e.button === 1 || e.altKey) {
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    } else if (e.target === containerRef.current && e.button === 0) {
-      if (interactionMode === 'move') {
-        setIsPanning(true);
-        setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-      } else {
-        setSelectionBox({
-          startX: e.clientX,
-          startY: e.clientY,
-          currentX: e.clientX,
-          currentY: e.clientY,
-        });
-      }
-      onSelectComponent(null);
-      onSelectWire?.(null);
-      onSelectBoard?.(null);
-      if (inProgressWire) {
-        setInProgressWire(null);
-      }
-    }
+    handleCanvasMouseDown(e);
   };
 
-  // Helper to find the nearest connectable pin within a snap radius
-  const findNearestPin = useCallback(
-    (worldX: number, worldY: number, maxDist = 24, excludeCompId?: string, excludePinId?: string) => {
-      let nearest: { compId: string; pin: Pin; x: number; y: number; dist: number } | null = null;
-      for (const comp of circuit.components) {
-        if (comp.id === excludeCompId && !excludePinId) continue;
-        const allPins = [...comp.inputs, ...comp.outputs];
-        for (const pin of allPins) {
-          if (comp.id === excludeCompId && pin.id === excludePinId) continue;
-          const pinCoords = getRotatedPinCoords(comp, pin);
-          const pinWorldX = pinCoords.x;
-          const pinWorldY = pinCoords.y;
-          const dist = Math.hypot(worldX - pinWorldX, worldY - pinWorldY);
-          if (dist < maxDist && (!nearest || dist < nearest.dist)) {
-            nearest = { compId: comp.id, pin, x: pinWorldX, y: pinWorldY, dist };
-          }
-        }
-      }
-      return nearest;
-    },
-    [circuit.components]
-  );
-
-  // Component Drag Start - ONLY allowed in 'move' mode (Hand Tool)
-  const handleComponentSelect = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    onSelectWire?.(null);
-    onSelectBoard?.(null);
-    onSelectComponent(id);
-
-    const comp = circuit.components.find((c) => c.id === id);
-    if (!comp || comp.isTrainerFixed) return; // Prevent moving fixed trainer kit ports
-
-    // When in Wire Mode or Delete Mode, components and ICs are firmly locked!
-    if (interactionMode !== 'move') return;
-
-    const world = screenToWorld(e.clientX, e.clientY);
-    setDraggingCompId(id);
-    setDragOffset({
-      x: world.x - comp.x,
-      y: world.y - comp.y,
-    });
-    onDragStart?.(id);
-  };
-
-  // Pin Connection Handlers - ONLY allowed in 'wire' mode
-  const handlePinMouseDown = (pin: Pin, compId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (interactionMode !== 'wire') return;
-
-    const world = screenToWorld(e.clientX, e.clientY);
-
-    setInProgressWire({
-      fromCompId: compId,
-      fromPinId: pin.id,
-      fromPinType: pin.type,
-      toX: world.x,
-      toY: world.y,
-    });
-    soundFx.playButtonTap();
-  };
-
-  const handlePinMouseUp = (pin: Pin, compId: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (!inProgressWire) return;
-
-    // Do not connect a pin to itself or same component
-    if (inProgressWire.fromCompId === compId && inProgressWire.fromPinId === pin.id) {
-      setInProgressWire(null);
-      return;
-    }
-
-    // Connect output to input or vice-versa
-    let fromCompId = inProgressWire.fromCompId;
-    let fromPinId = inProgressWire.fromPinId;
-    let toCompId = compId;
-    let toPinId = pin.id;
-
-    // If user dragged from input to output, reverse direction for clean signal flow
-    if (inProgressWire.fromPinType === 'input' && pin.type === 'output') {
-      fromCompId = compId;
-      fromPinId = pin.id;
-      toCompId = inProgressWire.fromCompId;
-      toPinId = inProgressWire.fromPinId;
-    }
-
-    // Check if wire already exists
-    const exists = circuit.wires.some(
-      (w) =>
-        (w.fromCompId === fromCompId &&
-          w.fromPinId === fromPinId &&
-          w.toCompId === toCompId &&
-          w.toPinId === toPinId) ||
-        (w.fromCompId === toCompId &&
-          w.fromPinId === toPinId &&
-          w.toCompId === fromCompId &&
-          w.toPinId === fromPinId)
-    );
-
-    if (!exists) {
-      const newWire: Wire = {
-        id: `wire_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        fromCompId,
-        fromPinId,
-        toCompId,
-        toPinId,
-        value: '0',
-      };
-      onAddWire(newWire);
-      soundFx.playSwitchClick(true);
-    }
-
-    setInProgressWire(null);
-  };
-
-  // Mouse Move: Component Dragging & Wire Drawing with Smart Snapping
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const world = screenToWorld(e.clientX, e.clientY);
+  const onMouseMove = (e: React.MouseEvent) => {
+    const world = screenToWorldCoord({ x: e.clientX, y: e.clientY });
     mouseWorldPosRef.current = world;
     onMouseMoveWorld?.(world);
 
-    if (isPanning) {
-      onPanChange({
-        x: e.clientX - panStart.x,
-        y: e.clientY - panStart.y,
-      });
+    handleCanvasMouseMove(e);
+    if (inProgressWire) {
+      updateInProgressWire(e.clientX, e.clientY);
+    }
+  };
+
+  const onMouseUp = (e: React.MouseEvent) => {
+    handleCanvasMouseUp(e);
+    if (inProgressWire) {
+      handleCanvasMouseUpForWire(e.clientX, e.clientY);
+    }
+  };
+
+  // HTML5 Drag and Drop handlers for Library items
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const world = screenToWorldCoord({ x: e.clientX, y: e.clientY });
+    const snappedPos = {
+      x: Math.round(world.x / 10) * 10,
+      y: Math.round(world.y / 10) * 10,
+    };
+
+    const compType = e.dataTransfer.getData('application/circuitflow-component') as ComponentType;
+    if (compType) {
+      onDropComponent?.(compType, snappedPos);
       return;
     }
 
-    // Dragging an entire Digital Trainer Board
-    if (draggingBoardIndex !== null && boardInitialCompPositionsRef.current.size > 0) {
-      const deltaX = world.x - boardDragStartWorldRef.current.x;
-      const deltaY = world.y - boardDragStartWorldRef.current.y;
-      const snappedDeltaX = Math.round(deltaX / 10) * 10;
-      const snappedDeltaY = Math.round(deltaY / 10) * 10;
-
-      const updates: Array<{ id: string; x: number; y: number }> = [];
-      boardInitialCompPositionsRef.current.forEach((pos, compId) => {
-        updates.push({
-          id: compId,
-          x: pos.x + snappedDeltaX,
-          y: pos.y + snappedDeltaY,
-        });
-      });
-
-      if (onUpdateMultipleComponentPositions) {
-        onUpdateMultipleComponentPositions(updates);
-      } else {
-        updates.forEach((u) => onUpdateComponentPosition(u.id, u.x, u.y));
-      }
-      return;
-    }
-
-    if (selectionBox) {
-      setSelectionBox((prev) =>
-        prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null
-      );
-    }
-
-    if (draggingCompId) {
-      // Snap to 10px grid
-      const rawX = world.x - dragOffset.x;
-      const rawY = world.y - dragOffset.y;
-      const snappedX = Math.round(rawX / 10) * 10;
-      const snappedY = Math.round(rawY / 10) * 10;
-      onUpdateComponentPosition(draggingCompId, snappedX, snappedY);
-    }
-
-    if (inProgressWire) {
-      // Snap to nearest target pin if within 22px
-      const nearest = findNearestPin(
-        world.x,
-        world.y,
-        22,
-        inProgressWire.fromCompId,
-        inProgressWire.fromPinId
-      );
-      if (nearest) {
-        setInProgressWire((prev) => (prev ? { ...prev, toX: nearest.x, toY: nearest.y } : null));
-      } else {
-        setInProgressWire((prev) => (prev ? { ...prev, toX: world.x, toY: world.y } : null));
+    const customIcRaw = e.dataTransfer.getData('application/circuitflow-custom-ic');
+    if (customIcRaw) {
+      try {
+        const ic = JSON.parse(customIcRaw) as CustomICDefinition;
+        onDropCustomIC?.(ic, snappedPos);
+      } catch {
+        // ignore parse error
       }
     }
-  };
-
-  // Mouse Up & Drag End (with auto snap-connect and box selection)
-  const handleMouseUp = (e: React.MouseEvent) => {
-    if (isPanning) setIsPanning(false);
-    if (draggingBoardIndex !== null) {
-      onBoardDragEnd?.(draggingBoardIndex);
-      setDraggingBoardIndex(null);
-    }
-
-    if (selectionBox) {
-      const minX = Math.min(selectionBox.startX, selectionBox.currentX);
-      const maxX = Math.max(selectionBox.startX, selectionBox.currentX);
-      const minY = Math.min(selectionBox.startY, selectionBox.currentY);
-      const maxY = Math.max(selectionBox.startY, selectionBox.currentY);
-
-      if (maxX - minX > 10 && maxY - minY > 10) {
-        const w1 = screenToWorld(minX, minY);
-        const w2 = screenToWorld(maxX, maxY);
-
-        const insideComps = circuit.components.filter(
-          (c) =>
-            !c.isTrainerFixed &&
-            c.x + c.width >= w1.x &&
-            c.x <= w2.x &&
-            c.y + c.height >= w1.y &&
-            c.y <= w2.y
-        );
-
-        if (insideComps.length > 0) {
-          onSelectComponent(insideComps[0].id);
-          soundFx.playButtonTap();
-        }
-      }
-      setSelectionBox(null);
-    }
-
-    if (draggingCompId) {
-      onDragEnd?.(draggingCompId);
-      setDraggingCompId(null);
-    }
-    if (inProgressWire) {
-      const world = screenToWorld(e.clientX, e.clientY);
-      const nearest = findNearestPin(
-        world.x,
-        world.y,
-        24,
-        inProgressWire.fromCompId,
-        inProgressWire.fromPinId
-      );
-      if (nearest) {
-        handlePinMouseUp(nearest.pin, nearest.compId, e);
-      } else {
-        setInProgressWire(null);
-      }
-    }
-  };
-
-  // Global mouse up safety & Shortcuts on KeyDown
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      setIsPanning(false);
-      if (draggingBoardIndex !== null) {
-        onBoardDragEnd?.(draggingBoardIndex);
-        setDraggingBoardIndex(null);
-      }
-      setSelectionBox(null);
-      if (draggingCompId) {
-        onDragEnd?.(draggingCompId);
-        setDraggingCompId(null);
-      }
-      setInProgressWire(null);
-    };
-
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const tagName = target?.tagName?.toLowerCase();
-      if (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable) {
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        setContextMenu(null);
-        setInProgressWire(null);
-        setSelectionBox(null);
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        onDeleteSelected?.();
-      } else if (e.key === 'r' || e.key === 'R') {
-        if (selectedCompId) {
-          onRotateComponent?.(selectedCompId);
-        }
-      } else if (e.key === 'w' || e.key === 'W') {
-        setInteractionMode('wire');
-        soundFx.playButtonTap();
-      } else if (e.key === 'm' || e.key === 'M') {
-        setInteractionMode('move');
-        soundFx.playButtonTap();
-      } else if (e.key === 'd' || e.key === 'D') {
-        setInteractionMode('delete');
-        soundFx.playButtonTap();
-      }
-    };
-
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => {
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
-      window.removeEventListener('keydown', handleGlobalKeyDown);
-    };
-  }, [draggingBoardIndex, draggingCompId, onBoardDragEnd, onDragEnd, selectedCompId, onRotateComponent, onDeleteSelected]);
-
-  // Wire double-click handler for creating in-line junction node
-  const handleWireDoubleClick = (wireId: string, clientX: number, clientY: number) => {
-    const world = screenToWorld(clientX, clientY);
-    onBranchWire?.(wireId, Math.round(world.x / 10) * 10, Math.round(world.y / 10) * 10);
-  };
-
-  // Wire release handler: drop wire onto existing wire to create branch junction
-  const handleWireMouseUp = (wireId: string, clientX: number, clientY: number) => {
-    if (!inProgressWire) return;
-    const world = screenToWorld(clientX, clientY);
-    onBranchWire?.(
-      wireId,
-      Math.round(world.x / 10) * 10,
-      Math.round(world.y / 10) * 10,
-      {
-        compId: inProgressWire.fromCompId,
-        pinId: inProgressWire.fromPinId,
-        pinType: inProgressWire.fromPinType,
-      }
-    );
-    setInProgressWire(null);
   };
 
   return (
     <div
       ref={containerRef}
-      className={`canvas-viewport ${isPanning ? 'panning' : ''} ${isSchematicMode ? 'schematic-mode' : ''}`}
+      className={`canvas-viewport ${isPanning || isSpacePressed || toolMode === 'pan' ? 'panning' : ''}`}
       style={{
-        backgroundPosition: `${pan.x}px ${pan.y}px`,
-        backgroundSize: isSchematicMode
-          ? `${20 * zoom}px ${20 * zoom}px, ${20 * zoom}px ${20 * zoom}px, ${100 * zoom}px ${100 * zoom}px, ${100 * zoom}px ${100 * zoom}px`
-          : undefined,
+        backgroundImage: showGrid
+          ? 'radial-gradient(var(--grid-dot-color) var(--grid-dot-size), transparent var(--grid-dot-size))'
+          : 'none',
       }}
       onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
       onContextMenu={handleContextMenu}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
-      {/* Rubber-band Drag Selection Box */}
-      {selectionBox && (
-        <div
-          className="canvas-selection-box"
-          style={{
-            left: `${Math.min(selectionBox.startX, selectionBox.currentX)}px`,
-            top: `${Math.min(selectionBox.startY, selectionBox.currentY)}px`,
-            width: `${Math.abs(selectionBox.currentX - selectionBox.startX)}px`,
-            height: `${Math.abs(selectionBox.currentY - selectionBox.startY)}px`,
-          }}
-        />
-      )}
-
-      {/* Sleek Floating Workbench Toolbar (matching reference design) */}
+      {/* Floating Left Workbench CAD Toolbar (Fixed, never zooms) */}
       <VerticalToolbar
-        interactionMode={interactionMode}
+        interactionMode={toolMode}
         onSetInteractionMode={(mode) => {
-          setInteractionMode(mode);
+          setToolMode(mode);
           soundFx.playButtonTap();
         }}
         isLibraryOpen={isLibraryOpen}
@@ -649,7 +360,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         onPaste={() => onPasteAtPosition?.(mouseWorldPosRef.current)}
       />
 
-      {/* Right-Click Context Menu with Cursor-Aware Paste Here */}
+      {/* Right-Click Context Menu (Fixed in screen coordinates) */}
       {contextMenu?.visible && (
         <div
           className="canvas-context-menu"
@@ -737,13 +448,14 @@ export const Canvas: React.FC<CanvasProps> = ({
         </div>
       )}
 
+      {/* Circuit World Transform Layer (Pure infinite world, affected by pan/zoom) */}
       <div
         className="canvas-transform-layer"
         style={{
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
         }}
       >
-        {/* Hardware Trainer Board (Outputs, Horizontal IC Sockets, Inputs) - Active in Hardware Lab view */}
+        {/* Hardware Trainer Board (Outputs, Horizontal IC Sockets, Inputs, Expandable Modules) */}
         {!isSchematicMode && workbenchMode !== 'freeform' && (
           <TrainerBoard
             circuit={circuit}
@@ -752,7 +464,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             onSelectBoard={onSelectBoard}
             onOpenICPicker={onOpenICPicker}
             onRemoveBoard={onRemoveTrainerBoard}
-            onStartDragBoard={handleStartDragBoard}
+            onStartDragBoard={handleBoardDragStart}
             onCopyBoard={onCopyBoard}
             onAddModule={onAddModule}
             onRemoveModule={onRemoveModule}
@@ -762,7 +474,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
 
-        {/* Wire Paths */}
+        {/* Orthogonal Manhattan Wire Paths */}
         <WireRenderer
           wires={
             workbenchMode === 'freeform'
@@ -778,7 +490,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           }
           selectedWireId={selectedWireId}
           isAllSelected={isAllSelected}
-          isDeleteMode={interactionMode === 'delete'}
+          isDeleteMode={toolMode === 'delete'}
           isSchematicMode={isSchematicMode}
           inProgressWire={inProgressWire}
           onSelectWire={onSelectWire}
@@ -788,7 +500,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           onAddJunctionAtCoords={(wireId, x, y) => onBranchWire?.(wireId, x, y)}
         />
 
-        {/* Component Nodes */}
+        {/* Circuit Component Nodes */}
         {(workbenchMode === 'freeform'
           ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_'))
           : circuit.components
@@ -796,15 +508,34 @@ export const Canvas: React.FC<CanvasProps> = ({
           <GateComponent
             key={comp.id}
             component={comp}
-            isSelected={Boolean(isAllSelected || comp.id === selectedCompId)}
-            onSelect={handleComponentSelect}
+            isSelected={Boolean(
+              isAllSelected ||
+                comp.id === selectedCompId ||
+                selectedCompIds.includes(comp.id)
+            )}
+            onSelect={(id, e) => handleComponentDragStart(id, e)}
             onPinMouseDown={handlePinMouseDown}
             onPinMouseUp={handlePinMouseUp}
             onToggleSwitch={onToggleSwitch}
             onButtonPress={onButtonPress}
           />
         ))}
+
+        {/* Marquee Selection Box Rectangle in World Coordinates */}
+        {marqueeBox && (
+          <div
+            className="canvas-marquee-box"
+            style={{
+              left: `${marqueeBox.x}px`,
+              top: `${marqueeBox.y}px`,
+              width: `${marqueeBox.width}px`,
+              height: `${marqueeBox.height}px`,
+            }}
+          />
+        )}
       </div>
     </div>
   );
 };
+
+export default Canvas;
