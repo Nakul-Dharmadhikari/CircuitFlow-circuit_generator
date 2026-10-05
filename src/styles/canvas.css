@@ -1130,6 +1130,256 @@
 }
 
 /* ==========================================================================
+   DYNAMIC TRAINER MODULES & EXTENSION BUTTON
+   ========================================================================== */
+.hardware-trainer-board.board-selected {
+  outline: 2px solid var(--border-focus);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.4), 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.trainer-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: absolute;
+  top: 6px;
+  left: 16px;
+}
+
+.trainer-board-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #f8fafc;
+}
+
+.badge-dot {
+  color: #22c55e;
+  font-size: 8px;
+}
+
+.badge-name {
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.badge-modules-count {
+  color: #94a3b8;
+  font-size: 9px;
+  border-left: 1px solid #475569;
+  padding-left: 6px;
+  margin-left: 2px;
+}
+
+.trainer-header-right {
+  position: absolute;
+  top: 6px;
+  right: 280px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trainer-ext-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #475569;
+}
+
+.trainer-ext-summary strong {
+  color: #0f172a;
+}
+
+/* Module Container & Zones */
+.trainer-modules-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.trainer-module-zone {
+  position: absolute;
+  border: 1.5px dashed rgba(71, 85, 105, 0.35);
+  background: rgba(248, 250, 252, 0.35);
+  border-radius: 6px;
+  pointer-events: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+  z-index: 3;
+}
+
+.trainer-module-zone:hover {
+  border-color: rgba(56, 189, 248, 0.6);
+  background: rgba(248, 250, 252, 0.55);
+}
+
+.trainer-module-zone.module-selected {
+  border: 2px solid var(--border-focus);
+  background: rgba(56, 189, 248, 0.06);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+}
+
+.module-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.25);
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+}
+
+.module-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.module-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 1px;
+}
+
+.module-specs {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.module-remove-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.module-remove-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.module-breadboard-bed {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  opacity: 0.6;
+}
+
+.breadboard-bus-stripe {
+  height: 2px;
+  position: absolute;
+  left: 10px;
+  right: 10px;
+}
+
+.breadboard-bus-stripe.top-bus {
+  top: 8px;
+  background: linear-gradient(90deg, #ef4444, #3b82f6);
+  opacity: 0.3;
+}
+
+.breadboard-bus-stripe.bottom-bus {
+  bottom: 8px;
+  background: linear-gradient(90deg, #3b82f6, #ef4444);
+  opacity: 0.3;
+}
+
+/* + ADD MODULE Button Card */
+.trainer-add-module-card {
+  position: absolute;
+  width: 140px;
+  border: 2px dashed rgba(56, 189, 248, 0.6);
+  background: rgba(56, 189, 248, 0.08);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  z-index: 6;
+  box-sizing: border-box;
+}
+
+.trainer-add-module-card:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(56, 189, 248, 0.35);
+}
+
+.add-module-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  padding: 6px;
+}
+
+.add-module-icon {
+  font-size: 18px;
+}
+
+.add-mod-title {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #0284c7;
+  letter-spacing: 0.5px;
+}
+
+.add-mod-desc {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Bottom Labels Row */
+.trainer-bottom-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+}
+
+.input-sections-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ==========================================================================
    BOTTOM STRIP (Inputs, GND, Clocks, Pulse)
    ========================================================================== */
 .trainer-bottom-strip {
@@ -1934,3 +2184,25 @@
   background: var(--border-subtle);
   margin: 3px 0;
 }
+
+/* ==========================================================================
+   Schematic Mode Engineering Canvas & Selection Box
+   ========================================================================== */
+.canvas-viewport.schematic-mode {
+  background-color: #090d16;
+  background-image:
+    linear-gradient(to right, rgba(56, 139, 253, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 139, 253, 0.08) 1px, transparent 1px),
+    linear-gradient(to right, rgba(56, 139, 253, 0.20) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 139, 253, 0.20) 1px, transparent 1px);
+}
+
+.canvas-selection-box {
+  position: absolute;
+  border: 1px dashed rgba(56, 139, 253, 0.9);
+  background: rgba(56, 139, 253, 0.12);
+  pointer-events: none;
+  z-index: 50;
+  border-radius: 2px;
+}
+
