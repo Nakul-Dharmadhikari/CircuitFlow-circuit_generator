@@ -146,6 +146,7 @@ export interface CircuitComponent {
   label: string;
   isCustomLabel?: boolean; // Set to true when user explicitly sets or edits the component label
   isTrainerFixed?: boolean; // Marks components belonging to fixed hardware trainer kit
+  rotation?: 0 | 90 | 180 | 270; // Visual rotation orientation in degrees
   x: number;
   y: number;
   width: number;
@@ -183,9 +184,12 @@ export interface Wire {
   value: LogicValue;
 }
 
+import type { TrainerBoardModel } from '../engine/trainer/trainerBoardModel';
+
 export interface Circuit {
   components: CircuitComponent[];
   wires: Wire[];
+  trainerBoards?: TrainerBoardModel[];
 }
 
 export interface WaveformChannel {

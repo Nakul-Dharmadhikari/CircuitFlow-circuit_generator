@@ -15,6 +15,8 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
     { key: 'Ctrl + Z / Ctrl + Y', desc: 'Undo / Redo canvas changes' },
     { key: 'Ctrl + A', desc: 'Select complete circuit' },
     { key: 'Ctrl + C / Ctrl + V', desc: 'Copy / Paste circuit schematic' },
+    { key: 'R', desc: 'Rotate selected component (90° clockwise)' },
+    { key: 'W / M / D', desc: 'Switch Tool Mode (Wire / Move / Delete)' },
     { key: 'Delete / Backspace', desc: 'Delete selected component' },
     { key: 'Scroll Wheel', desc: 'Zoom canvas in & out' },
     { key: 'Click + Drag Pin', desc: 'Create connection wire between pins' },

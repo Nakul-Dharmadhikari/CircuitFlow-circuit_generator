@@ -1,69 +1,184 @@
 import React from 'react';
-import { TRAINER_BOARD_LAYOUT, getTrainerBoards } from '../engine/trainerKit';
-import type { CircuitComponent } from '../types/circuit';
+import type { Circuit, CircuitComponent } from '../types/circuit';
+import { getTrainerBoards } from '../engine/trainerKit';
+import {
+  TRAINER_CONSTANTS,
+  type TrainerBoardModel,
+  type TrainerICSlot,
+} from '../engine/trainer/trainerBoardModel';
 
 interface TrainerBoardProps {
+  circuit?: Circuit;
   components?: CircuitComponent[];
+  board?: TrainerBoardModel;
   selectedBoardIndex?: number | null;
-  onSelectBoard?: (boardIndex: number | null) => void;
+  onSelectBoard?: (boardIndexOrId: any) => void;
   onOpenICPicker?: (baseIndex: number) => void;
   onRemoveBoard?: (boardIndex: number) => void;
   onStartDragBoard?: (boardIndex: number, e: React.MouseEvent) => void;
   onCopyBoard?: (boardIndex: number) => void;
+  onAddModule?: () => void;
+  onRemoveModule?: (moduleId?: string) => void;
+  onSelectModule?: (moduleId: string) => void;
+  selectedBoardId?: string | null;
+  selectedModuleId?: string | null;
 }
 
 export const TrainerBoard: React.FC<TrainerBoardProps> = ({
-  components = [],
+  circuit,
+  components = circuit?.components || [],
+  board: propBoard,
   selectedBoardIndex = null,
   onSelectBoard,
   onOpenICPicker,
   onRemoveBoard,
   onStartDragBoard,
   onCopyBoard,
+  onAddModule,
+  onRemoveModule,
+  onSelectModule,
+  selectedBoardId,
+  selectedModuleId,
 }) => {
-  const {
-    boardX,
-    boardY,
-    boardWidth,
-    boardHeight,
-    icBasesX,
-    icBasesY,
-    icBaseWidth,
-    icBaseHeight,
-  } = TRAINER_BOARD_LAYOUT;
+  // Determine all boards to render:
+  // Prefer circuit.trainerBoards if populated; otherwise discover via getTrainerBoards or propBoard
+  let boardsToRender: Array<{
+    boardModel: TrainerBoardModel;
+    boardIndex: number;
+  }> = [];
 
-  const boards = getTrainerBoards(components);
+  if (propBoard) {
+    boardsToRender = [{ boardModel: propBoard, boardIndex: 0 }];
+  } else if (circuit?.trainerBoards && circuit.trainerBoards.length > 0) {
+    boardsToRender = circuit.trainerBoards.map((b, idx) => ({
+      boardModel: b,
+      boardIndex: idx,
+    }));
+  } else {
+    const discovered = getTrainerBoards(components);
+    const count = Math.max(1, discovered.length);
+    boardsToRender = Array.from({ length: count }, (_, idx) => {
+      const disc = discovered[idx] || { boardIndex: idx, offsetX: 0, offsetY: idx * 560 };
+      const defaultBoard: TrainerBoardModel = {
+        id: idx === 0 ? 'board_1' : `board_${idx + 1}`,
+        name: `Digital Trainer Board #${idx + 1}`,
+        x: TRAINER_CONSTANTS.DEFAULT_BOARD_X + disc.offsetX,
+        y: TRAINER_CONSTANTS.DEFAULT_BOARD_Y + disc.offsetY,
+        width: 1180,
+        height: TRAINER_CONSTANTS.BOARD_HEIGHT,
+        modules: [
+          {
+            id: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_mod_1`,
+            index: 0,
+            name: 'Module 1',
+            x: TRAINER_CONSTANTS.DEFAULT_BOARD_X + disc.offsetX + TRAINER_CONSTANTS.BOARD_PADDING_LEFT,
+            y: TRAINER_CONSTANTS.DEFAULT_BOARD_Y + disc.offsetY,
+            width: TRAINER_CONSTANTS.MODULE_1_WIDTH,
+            height: TRAINER_CONSTANTS.BOARD_HEIGHT,
+            icCount: 4,
+            inputCount: 16,
+            startInputIndex: 0,
+            icSlotIds: [
+              `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_1`,
+              `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_2`,
+              `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_3`,
+              `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_4`,
+            ],
+            inputComponentIds: [],
+          },
+        ],
+        icSlots: [
+          {
+            id: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_1`,
+            label: 'IC1',
+            x: 54 + disc.offsetX,
+            y: 150 + disc.offsetY,
+            width: 250,
+            height: 88,
+            baseIndex: idx * 4 + 0,
+            moduleId: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_mod_1`,
+            boardId: idx === 0 ? 'board_1' : `board_${idx + 1}`,
+          },
+          {
+            id: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_2`,
+            label: 'IC2',
+            x: 328 + disc.offsetX,
+            y: 150 + disc.offsetY,
+            width: 250,
+            height: 88,
+            baseIndex: idx * 4 + 1,
+            moduleId: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_mod_1`,
+            boardId: idx === 0 ? 'board_1' : `board_${idx + 1}`,
+          },
+          {
+            id: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_3`,
+            label: 'IC3',
+            x: 602 + disc.offsetX,
+            y: 150 + disc.offsetY,
+            width: 250,
+            height: 88,
+            baseIndex: idx * 4 + 2,
+            moduleId: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_mod_1`,
+            boardId: idx === 0 ? 'board_1' : `board_${idx + 1}`,
+          },
+          {
+            id: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_ic_4`,
+            label: 'IC4',
+            x: 876 + disc.offsetX,
+            y: 150 + disc.offsetY,
+            width: 250,
+            height: 88,
+            baseIndex: idx * 4 + 3,
+            moduleId: `${idx === 0 ? 'board_1' : `board_${idx + 1}`}_mod_1`,
+            boardId: idx === 0 ? 'board_1' : `board_${idx + 1}`,
+          },
+        ],
+        isPowerOn: true,
+        clockHz: 1,
+        activeModuleCount: 1,
+      };
+      return { boardModel: defaultBoard, boardIndex: idx };
+    });
+  }
 
-  // Helper to find which IC is currently mounted on a given horizontal base
-  const getMountedIC = (baseX: number, baseY: number) => {
+  // Helper to find which IC is currently mounted on a given slot
+  const getMountedICForSlot = (slot: TrainerICSlot) => {
     return components.find(
       (c) =>
         (c.type.startsWith('ic_') || c.type === 'custom_ic') &&
-        Math.abs(c.x - baseX) < 50 &&
-        Math.abs(c.y - baseY) < 40
+        (c.customProps?.trainerMount?.socketId === slot.id ||
+          (Math.abs(c.x - slot.x) < 50 && Math.abs(c.y - slot.y) < 40))
     );
   };
 
   return (
     <>
-      {boards.map(({ boardIndex, offsetX, offsetY }) => {
-        const currentBoardX = boardX + offsetX;
-        const currentBoardY = boardY + offsetY;
-        const isSelected = selectedBoardIndex === boardIndex;
+      {boardsToRender.map(({ boardModel, boardIndex }) => {
+        const { x: boardX, y: boardY, width: boardWidth, height: boardHeight, modules, icSlots } = boardModel;
+        const isSelected =
+          selectedBoardId === boardModel.id ||
+          selectedBoardIndex === boardIndex;
+
+        // Position for + ADD MODULE button (right beside the last IC socket of this board)
+        const lastSlot = icSlots[icSlots.length - 1];
+        const addModuleBtnX = lastSlot ? lastSlot.x + lastSlot.width + 16 : boardX + 900;
+        const addModuleBtnY = lastSlot ? lastSlot.y : boardY + TRAINER_CONSTANTS.IC_Y_OFFSET;
 
         return (
           <div
-            key={boardIndex}
-            className={`hardware-trainer-board ${isSelected ? 'selected' : ''}`}
+            key={boardModel.id}
+            className={`hardware-trainer-board ${isSelected ? 'board-selected selected' : ''}`}
             style={{
-              left: `${currentBoardX}px`,
-              top: `${currentBoardY}px`,
+              left: `${boardX}px`,
+              top: `${boardY}px`,
               width: `${boardWidth}px`,
               height: `${boardHeight}px`,
             }}
             onClick={(e) => {
-              e.stopPropagation();
-              onSelectBoard?.(boardIndex);
+              if ((e.target as HTMLElement).classList.contains('hardware-trainer-board')) {
+                onSelectBoard?.(boardModel.id);
+                onSelectBoard?.(boardIndex);
+              }
             }}
           >
             {/* =====================================================================
@@ -74,6 +189,7 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
               title="Click & Drag to move this Trainer Board"
               onMouseDown={(e) => {
                 if ((e.target as HTMLElement).tagName !== 'BUTTON') {
+                  onSelectBoard?.(boardModel.id);
                   onSelectBoard?.(boardIndex);
                   onStartDragBoard?.(boardIndex, e);
                 }
@@ -81,9 +197,10 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
             >
               <div className="trainer-board-drag-title">
                 <span className="trainer-drag-dots">⠿</span>
-                <span>DIGITAL TRAINER BOARD #{boardIndex + 1}</span>
+                <span>{boardModel.name || `DIGITAL TRAINER BOARD #${boardIndex + 1}`}</span>
                 <span className="trainer-drag-hint">(Drag to Move)</span>
               </div>
+
               <div className="trainer-board-header-actions">
                 {onCopyBoard && (
                   <button
@@ -98,7 +215,7 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                     📋 Copy
                   </button>
                 )}
-                {onRemoveBoard && (
+                {boardsToRender.length > 1 && onRemoveBoard && (
                   <button
                     type="button"
                     className="trainer-remove-board-btn"
@@ -115,40 +232,115 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
             </div>
 
             {/* =====================================================================
-                TOP SECTION CHASSIS (OUTPUT SECTION SILKSCREEN)
+                TOP SECTION CHASSIS (OUTPUT SECTION HEADER & TOP SILKSCREEN DIVIDER)
                 ===================================================================== */}
             <div className="trainer-top-strip">
-              <div className="trainer-section-title top-title">
-                OUTPUT SECTION {boards.length > 1 ? `(BOARD #${boardIndex + 1})` : ''}
+              <div className="trainer-header-left">
+                <div className="trainer-board-badge" title="DELDSIM Digital Logic Laboratory Trainer System">
+                  <span className="badge-dot">●</span>
+                  <span className="badge-name">{boardModel.name || 'TRAINER KIT'}</span>
+                  <span className="badge-modules-count">
+                    {modules.length} {modules.length === 1 ? 'MODULE' : 'MODULES'} • {icSlots.length} IC SLOTS
+                  </span>
+                </div>
+                <div className="trainer-section-title top-title">
+                  OUTPUT SECTION {boardsToRender.length > 1 ? `(BOARD #${boardIndex + 1})` : ''}
+                </div>
               </div>
+
+              <div className="trainer-header-right">
+                <div className="trainer-ext-summary">
+                  <span>DIP-20 SOCKETS: <strong>{icSlots.length}</strong></span>
+                  <span>INPUTS: <strong>{modules.reduce((acc, m) => acc + m.inputCount, 0)}</strong></span>
+                </div>
+              </div>
+
               <div className="trainer-divider top-div" />
             </div>
 
             {/* =====================================================================
-                MIDDLE SECTION: 3 HORIZONTAL 20-PIN IC BASES (Interactive Sockets)
+                MIDDLE SECTION: DYNAMIC EXPANDABLE BREADBOARD MODULES & IC BASES
                 ===================================================================== */}
-            <div className="trainer-ic-bases-layer">
-              {icBasesX.map((baseXOrigin, index) => {
-                const absoluteBaseX = baseXOrigin + offsetX;
-                const absoluteBaseY = icBasesY + offsetY;
-                const mountedIC = getMountedIC(absoluteBaseX, absoluteBaseY);
+            <div className="trainer-modules-container">
+              {modules.map((mod, modIdx) => {
+                const modSlots = icSlots.filter((s) => s.moduleId === mod.id);
+                const isModSelected = selectedModuleId === mod.id;
 
                 return (
                   <div
-                    key={index}
+                    key={mod.id}
+                    className={`trainer-module-zone ${isModSelected ? 'module-selected' : ''}`}
+                    style={{
+                      left: `${mod.x - boardX}px`,
+                      top: `${mod.y - boardY + 70}px`,
+                      width: `${mod.width}px`,
+                      height: `${mod.height - 180}px`,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectModule?.(mod.id);
+                    }}
+                  >
+                    {/* Module Header Bar / Subtle Silkscreen Divider */}
+                    <div className="module-banner">
+                      <div className="module-title-group">
+                        <span className="module-tag">{mod.name.toUpperCase()}</span>
+                        <span className="module-specs">
+                          ({modSlots.length} IC Sockets • {mod.inputCount} Inputs)
+                        </span>
+                      </div>
+
+                      {modIdx > 0 && onRemoveModule && (
+                        <button
+                          type="button"
+                          className="module-remove-btn"
+                          title={`Remove ${mod.name} and its generated sockets/inputs`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Remove ${mod.name}? Any ICs mounted on its sockets will be unmounted.`)) {
+                              onRemoveModule(mod.id);
+                            }
+                          }}
+                        >
+                          ✕ Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Module Visual Boundary / Subtle Inset Breadboard Matrix */}
+                    <div className="module-breadboard-bed">
+                      <div className="breadboard-bus-stripe top-bus" />
+                      <div className="breadboard-tie-points-matrix" />
+                      <div className="breadboard-bus-stripe bottom-bus" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* =====================================================================
+                INTERACTIVE IC SOCKETS LAYER (DIP-20 Horizontal Sockets)
+                ===================================================================== */}
+            <div className="trainer-ic-bases-layer">
+              {icSlots.map((slot) => {
+                const mountedIC = getMountedICForSlot(slot);
+
+                return (
+                  <div
+                    key={slot.id}
                     className={`horizontal-ic-base-socket ${mountedIC ? 'occupied' : 'empty'}`}
                     style={{
-                      left: `${baseXOrigin - boardX}px`,
-                      top: `${icBasesY - boardY}px`,
-                      width: `${icBaseWidth}px`,
-                      height: `${icBaseHeight}px`,
+                      left: `${slot.x - boardX}px`,
+                      top: `${slot.y - boardY}px`,
+                      width: `${slot.width}px`,
+                      height: `${slot.height}px`,
                     }}
                     title={
                       mountedIC
-                        ? `IC BASE ${index + 1}: ${mountedIC.label} mounted. Click to replace or change IC.`
-                        : `IC BASE ${index + 1}: Empty socket. Click to select an IC to mount here.`
+                        ? `${slot.label}: ${mountedIC.label} mounted. Click to replace or change IC.`
+                        : `${slot.label}: Empty socket. Click to select an IC to mount here.`
                     }
-                    onClick={() => onOpenICPicker?.(index + boardIndex * 3)}
+                    onClick={() => onOpenICPicker?.(slot.baseIndex)}
                   >
                     {/* Top Pin Sockets (20 down to 11 from left to right) */}
                     <div className="base-pins-row top-row">
@@ -165,11 +357,11 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                       {/* Left Orientation Notch */}
                       <div className="base-socket-notch" />
 
-                      {/* Center Interactive Button */}
+                      {/* Center Interactive Mount/Swap Area */}
                       <div className="base-center-interactive">
                         {mountedIC ? (
                           <div className="base-occupied-tag">
-                            <span className="base-socket-name">IC BASE {index + 1}</span>
+                            <span className="base-socket-name">{slot.label}</span>
                             <span className="base-chip-name">{mountedIC.label}</span>
                             <span className="base-swap-action">Click to Swap IC 🔄</span>
                           </div>
@@ -179,11 +371,11 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                             className="base-mount-action-btn"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onOpenICPicker?.(index + boardIndex * 3);
+                              onOpenICPicker?.(slot.baseIndex);
                             }}
                           >
                             <span className="mount-btn-plus">➕</span>
-                            <span className="mount-btn-text">IC BASE {index + 1}</span>
+                            <span className="mount-btn-text">{slot.label}</span>
                             <span className="mount-btn-sub">Click to Mount IC</span>
                           </button>
                         )}
@@ -202,15 +394,61 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                   </div>
                 );
               })}
+
+              {/* ===================================================================
+                  + ADD MODULE / + EXTEND BOARD ACTION SLOT
+                  Prominently positioned right beside the last IC socket!
+                  =================================================================== */}
+              {onAddModule && (
+                <div
+                  className="trainer-add-module-card"
+                  style={{
+                    left: `${addModuleBtnX - boardX}px`,
+                    top: `${addModuleBtnY - boardY}px`,
+                    height: `${TRAINER_CONSTANTS.IC_SOCKET_HEIGHT}px`,
+                  }}
+                  title="Extend Trainer Board with an additional module (+2 IC Sockets, +8 Inputs)"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddModule();
+                  }}
+                >
+                  <div className="add-module-content">
+                    <div className="add-module-icon">➕</div>
+                    <div className="add-module-text">
+                      <span className="add-mod-title">+ ADD MODULE</span>
+                      <span className="add-mod-desc">+2 ICs • +8 Inputs</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* =====================================================================
-                BOTTOM SECTION CHASSIS (INPUT & CLOCK SECTION HEADERS & BOTTOM DIVIDER)
+                BOTTOM SECTION CHASSIS (INPUT SECTION & CLOCK SECTION)
                 ===================================================================== */}
             <div className="trainer-bottom-strip">
               <div className="trainer-divider bottom-div" />
-              <div className="trainer-section-title input-title">INPUT SECTION</div>
-              <div className="trainer-section-title clock-title">CLOCK SECTION</div>
+              <div className="trainer-bottom-labels">
+                {/* Dynamic input labels for each module */}
+                <div className="input-sections-row">
+                  {modules.map((m) => (
+                    <div
+                      key={m.id}
+                      className="trainer-section-title input-title"
+                      style={{
+                        minWidth: `${m.width}px`,
+                      }}
+                    >
+                      <span>INPUT SECTION ({m.name.toUpperCase()}: IN{m.startInputIndex + m.inputCount - 1}..IN{m.startInputIndex})</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="trainer-section-title clock-title">
+                  <span>CLOCK & POWER CONTROLS</span>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -218,4 +456,5 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
     </>
   );
 };
+
 export default TrainerBoard;

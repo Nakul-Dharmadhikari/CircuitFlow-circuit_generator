@@ -13,6 +13,17 @@ function cloneCircuit(c: Circuit): Circuit {
       customProps: { ...comp.customProps },
     })),
     wires: c.wires.map((w) => ({ ...w })),
+    trainerBoards: c.trainerBoards
+      ? c.trainerBoards.map((b) => ({
+          ...b,
+          modules: b.modules.map((m) => ({
+            ...m,
+            icSlotIds: [...m.icSlotIds],
+            inputComponentIds: [...m.inputComponentIds],
+          })),
+          icSlots: b.icSlots.map((s) => ({ ...s })),
+        }))
+      : undefined,
   };
 }
 

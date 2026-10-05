@@ -87,6 +87,8 @@ export const GateComponent: React.FC<GateComponentProps> = ({
         width: `${width}px`,
         height: `${height}px`,
         cursor: component.isTrainerFixed ? 'default' : 'move',
+        transform: component.rotation ? `rotate(${component.rotation}deg)` : undefined,
+        transformOrigin: 'center center',
       }}
       onMouseDown={(e) => {
         if (component.isTrainerFixed) {
