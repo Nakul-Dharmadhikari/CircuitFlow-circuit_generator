@@ -2441,7 +2441,7 @@ export function simulateCircuit(circuit: Circuit): {
     components.some((c) => c.type === 'buzzer' && c.inputs.some((p) => p.value === '1'));
 
   return {
-    circuit: { components, wires },
+    circuit: { components, wires, trainerBoards: circuit.trainerBoards },
     cycleDetected,
     buzzerActive: settledBuzzerActive,
   };

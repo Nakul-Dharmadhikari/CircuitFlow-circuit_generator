@@ -1,54 +1,87 @@
 import type { Circuit, CircuitComponent } from '../types/circuit';
 import { createComponent } from './simulator';
+import {
+  TRAINER_CONSTANTS,
+  createInitialTrainerBoard,
+  createTrainerChassisComponents,
+  createTrainerInputComponents,
+  addModuleToTrainerBoard,
+  removeLastModuleFromTrainerBoard,
+  copyTrainerBoard,
+  deleteTrainerBoard,
+  getMountedICOnSocket,
+  findAvailableICSocket,
+  calculateBoardWidth,
+  type TrainerBoardModel,
+  type TrainerModuleConfig,
+  type TrainerICSlot,
+} from './trainer/trainerBoardModel';
+
+// Re-export dynamic model types & functions
+export {
+  TRAINER_CONSTANTS,
+  createInitialTrainerBoard,
+  addModuleToTrainerBoard,
+  removeLastModuleFromTrainerBoard,
+  copyTrainerBoard,
+  deleteTrainerBoard,
+  getMountedICOnSocket,
+  findAvailableICSocket,
+  calculateBoardWidth,
+  type TrainerBoardModel,
+  type TrainerModuleConfig,
+  type TrainerICSlot,
+};
 
 export const TRAINER_BOARD_LAYOUT = {
-  boardX: 20,
-  boardY: 15,
-  boardWidth: 1080,
-  boardHeight: 520,
+  boardX: TRAINER_CONSTANTS.DEFAULT_BOARD_X,
+  boardY: TRAINER_CONSTANTS.DEFAULT_BOARD_Y,
+  boardWidth: 1180,
+  boardHeight: TRAINER_CONSTANTS.BOARD_HEIGHT,
 
   // Outputs (Top Section)
-  outputsY: 28,
-  outputsStartX: 50,
-  outputsPitchX: 38,
+  outputsY: 24,
+  outputsStartX: 40,
+  outputsPitchX: TRAINER_CONSTANTS.OUTPUTS_PITCH_X,
   vccX: 665,
-  vccY: 28,
-  seg1X: 745,
-  seg2X: 815,
-  segY: 18,
-  powerX: 920,
-  powerY: 22,
+  vccY: 24,
+  seg1X: 945,
+  seg2X: 1005,
+  segY: 16,
+  powerX: 1085,
+  powerY: 18,
 
-  // Horizontal 20-Pin IC Bases (Center)
-  icBasesY: 195,
-  icBasesX: [70, 410, 750], // 3 spacious horizontal 250px x 88px DIP-20 sockets
-  icBaseWidth: 250,
-  icBaseHeight: 88,
+  // Horizontal 20-Pin IC Bases (Center) - Default: 4 IC Sockets (IC1, IC2, IC3, IC4)
+  icBasesY: TRAINER_CONSTANTS.DEFAULT_BOARD_Y + TRAINER_CONSTANTS.IC_Y_OFFSET,
+  icBasesX: [54, 328, 602, 876], // 4 spacious DIP-20 sockets
+  icBaseWidth: TRAINER_CONSTANTS.IC_SOCKET_WIDTH,
+  icBaseHeight: TRAINER_CONSTANTS.IC_SOCKET_HEIGHT,
 
-  // Inputs (Bottom-Left Section)
-  inputsY: 400,
-  inputsStartX: 50,
-  inputsPitchX: 38,
+  // Inputs (Bottom Section)
+  inputsY: TRAINER_CONSTANTS.INPUTS_Y_OFFSET,
+  inputsStartX: TRAINER_CONSTANTS.INPUTS_START_X_OFFSET,
+  inputsPitchX: TRAINER_CONSTANTS.INPUTS_PITCH_X,
   gndX: 665,
-  gndY: 400,
+  gndY: TRAINER_CONSTANTS.INPUTS_Y_OFFSET,
 
   // Clock Section (Bottom-Right Section)
-  clockY: 400,
-  clk10X: 740,
-  clk5X: 785,
-  clk1X: 830,
-  clk05X: 875,
-  clkHighX: 935,
-  clkLowX: 980,
-  pulseBtnX: 920,
-  pulseBtnY: 450,
+  clockY: TRAINER_CONSTANTS.CLOCK_Y_OFFSET,
+  clk10X: 840,
+  clk5X: 885,
+  clk1X: 930,
+  clk05X: 975,
+  clkHighX: 1030,
+  clkLowX: 1075,
+  pulseBtnX: 1015,
+  pulseBtnY: 410,
 };
 
 /**
- * Creates all Digital Trainer Kit fixed hardware components matching the layout:
+ * Creates all Digital Trainer Kit initial hardware components matching the layout:
+ * - Module 1: 4 Horizontal 20-pin IC Bases (empty sockets), 16 Inputs (15..0)
  * - Top: 16 Outputs (15..0), VCC, Dual 7-segment displays, Power button
- * - Middle: 3 Horizontal 20-pin IC Bases (positions)
- * - Bottom: 16 Inputs (15..0), GND, Clock section with 10/5/1/0.5Hz selectors and GENERATE PULSE
+ * - Bottom Right: GND, Clock section with 10/5/1/0.5Hz selectors and GENERATE PULSE
+ * Fully supports optional offsetX, offsetY, and boardIndex for multi-board placement.
  */
 export function createTrainerKitComponents(
   offsetX = 0,
@@ -57,6 +90,7 @@ export function createTrainerKitComponents(
 ): CircuitComponent[] {
   const comps: CircuitComponent[] = [];
   const prefix = boardIndex === 0 ? 'trainer_' : `trainer_b${boardIndex}_`;
+  const boardId = boardIndex === 0 ? 'board_1' : `board_${boardIndex + 1}`;
 
   // =========================================================================
   // 1. OUTPUT SECTION (Top: 15 to 0 from left to right)
@@ -75,7 +109,9 @@ export function createTrainerKitComponents(
     outComp.customProps = {
       isTrainerOutput: true,
       outputIndex: n,
+      trainerOutputIndex: n,
       boardIndex,
+      boardId,
     };
     // Position terminal pin right below the lamp
     outComp.inputs = [
@@ -102,7 +138,7 @@ export function createTrainerKitComponents(
   vcc.width = 32;
   vcc.height = 44;
   vcc.isTrainerFixed = true;
-  vcc.customProps = { isTrainerVcc: true, boardIndex };
+  vcc.customProps = { isTrainerVcc: true, boardIndex, boardId };
   vcc.outputs = [
     {
       id: 'out',
@@ -124,7 +160,7 @@ export function createTrainerKitComponents(
   seg1.id = `${prefix}seg_1`;
   seg1.label = 'DISP 1';
   seg1.isTrainerFixed = true;
-  seg1.customProps = { boardIndex };
+  seg1.customProps = { boardIndex, boardId };
   comps.push(seg1);
 
   const seg2 = createComponent(
@@ -135,7 +171,7 @@ export function createTrainerKitComponents(
   seg2.id = `${prefix}seg_2`;
   seg2.label = 'DISP 2';
   seg2.isTrainerFixed = true;
-  seg2.customProps = { boardIndex };
+  seg2.customProps = { boardIndex, boardId };
   comps.push(seg2);
 
   // Board Power Switch Unit
@@ -149,7 +185,7 @@ export function createTrainerKitComponents(
   power.width = 72;
   power.height = 46;
   power.isTrainerFixed = true;
-  power.customProps = { isTrainerPower: true, boardIndex };
+  power.customProps = { isTrainerPower: true, boardIndex, boardId };
   power.state = { toggleState: true }; // On by default
   power.outputs = [
     {
@@ -180,7 +216,9 @@ export function createTrainerKitComponents(
     inComp.customProps = {
       isTrainerInput: true,
       inputIndex: n,
+      trainerInputIndex: n,
       boardIndex,
+      boardId,
     };
     // Position terminal pin at top, toggle switch in middle, number at bottom
     inComp.outputs = [
@@ -207,7 +245,7 @@ export function createTrainerKitComponents(
   gnd.width = 32;
   gnd.height = 54;
   gnd.isTrainerFixed = true;
-  gnd.customProps = { isTrainerGnd: true, boardIndex };
+  gnd.customProps = { isTrainerGnd: true, boardIndex, boardId };
   gnd.outputs = [
     {
       id: 'out',
@@ -241,6 +279,7 @@ export function createTrainerKitComponents(
       isTrainerClock: true,
       frequency: f.freq,
       boardIndex,
+      boardId,
     };
     clkComp.outputs = [
       {
@@ -262,7 +301,7 @@ export function createTrainerKitComponents(
   masterClk.width = 32;
   masterClk.height = 54;
   masterClk.isTrainerFixed = true;
-  masterClk.customProps = { isTrainerClock: true, frequency: 1, boardIndex };
+  masterClk.customProps = { isTrainerClock: true, frequency: 1, boardIndex, boardId };
   masterClk.outputs = [
     {
       id: 'out',
@@ -286,7 +325,7 @@ export function createTrainerKitComponents(
   clkHigh.width = 32;
   clkHigh.height = 54;
   clkHigh.isTrainerFixed = true;
-  clkHigh.customProps = { isTrainerHigh: true, boardIndex };
+  clkHigh.customProps = { isTrainerHigh: true, boardIndex, boardId };
   clkHigh.outputs = [
     {
       id: 'out',
@@ -310,7 +349,7 @@ export function createTrainerKitComponents(
   clkLow.width = 32;
   clkLow.height = 54;
   clkLow.isTrainerFixed = true;
-  clkLow.customProps = { isTrainerLow: true, boardIndex };
+  clkLow.customProps = { isTrainerLow: true, boardIndex, boardId };
   clkLow.outputs = [
     {
       id: 'out',
@@ -334,7 +373,7 @@ export function createTrainerKitComponents(
   pulseBtn.width = 120;
   pulseBtn.height = 32;
   pulseBtn.isTrainerFixed = true;
-  pulseBtn.customProps = { isTrainerPulseButton: true, boardIndex };
+  pulseBtn.customProps = { isTrainerPulseButton: true, boardIndex, boardId };
   pulseBtn.outputs = [
     {
       id: 'out',
@@ -412,20 +451,76 @@ export function getTrainerBoards(components: CircuitComponent[]): Array<{
 }
 
 /**
- * Checks if a circuit has Digital Trainer Kit components; if not, injects them cleanly
+ * Checks if a circuit has Digital Trainer Kit components; if not, injects them cleanly.
+ * Preserves dynamic trainer board model, modules, and components across saves and reloads.
  */
 export function ensureTrainerKit(circuit: Circuit): Circuit {
-  const existingTrainer = circuit.components.some((c) => c.isTrainerFixed || c.id.startsWith('trainer_'));
-  if (existingTrainer) {
-    return circuit;
+  let boards = circuit.trainerBoards ? [...circuit.trainerBoards] : [];
+  let components = [...circuit.components];
+
+  if (!boards || boards.length === 0) {
+    const { board, components: initialComps } = createInitialTrainerBoard('board_1');
+    boards = [board];
+    const existingIds = new Set(components.map((c) => c.id));
+    const missing = initialComps.filter((c) => !existingIds.has(c.id));
+    components.push(...missing);
+  } else {
+    // If board model already exists (e.g. from saved circuit with 2 or 3 modules), ensure all components exist
+    const board = boards[0];
+    const existingIds = new Set(components.map((c) => c.id));
+    const missingComps: CircuitComponent[] = [];
+
+    // Ensure all inputs from all modules are in the circuit
+    board.modules.forEach((mod) => {
+      const inputs = createTrainerInputComponents(
+        board.id,
+        mod.startInputIndex,
+        mod.inputCount,
+        mod.x + 24,
+        board.y + TRAINER_CONSTANTS.INPUTS_Y_OFFSET
+      );
+      inputs.forEach((comp) => {
+        if (!existingIds.has(comp.id)) {
+          missingComps.push(comp);
+        }
+      });
+    });
+
+    // Ensure chassis components are present
+    const chassis = createTrainerChassisComponents(board.id, board.x, board.y, board.width);
+    chassis.forEach((comp) => {
+      if (!existingIds.has(comp.id)) {
+        missingComps.push(comp);
+      }
+    });
+
+    components.push(...missingComps);
   }
-  const defaultTrainerComps = createTrainerKitComponents();
+
+  // Also verify whether additional legacy trainer boards exist (e.g. from boardIndex > 0 in components)
+  const legacyBoards = getTrainerBoards(components);
+  if (legacyBoards.length > 1 && boards.length < legacyBoards.length) {
+    for (let i = 1; i < legacyBoards.length; i++) {
+      const bInfo = legacyBoards[i];
+      const legacyBoardId = `board_${bInfo.boardIndex + 1}`;
+      if (!boards.some((b) => b.id === legacyBoardId)) {
+        const { board: extraBoard } = createInitialTrainerBoard(
+          legacyBoardId,
+          TRAINER_CONSTANTS.DEFAULT_BOARD_X + bInfo.offsetX,
+          TRAINER_CONSTANTS.DEFAULT_BOARD_Y + bInfo.offsetY
+        );
+        boards.push(extraBoard);
+      }
+    }
+  }
+
   return {
     ...circuit,
-    components: [...circuit.components, ...defaultTrainerComps],
+    components,
+    trainerBoards: boards,
   };
 }
 
 export function isTrainerComponentId(id: string): boolean {
-  return id.startsWith('trainer_');
+  return id.startsWith('trainer_') || id.includes('_trainer_');
 }
