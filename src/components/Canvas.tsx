@@ -196,14 +196,17 @@ export const Canvas: React.FC<CanvasProps> = ({
     screenToWorld: screenToWorldCoord,
   });
 
-  // Wheel Zoom with Cursor Anchoring (Zero Browser Page Scrolling)
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-    const targetZoom = zoom * zoomFactor;
+  // Wheel Zoom with Cursor Anchoring (Zero Browser Page Scrolling - passive: false)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
 
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
+    const handleWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+      const targetZoom = zoom * zoomFactor;
+
+      const rect = el.getBoundingClientRect();
       const nextVp = calculateZoomAtPoint(
         { x: e.clientX, y: e.clientY },
         targetZoom,
@@ -212,23 +215,13 @@ export const Canvas: React.FC<CanvasProps> = ({
       );
       onPanChange({ x: nextVp.x, y: nextVp.y });
       onZoomChange(nextVp.zoom);
-    }
-  };
-
-  // Global Wheel listener with passive: false to prevent browser zooming / scrolling
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const preventDefaultScroll = (e: WheelEvent) => {
-      e.preventDefault();
     };
 
-    el.addEventListener('wheel', preventDefaultScroll, { passive: false });
+    el.addEventListener('wheel', handleWheelNative, { passive: false });
     return () => {
-      el.removeEventListener('wheel', preventDefaultScroll);
+      el.removeEventListener('wheel', handleWheelNative);
     };
-  }, []);
+  }, [zoom, pan, onPanChange, onZoomChange]);
 
   // Right-Click Context Menu State
   const [contextMenu, setContextMenu] = React.useState<{
@@ -315,7 +308,6 @@ export const Canvas: React.FC<CanvasProps> = ({
           ? 'radial-gradient(var(--grid-dot-color) var(--grid-dot-size), transparent var(--grid-dot-size))'
           : 'none',
       }}
-      onWheel={handleWheel}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
