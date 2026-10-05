@@ -5,11 +5,21 @@ import type { LabExperiment } from './presets/labExperiments';
 import { soundFx } from './audio/soundEffects';
 import { getCurrentUser, logoutUser } from './services/storage';
 import { useCircuitHistory } from './hooks/useCircuitHistory';
-import { ensureTrainerKit, createTrainerKitComponents, getTrainerBoards, TRAINER_BOARD_LAYOUT } from './engine/trainerKit';
+import {
+  ensureTrainerKit,
+  createTrainerKitComponents,
+  getTrainerBoards,
+  TRAINER_BOARD_LAYOUT,
+  addModuleToTrainerBoard,
+  removeLastModuleFromTrainerBoard,
+  copyTrainerBoard,
+  deleteTrainerBoard,
+  findAvailableICSocket,
+} from './engine/trainerKit';
 import { getUserCustomICs, deleteUserCustomIC } from './services/customIcStorage';
+import { downloadCircuitToFile } from './services/storage';
 
 import { LandingPage } from './components/LandingPage';
-import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Canvas } from './components/Canvas';
 import { PropertiesPanel } from './components/PropertiesPanel';
@@ -21,6 +31,10 @@ import { AuthModal } from './components/AuthModal';
 import { SavedCircuitsModal } from './components/SavedCircuitsModal';
 import { CustomICModal } from './components/CustomICModal';
 import { ICPickerModal } from './components/ICPickerModal';
+import { AppShell } from './app/AppShell';
+import type { WorkbenchView } from './hooks/useUIState';
+import { simulationEngine } from './core/simulation-engine';
+import { getNextRotation } from './utils/geometry';
 
 const CLIPBOARD_STORAGE_KEY = 'circuitflow_clipboard';
 
@@ -47,8 +61,10 @@ export function App() {
     setCustomICs(getUserCustomICs(currentUser?.id || 'guest'));
   }, [currentUser]);
 
-  // Current View: starts on 'landing'
-  const [currentView, setCurrentView] = useState<'landing' | 'simulator'>('landing');
+  // Current View: starts on 'landing', supports 'hardware' (DELDSIM), 'circuit' (Schematic), and 'analysis'
+  const [currentView, setCurrentView] = useState<WorkbenchView>('landing');
+  const [projectName, setProjectName] = useState<string>('Untitled Circuit');
+  const [isDirty, setIsDirty] = useState<boolean>(false);
 
   // Toast Notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -92,7 +108,12 @@ export function App() {
   // Selection: Component, Wire, Trainer Board, or Complete Circuit
   const [selectedCompId, setSelectedCompId] = useState<string | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+<<<<<<< HEAD
   const [selectedBoardIndex, setSelectedBoardIndex] = useState<number | null>(null);
+=======
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+>>>>>>> ddb7874 (feat: trainer persistence)
   const [isAllSelected, setIsAllSelected] = useState<boolean>(false);
 
   // Simulation Controls
@@ -221,6 +242,57 @@ export function App() {
     };
   }, [isRunning, clockHz, runSimulationStep]);
 
+  // Board & Module Selection Handlers
+  const handleSelectBoard = useCallback((boardId: string | null) => {
+    setSelectedBoardId(boardId);
+    setSelectedModuleId(null);
+    if (boardId) {
+      setSelectedCompId(null);
+      setSelectedWireId(null);
+    }
+  }, []);
+
+  const handleSelectModule = useCallback((moduleId: string | null) => {
+    setSelectedModuleId(moduleId);
+    if (moduleId) {
+      setSelectedCompId(null);
+      setSelectedWireId(null);
+    }
+  }, []);
+
+  // Add Module to Trainer Board (Dynamic Expandable Breadboard Module)
+  const handleAddModule = useCallback(() => {
+    const res = addModuleToTrainerBoard(circuitRef.current);
+    commitAction(circuitRef.current, res.circuit);
+    soundFx.playButtonTap();
+    showToast(`Added ${res.newModule.name} (+2 IC Sockets, +8 Inputs)`);
+  }, [commitAction]);
+
+  // Remove Module from Trainer Board
+  const handleRemoveModule = useCallback((_moduleId?: string) => {
+    const nextCircuit = removeLastModuleFromTrainerBoard(circuitRef.current);
+    commitAction(circuitRef.current, nextCircuit);
+    soundFx.playButtonTap();
+    showToast('Removed module from Trainer Board');
+  }, [commitAction]);
+
+  // Copy Board
+  const handleCopyBoard = useCallback((boardId: string) => {
+    const res = copyTrainerBoard(circuitRef.current, boardId);
+    commitAction(circuitRef.current, res.circuit);
+    soundFx.playButtonTap();
+    showToast('Duplicated Trainer Board');
+  }, [commitAction]);
+
+  // Delete Board
+  const handleDeleteBoard = useCallback((boardId: string) => {
+    const nextCircuit = deleteTrainerBoard(circuitRef.current, boardId);
+    commitAction(circuitRef.current, nextCircuit);
+    setSelectedBoardId(null);
+    soundFx.playButtonTap();
+    showToast('Deleted Trainer Board');
+  }, [commitAction]);
+
   // Add Component to Canvas (snaps ICs into empty horizontal IC base sockets when available)
   const handleAddComponent = (type: ComponentType) => {
     let posX = Math.round((-pan.x + 300) / zoom / 10) * 10;
@@ -228,18 +300,10 @@ export function App() {
 
     const isIC = type.startsWith('ic_') || type === 'custom_ic';
     if (isIC) {
-      const { icBasesX, icBasesY } = TRAINER_BOARD_LAYOUT;
-      for (let i = 0; i < icBasesX.length; i++) {
-        const bx = icBasesX[i];
-        const by = icBasesY;
-        const occupied = circuit.components.some(
-          (c) => Math.abs(c.x - bx) < 80 && Math.abs(c.y - by) < 50
-        );
-        if (!occupied) {
-          posX = bx;
-          posY = by;
-          break;
-        }
+      const availSlot = findAvailableICSocket(circuit);
+      if (availSlot) {
+        posX = availSlot.x;
+        posY = availSlot.y;
       }
     }
 
@@ -253,18 +317,22 @@ export function App() {
     pushState(res.circuit);
     setSelectedCompId(newComp.id);
     setSelectedWireId(null);
+    setSelectedBoardId(null);
+    setSelectedModuleId(null);
     soundFx.playButtonTap();
     showToast(`Added ${newComp.label} to circuit`);
   };
 
-  // Mount or replace IC directly on Horizontal IC Base Socket (1..3)
+  // Mount or replace IC directly on Horizontal IC Base Socket
   const handleSelectICFromPicker = (
     baseIndex: number,
     type: ComponentType,
     customICDef?: CustomICDefinition
   ) => {
-    const baseX = TRAINER_BOARD_LAYOUT.icBasesX[baseIndex];
-    const baseY = TRAINER_BOARD_LAYOUT.icBasesY;
+    const board = circuit.trainerBoards?.[0];
+    const slot = board?.icSlots?.[baseIndex];
+    const baseX = slot ? slot.x : (TRAINER_BOARD_LAYOUT.icBasesX[baseIndex] ?? 54);
+    const baseY = slot ? slot.y : TRAINER_BOARD_LAYOUT.icBasesY;
 
     // Find if an IC is already mounted at this socket
     const existing = circuit.components.find(
@@ -298,6 +366,7 @@ export function App() {
     }
 
     const nextCircuit = {
+      ...circuit,
       components: [...remainingComps, newComp],
       wires: remainingWires,
     };
@@ -311,6 +380,8 @@ export function App() {
     }
     setSelectedCompId(newComp.id);
     setSelectedWireId(null);
+    setSelectedBoardId(null);
+    setSelectedModuleId(null);
     setPickerBaseIndex(null);
     soundFx.playButtonTap();
     showToast(`Mounted ${newComp.label} on IC Socket ${baseIndex + 1}`);
@@ -318,8 +389,10 @@ export function App() {
 
   // Remove IC from socket
   const handleRemoveICFromBase = (baseIndex: number) => {
-    const baseX = TRAINER_BOARD_LAYOUT.icBasesX[baseIndex];
-    const baseY = TRAINER_BOARD_LAYOUT.icBasesY;
+    const board = circuit.trainerBoards?.[0];
+    const slot = board?.icSlots?.[baseIndex];
+    const baseX = slot ? slot.x : (TRAINER_BOARD_LAYOUT.icBasesX[baseIndex] ?? 54);
+    const baseY = slot ? slot.y : TRAINER_BOARD_LAYOUT.icBasesY;
 
     const existing = circuit.components.find(
       (c) =>
@@ -339,7 +412,7 @@ export function App() {
     );
     const cleaned = cleanupOrphanJunctions(remainingComps, remainingWires);
 
-    const res = simulateCircuit({ components: cleaned.components, wires: cleaned.wires });
+    const res = simulateCircuit({ ...circuit, components: cleaned.components, wires: cleaned.wires });
     pushState(res.circuit);
     if (res.buzzerActive) {
       soundFx.startBuzzer();
@@ -631,6 +704,24 @@ export function App() {
     };
     pushState(nextCircuit);
   };
+
+  // Rotate Component (0° -> 90° -> 180° -> 270° -> 0°)
+  const handleRotateComponent = useCallback(
+    (id: string) => {
+      const comp = circuit.components.find((c) => c.id === id);
+      if (!comp || comp.isTrainerFixed) return;
+      const nextRotation = getNextRotation(comp.rotation);
+      const nextComps = circuit.components.map((c) =>
+        c.id === id ? { ...c, rotation: nextRotation } : c
+      );
+      const res = simulateCircuit({ ...circuit, components: nextComps });
+      pushState(res.circuit);
+      setIsDirty(true);
+      soundFx.playSwitchClick(true);
+      showToast(`Rotated to ${nextRotation}°`);
+    },
+    [circuit, pushState]
+  );
 
   // Select Entire Circuit (Ctrl+A or Select All button)
   const handleSelectAll = useCallback(() => {
@@ -978,7 +1069,7 @@ export function App() {
   // Load experiment from landing page
   const handleLoadExperimentAndEnter = (exp: LabExperiment) => {
     handleLoadExperiment(exp);
-    setCurrentView('simulator');
+    setCurrentView('hardware');
   };
 
   // Load Saved Circuit
@@ -989,6 +1080,8 @@ export function App() {
     setSelectedCompId(null);
     setSelectedWireId(null);
     setWaveformHistory([]);
+    setProjectName(name);
+    setIsDirty(false);
     soundFx.playButtonTap();
     showToast(`Loaded schematic: ${name}`);
   };
@@ -1011,9 +1104,11 @@ export function App() {
     soundFx.stopBuzzer();
     setPan({ x: 20, y: 15 });
     setZoom(1);
+    setProjectName('Untitled Circuit');
+    setIsDirty(false);
     soundFx.playButtonTap();
     showToast('New circuit created with Digital Trainer Kit ready!');
-  }, [circuit, resetHistory]);
+  }, [resetHistory]);
 
   // Clear Canvas
   const handleClearCanvas = () => {
@@ -1139,6 +1234,11 @@ export function App() {
       } else if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
         runSimulationStep();
+      } else if (e.key === 'r' || e.key === 'R') {
+        if (selectedCompId) {
+          e.preventDefault();
+          handleRotateComponent(selectedCompId);
+        }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (isAllSelected) {
           e.preventDefault();
@@ -1194,12 +1294,15 @@ export function App() {
   ]);
 
   const selectedComponent = circuit.components.find((c) => c.id === selectedCompId) || null;
+  const selectedWire = circuit.wires.find((w) => w.id === selectedWireId) || null;
 
   const currentMountedIC =
     pickerBaseIndex !== null
       ? circuit.components.find((c) => {
-          const baseX = TRAINER_BOARD_LAYOUT.icBasesX[pickerBaseIndex];
-          const baseY = TRAINER_BOARD_LAYOUT.icBasesY;
+          const board = circuit.trainerBoards?.[0];
+          const slot = board?.icSlots?.[pickerBaseIndex];
+          const baseX = slot ? slot.x : (TRAINER_BOARD_LAYOUT.icBasesX[pickerBaseIndex] ?? 54);
+          const baseY = slot ? slot.y : TRAINER_BOARD_LAYOUT.icBasesY;
           return (
             (c.type.startsWith('ic_') || c.type === 'custom_ic') &&
             Math.abs(c.x - baseX) < 80 &&
@@ -1208,7 +1311,7 @@ export function App() {
         })
       : undefined;
 
-  // Render Techy Landing Page if in 'landing' view or not authenticated
+  // Render Modern Light Landing Page if in 'landing' view or not authenticated
   if (currentView === 'landing' || !currentUser) {
     return (
       <LandingPage
@@ -1218,32 +1321,121 @@ export function App() {
           showToast(`Logged in as ${u.displayName}`);
         }}
         onUserLoggedOut={handleLogout}
-        onEnterSimulator={() => {
+        onEnterSimulator={(targetView?: WorkbenchView) => {
           if (!currentUser) {
-            showToast('Please log in with your credentials first.');
-            return;
+            const guestUser: User = {
+              id: 'guest_user',
+              username: 'guest_engineer',
+              displayName: 'Guest Engineer',
+              avatarColor: '#06B6D4',
+              createdAt: Date.now(),
+            };
+            setCurrentUser(guestUser);
+            showToast('Welcome, Guest Engineer! Workbench ready.');
           }
-          setCurrentView('simulator');
+          setCurrentView(targetView || 'hardware');
           soundFx.playButtonTap();
         }}
         onLoadExperimentAndEnter={handleLoadExperimentAndEnter}
         theme={theme}
         onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
       />
     );
   }
 
+  // Check trainer master power switch state
+  const powerComp = circuit.components.find((c) => c.id === 'trainer_power');
+  const isTrainerPowerOn = powerComp ? Boolean(powerComp.state?.toggleState) : true;
+
   // Render Simulator Workbench
   return (
-    <div className="app-container">
+    <AppShell
+      projectName={projectName}
+      isDirty={isDirty}
+      onProjectNameChange={setProjectName}
+      currentView={currentView}
+      onViewChange={setCurrentView}
+      isRunning={isRunning}
+      onToggleRun={() => setIsRunning((r) => !r)}
+      onStep={runSimulationStep}
+      onReset={() => {
+        setIsRunning(false);
+        const resetCirc = simulationEngine.resetSimulation(circuit);
+        setCircuitDirect(resetCirc);
+        setWaveformHistory([]);
+        soundFx.stopBuzzer();
+        showToast('Simulation states reset');
+      }}
+      canUndo={canUndo}
+      canRedo={canRedo}
+      onUndo={() => {
+        undo();
+        soundFx.playButtonTap();
+        showToast('Undo');
+      }}
+      onRedo={() => {
+        redo();
+        soundFx.playButtonTap();
+        showToast('Redo');
+      }}
+      canCopy={Boolean(selectedCompId || selectedWireId || isAllSelected)}
+      canPaste={Boolean(localStorage.getItem(CLIPBOARD_STORAGE_KEY))}
+      hasSelection={Boolean(selectedCompId || selectedWireId || isAllSelected)}
+      soundEnabled={soundEnabled}
+      onToggleSound={handleToggleSound}
+      theme={theme}
+      onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+      currentUser={currentUser}
+      onOpenAuth={() => setIsAuthOpen(true)}
+      onLogout={handleLogout}
+      onOpenSavedCircuits={() => setIsSavedCircuitsOpen(true)}
+      onOpenTruthTable={() => setIsTruthTableOpen(true)}
+      onOpenWaveform={() => setIsWaveformOpen((v) => !v)}
+      onOpenLabPresets={() => setIsLabPresetsOpen(true)}
+      onOpenShortcuts={() => setIsShortcutsOpen(true)}
+      onOpenCustomIC={() => setIsCustomICModalOpen(true)}
+      onNewCircuit={handleNewCircuit}
+      onClearCanvas={handleClearCanvas}
+      onSelectAll={handleSelectAll}
+      onCopy={handleCopy}
+      onPaste={() => handlePaste()}
+      onDeleteSelected={() => {
+        if (isAllSelected) {
+          handleClearCanvas();
+        } else if (selectedCompId) {
+          handleDeleteComponent(selectedCompId);
+        } else if (selectedWireId) {
+          handleDeleteWire(selectedWireId);
+        }
+      }}
+      onResetViewport={() => {
+        setZoom(1);
+        setPan({ x: 20, y: 15 });
+      }}
+      onZoomIn={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}
+      onZoomOut={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))}
+      onSaveCircuit={() => downloadCircuitToFile(circuit, projectName)}
+      onToggleLibrary={() => setIsComponentLibraryOpen((prev) => !prev)}
+      clockHz={clockHz}
+      onClockHzChange={setClockHz}
+      componentCount={circuit.components.length}
+      wireCount={circuit.wires.length}
+      zoom={zoom}
+      activeTool="wire"
+      isTrainerPowerOn={isTrainerPowerOn}
+      activeICCount={circuit.components.filter((c) => c.type.startsWith('ic_') || c.type === 'custom_ic').length}
+      activeModuleCount={circuit.trainerBoards?.[0]?.modules.length || 1}
+      circuit={circuit}
+    >
       {/* Toast Notification */}
       {toastMessage && (
         <div
           style={{
             position: 'fixed',
-            bottom: '24px',
+            bottom: '36px',
             right: '24px',
-            background: 'var(--bg-panel)',
+            background: 'var(--bg-panel-elevated)',
             border: '1px solid var(--border-focus)',
             color: 'var(--text-primary)',
             padding: '8px 16px',
@@ -1252,7 +1444,7 @@ export function App() {
             fontWeight: 700,
             fontFamily: 'var(--font-mono)',
             zIndex: 9999,
-            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.4)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
@@ -1262,6 +1454,7 @@ export function App() {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* Top Header Controls (Minimalistic Green Theme with Direct Circuit Analysis) */}
       <Header
         isRunning={isRunning}
@@ -1294,6 +1487,9 @@ export function App() {
       {/* Main Workspace */}
       <div className="main-workspace">
         {/* Left Component Toolbox Drawer (Auto-minimizes on component placement) */}
+=======
+      {/* Left Component Toolbox Drawer (Auto-minimizes on component placement) */}
+>>>>>>> ddb7874 (feat: trainer persistence)
         <Sidebar
           isOpen={isComponentLibraryOpen}
           onClose={() => setIsComponentLibraryOpen(false)}
@@ -1316,7 +1512,12 @@ export function App() {
             setIsAllSelected(false);
             if (id) {
               setSelectedWireId(null);
+<<<<<<< HEAD
               setSelectedBoardIndex(null);
+=======
+              setSelectedBoardId(null);
+              setSelectedModuleId(null);
+>>>>>>> ddb7874 (feat: trainer persistence)
             }
           }}
           onSelectWire={(id) => {
@@ -1324,6 +1525,7 @@ export function App() {
             setIsAllSelected(false);
             if (id) {
               setSelectedCompId(null);
+<<<<<<< HEAD
               setSelectedBoardIndex(null);
             }
           }}
@@ -1333,6 +1535,10 @@ export function App() {
             if (bIdx !== null) {
               setSelectedCompId(null);
               setSelectedWireId(null);
+=======
+              setSelectedBoardId(null);
+              setSelectedModuleId(null);
+>>>>>>> ddb7874 (feat: trainer persistence)
             }
           }}
           onUpdateComponentPosition={handleUpdateComponentPosition}
@@ -1365,6 +1571,7 @@ export function App() {
               handleDeleteWire(selectedWireId);
             }
           }}
+          onRotateComponent={handleRotateComponent}
           canUndo={canUndo}
           canRedo={canRedo}
           onUndo={undo}
@@ -1379,17 +1586,55 @@ export function App() {
           pan={pan}
           onPanChange={setPan}
           onZoomChange={setZoom}
+          isSchematicMode={currentView === 'circuit'}
+          onAddModule={handleAddModule}
+          onRemoveModule={handleRemoveModule}
+          onSelectBoard={handleSelectBoard}
+          onSelectModule={handleSelectModule}
+          selectedBoardId={selectedBoardId}
+          selectedModuleId={selectedModuleId}
         />
 
-        {/* Floating Component Properties Inspector */}
+        {/* Contextual Properties & Hardware Inspector */}
         <PropertiesPanel
+          circuit={circuit}
           component={selectedComponent}
+          selectedComponent={selectedComponent}
+          selectedWire={selectedWire}
+          selectedBoardId={selectedBoardId}
+          selectedModuleId={selectedModuleId}
           onUpdateLabel={handleUpdateLabel}
           onUpdateProps={handleUpdateProps}
           onDeleteComponent={handleDeleteComponent}
-          onClose={() => setSelectedCompId(null)}
+          onRotateComponent={handleRotateComponent}
+          onDeleteWire={handleDeleteWire}
+          onAddModule={handleAddModule}
+          onRemoveModule={handleRemoveModule}
+          onCopyBoard={handleCopyBoard}
+          onDeleteBoard={handleDeleteBoard}
+          onClose={() => {
+            setSelectedCompId(null);
+            setSelectedWireId(null);
+            setSelectedBoardId(null);
+            setSelectedModuleId(null);
+          }}
+          isTrainerMode={currentView === 'hardware'}
+          clockHz={clockHz}
+          isRunning={isRunning}
+          onToggleRun={() => setIsRunning((r) => !r)}
+          onStep={runSimulationStep}
+          onReset={() => {
+            setIsRunning(false);
+            const resetCirc = simulationEngine.resetSimulation(circuit);
+            setCircuitDirect(resetCirc);
+            setWaveformHistory([]);
+            soundFx.stopBuzzer();
+            showToast('Simulation states reset');
+          }}
+          onClearCanvas={handleClearCanvas}
+          onSelectBoard={handleSelectBoard}
+          onSelectModule={handleSelectModule}
         />
-      </div>
 
       {/* Bottom Timing Diagram Waveform Analyzer */}
       <WaveformViewer
@@ -1459,7 +1704,7 @@ export function App() {
         }}
         customICs={customICs}
       />
-    </div>
+    </AppShell>
   );
 }
 
