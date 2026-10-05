@@ -1,5 +1,10 @@
 import React from 'react';
 import type { CircuitComponent, Wire } from '../types/circuit';
+import {
+  createOrthogonalPath,
+  getRotatedPinCoords,
+  getRotatedPinDirection,
+} from '../utils/geometry';
 
 interface WireRendererProps {
   wires: Wire[];
@@ -7,6 +12,7 @@ interface WireRendererProps {
   selectedWireId?: string | null;
   isAllSelected?: boolean;
   isDeleteMode?: boolean;
+  isSchematicMode?: boolean;
   inProgressWire: {
     fromCompId: string;
     fromPinId: string;
@@ -48,6 +54,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
   selectedWireId,
   isAllSelected,
   isDeleteMode,
+  isSchematicMode = false,
   inProgressWire,
   onSelectWire,
   onDeleteWire,
@@ -55,7 +62,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
   onWireMouseUp,
   onAddJunctionAtCoords,
 }) => {
-  // Find pin absolute coordinates
+  // Find pin absolute coordinates (taking rotation into account)
   const getPinCoords = (compId: string, pinId: string) => {
     const comp = components.find((c) => c.id === compId);
     if (!comp) return null;
@@ -65,31 +72,14 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
       comp.outputs.find((p) => p.id === pinId);
     if (!pin) return null;
 
-    return {
-      x: comp.x + pin.x,
-      y: comp.y + pin.y,
-    };
+    return getRotatedPinCoords(comp, pin);
   };
 
-  // Get pin departure normal vector (so wires loop around side of ICs instead of crossing through)
+  // Get pin departure normal vector (rotated with component)
   const getPinDirection = (compId: string, pinId: string) => {
     const comp = components.find((c) => c.id === compId);
     if (!comp) return { dx: 0, dy: 1 };
-    const pin = comp.inputs.find((p) => p.id === pinId) || comp.outputs.find((p) => p.id === pinId);
-    if (!pin) return { dx: 0, dy: 1 };
-
-    // For horizontal DIP ICs
-    if (comp.type.startsWith('ic_') || comp.type === 'custom_ic') {
-      if (pin.y === 0) return { dx: 0, dy: -1 }; // top pins route UP
-      return { dx: 0, dy: 1 }; // bottom pins route DOWN
-    }
-    if (comp.customProps?.isTrainerOutput) return { dx: 0, dy: 1 }; // output lamps route DOWN
-    if (comp.customProps?.isTrainerInput || comp.customProps?.isTrainerClock || comp.customProps?.isTrainerGnd) return { dx: 0, dy: -1 }; // inputs route UP
-    if (comp.customProps?.isTrainerVcc) return { dx: 0, dy: 1 };
-    if (pin.x === 0) return { dx: -1, dy: 0 };
-    if (pin.x === comp.width) return { dx: 1, dy: 0 };
-    if (pin.y === 0) return { dx: 0, dy: -1 };
-    return { dx: 0, dy: 1 };
+    return getRotatedPinDirection(comp, pinId);
   };
 
   // Generate smooth natural jumper wire path looping around sides
@@ -123,7 +113,9 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
         const v1 = getPinDirection(wire.fromCompId, wire.fromPinId);
         const v2 = getPinDirection(wire.toCompId, wire.toPinId);
 
-        const pathData = createRoutedPath(fromCoords.x, fromCoords.y, v1, toCoords.x, toCoords.y, v2);
+        const pathData = isSchematicMode
+          ? createOrthogonalPath(fromCoords.x, fromCoords.y, v1, toCoords.x, toCoords.y, v2)
+          : createRoutedPath(fromCoords.x, fromCoords.y, v1, toCoords.x, toCoords.y, v2);
         const isSelected = Boolean(isAllSelected || selectedWireId === wire.id);
         const midX = (fromCoords.x + toCoords.x) / 2;
         const midY = (fromCoords.y + toCoords.y) / 2;
@@ -269,14 +261,23 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
         const dy = inProgressWire.toY - fromCoords.y;
         const v2 = Math.abs(dy) > Math.abs(dx) ? { dx: 0, dy: dy > 0 ? -1 : 1 } : { dx: dx > 0 ? -1 : 1, dy: 0 };
 
-        const pathData = createRoutedPath(
-          fromCoords.x,
-          fromCoords.y,
-          v1,
-          inProgressWire.toX,
-          inProgressWire.toY,
-          v2
-        );
+        const pathData = isSchematicMode
+          ? createOrthogonalPath(
+              fromCoords.x,
+              fromCoords.y,
+              v1,
+              inProgressWire.toX,
+              inProgressWire.toY,
+              v2
+            )
+          : createRoutedPath(
+              fromCoords.x,
+              fromCoords.y,
+              v1,
+              inProgressWire.toX,
+              inProgressWire.toY,
+              v2
+            );
 
         return (
           <g>
