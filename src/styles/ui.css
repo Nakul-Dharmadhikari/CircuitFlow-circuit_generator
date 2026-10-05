@@ -945,6 +945,264 @@
   border-color: var(--border-focus);
 }
 
+/* Collapsed Panel Tab */
+.properties-panel.collapsed {
+  width: auto;
+  min-width: 0;
+  padding: 6px 10px;
+  cursor: pointer;
+  background-color: var(--bg-panel-elevated);
+  border: 1px solid var(--border-focus);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.panel-expand-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-header-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+
+.panel-min-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.panel-min-btn:hover {
+  color: var(--text-primary);
+}
+
+.property-badge-box {
+  padding: 6px 10px;
+  background-color: var(--bg-canvas);
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.property-tag-badge {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  margin-left: auto;
+}
+
+.coords-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background-color: var(--bg-canvas);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.coords-readout strong {
+  color: var(--text-primary);
+}
+
+.mono-readout-pill {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  font-weight: 600;
+  background-color: var(--bg-canvas);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.pins-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background-color: var(--bg-canvas);
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.pin-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.pin-name {
+  color: var(--text-secondary);
+}
+
+.pin-value {
+  font-weight: 800;
+}
+
+.pin-value.val-1 {
+  color: var(--signal-high);
+}
+
+.pin-value.val-0 {
+  color: var(--text-muted);
+}
+
+.pin-value.val-Z {
+  color: var(--signal-z);
+}
+
+.pin-value.val-X {
+  color: var(--signal-x);
+}
+
+.signal-state-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+}
+
+.signal-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.signal-indicator-dot.val-1 {
+  background-color: var(--signal-high);
+  box-shadow: 0 0 8px var(--signal-high-glow);
+}
+
+.signal-indicator-dot.val-0 {
+  background-color: var(--signal-low);
+}
+
+.chips-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-slot-tag {
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modules-list-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.module-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11.5px;
+  transition: all 0.15s ease;
+}
+
+.module-item-row:hover {
+  border-color: var(--border-focus);
+  background-color: var(--bg-hover);
+}
+
+/* Circuit Overview Stat Grid */
+.overview-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.overview-stat-tile {
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.trainer-board-card-button {
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trainer-board-card-button:hover {
+  border-color: var(--border-focus);
+  background-color: var(--bg-hover);
+}
+
 /* Waveform Analyzer Bottom Drawer */
 .waveform-drawer {
   height: 180px;
