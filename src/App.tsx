@@ -15,6 +15,11 @@ import {
   copyTrainerBoard,
   deleteTrainerBoard,
   findAvailableICSocket,
+  syncMountedICPositions,
+  mountICOnSocket,
+  ejectICFromSocket,
+  getMountedICOnSocket,
+  TRAINER_CONSTANTS,
 } from './engine/trainerKit';
 import { getUserCustomICs, deleteUserCustomIC } from './services/customIcStorage';
 import { downloadCircuitToFile } from './services/storage';
@@ -137,6 +142,16 @@ export function App() {
     { timestamp: number; values: Record<string, '0' | '1' | 'Z' | 'X'> }[]
   >([]);
 
+  // Contextual Non-Blocking Eject IC Confirmation State
+  const [ejectConfirmation, setEjectConfirmation] = useState<{
+    baseIndex: number;
+    compId: string;
+    compLabel: string;
+    socketLabel: string;
+    connectedWiresCount: number;
+    screenPos?: { x: number; y: number };
+  } | null>(null);
+
   const circuitRef = useRef(circuit);
   useEffect(() => {
     circuitRef.current = circuit;
@@ -167,7 +182,9 @@ export function App() {
 
   const handleBoardDragEnd = (_boardIndex: number) => {
     if (dragStartCircuitRef.current) {
-      commitAction(dragStartCircuitRef.current, circuitRef.current);
+      const synced = syncMountedICPositions(circuitRef.current);
+      setCircuitDirect(synced);
+      commitAction(dragStartCircuitRef.current, synced);
       dragStartCircuitRef.current = null;
     }
   };
@@ -177,13 +194,55 @@ export function App() {
     updates: Array<{ id: string; x: number; y: number }>
   ) => {
     const updateMap = new Map(updates.map((u) => [u.id, u]));
-    setCircuitDirect((prev) => ({
-      ...prev,
-      components: prev.components.map((c) => {
+    setCircuitDirect((prev) => {
+      const updatedComps = prev.components.map((c) => {
         const up = updateMap.get(c.id);
         return up ? { ...c, x: up.x, y: up.y } : c;
-      }),
-    }));
+      });
+
+      // Synchronize board model coordinates if board chassis components shifted
+      let nextBoards = prev.trainerBoards;
+      if (nextBoards && nextBoards.length > 0) {
+        const refComp = updatedComps.find(
+          (c) => c.id === 'trainer_out_15' || c.customProps?.outputIndex === 15
+        );
+        if (refComp) {
+          const deltaX = refComp.x - TRAINER_BOARD_LAYOUT.outputsStartX;
+          const deltaY = refComp.y - TRAINER_BOARD_LAYOUT.outputsY;
+          nextBoards = nextBoards.map((b, idx) => {
+            if (idx === 0) {
+              const bOriginX = TRAINER_CONSTANTS.DEFAULT_BOARD_X + deltaX;
+              const bOriginY = TRAINER_CONSTANTS.DEFAULT_BOARD_Y + deltaY;
+              return {
+                ...b,
+                x: bOriginX,
+                y: bOriginY,
+                modules: b.modules.map((m) => ({
+                  ...m,
+                  x: bOriginX + (m.index === 0 ? TRAINER_CONSTANTS.BOARD_PADDING_LEFT : TRAINER_CONSTANTS.BOARD_PADDING_LEFT + TRAINER_CONSTANTS.MODULE_1_WIDTH + TRAINER_CONSTANTS.MODULE_GAP),
+                  y: bOriginY,
+                })),
+                icSlots: b.icSlots.map((s) => ({
+                  ...s,
+                  x: (TRAINER_BOARD_LAYOUT.icBasesX[s.baseIndex] ?? (54 + s.baseIndex * 274)) + deltaX,
+                  y: TRAINER_BOARD_LAYOUT.icBasesY + deltaY,
+                })),
+              };
+            }
+            return b;
+          });
+        }
+      }
+
+      // Socket-authoritative synchronization: pins mounted ICs to slot coordinates
+      const nextCircuit = syncMountedICPositions({
+        ...prev,
+        components: updatedComps,
+        trainerBoards: nextBoards,
+      });
+
+      return nextCircuit;
+    });
   };
 
   // Fit Circuit to Screen
@@ -458,106 +517,96 @@ export function App() {
     showToast(`Added ${newComp.label} to circuit`);
   };
 
-  // Mount or replace IC directly on Horizontal IC Base Socket
+  // Mount or replace IC directly on Horizontal IC Base Socket (Socket-Authoritative)
   const handleSelectICFromPicker = (
     baseIndex: number,
     type: ComponentType,
     customICDef?: CustomICDefinition
   ) => {
-    const board = circuit.trainerBoards?.[0];
-    const slot = board?.icSlots?.[baseIndex];
-    const baseX = slot ? slot.x : (TRAINER_BOARD_LAYOUT.icBasesX[baseIndex] ?? 54);
-    const baseY = slot ? slot.y : TRAINER_BOARD_LAYOUT.icBasesY;
-
-    // Find if an IC is already mounted at this socket
-    const existing = circuit.components.find(
-      (c) =>
-        (c.type.startsWith('ic_') || c.type === 'custom_ic') &&
-        Math.abs(c.x - baseX) < 80 &&
-        Math.abs(c.y - baseY) < 50
-    );
-
-    // Remove existing IC and any wires attached to its pins
-    let remainingComps = circuit.components;
-    let remainingWires = circuit.wires;
-    if (existing) {
-      remainingComps = remainingComps.filter((c) => c.id !== existing.id);
-      remainingWires = remainingWires.filter(
-        (w) => w.fromCompId !== existing.id && w.toCompId !== existing.id
-      );
+    try {
+      const res = mountICOnSocket(circuit, baseIndex, type, customICDef);
+      pushState(res.circuit);
+      if (simulateCircuit(res.circuit).buzzerActive) {
+        soundFx.startBuzzer();
+      } else {
+        soundFx.stopBuzzer();
+      }
+      setSelectedCompId(res.mountedComponent.id);
+      setSelectedWireId(null);
+      setSelectedBoardId(null);
+      setSelectedModuleId(null);
+      setPickerBaseIndex(null);
+      soundFx.playButtonTap();
+      showToast(`Mounted ${res.mountedComponent.label} on IC Socket ${baseIndex + 1}`);
+    } catch (err: any) {
+      showToast(`Mount failed: ${err.message || err}`);
+      setPickerBaseIndex(null);
     }
-
-    let newComp: CircuitComponent;
-    if (type === 'custom_ic' && customICDef) {
-      newComp = createComponent(
-        'custom_ic',
-        baseX,
-        baseY,
-        customICDef.partNumber || customICDef.code,
-        { customIC: customICDef }
-      );
-    } else {
-      newComp = createComponent(type, baseX, baseY);
-    }
-
-    const nextCircuit = {
-      ...circuit,
-      components: [...remainingComps, newComp],
-      wires: remainingWires,
-    };
-
-    const res = simulateCircuit(nextCircuit);
-    pushState(res.circuit);
-    if (res.buzzerActive) {
-      soundFx.startBuzzer();
-    } else {
-      soundFx.stopBuzzer();
-    }
-    setSelectedCompId(newComp.id);
-    setSelectedWireId(null);
-    setSelectedBoardId(null);
-    setSelectedModuleId(null);
-    setPickerBaseIndex(null);
-    soundFx.playButtonTap();
-    showToast(`Mounted ${newComp.label} on IC Socket ${baseIndex + 1}`);
   };
 
-  // Remove IC from socket
+  // Request contextual confirmation to eject IC from socket
+  const handleRequestEjectIC = useCallback(
+    (baseIndex: number, compId?: string) => {
+      const board = circuit.trainerBoards?.[0];
+      const slot =
+        board?.icSlots?.find((s) => s.baseIndex === baseIndex) || board?.icSlots?.[baseIndex];
+      const targetComp = compId
+        ? circuit.components.find((c) => c.id === compId)
+        : slot
+        ? getMountedICOnSocket(circuit, slot)
+        : undefined;
+
+      if (!targetComp) return;
+
+      const connectedWires = circuit.wires.filter(
+        (w) => w.fromCompId === targetComp.id || w.toCompId === targetComp.id
+      );
+
+      setEjectConfirmation({
+        baseIndex,
+        compId: targetComp.id,
+        compLabel: targetComp.label,
+        socketLabel: slot?.label || `IC${baseIndex + 1}`,
+        connectedWiresCount: connectedWires.length,
+      });
+    },
+    [circuit]
+  );
+
+  // Execute safe IC ejection after confirmation
+  const handleExecuteEjectIC = useCallback(
+    (baseIndex: number) => {
+      const res = ejectICFromSocket(circuit, baseIndex);
+      pushState(res.circuit);
+      if (simulateCircuit(res.circuit).buzzerActive) {
+        soundFx.startBuzzer();
+      } else {
+        soundFx.stopBuzzer();
+      }
+      if (
+        selectedCompId &&
+        circuit.components.find((c) => c.id === selectedCompId)?.customProps?.trainerMount
+          ?.baseIndex === baseIndex
+      ) {
+        setSelectedCompId(null);
+      }
+      setEjectConfirmation(null);
+      soundFx.playButtonTap();
+      const wireMsg =
+        res.disconnectedWiresCount > 0
+          ? ` (${res.disconnectedWiresCount} wire${res.disconnectedWiresCount > 1 ? 's' : ''} disconnected)`
+          : '';
+      showToast(
+        `Ejected ${res.ejectedComponent?.label || 'IC'} from Socket ${baseIndex + 1}${wireMsg}`
+      );
+    },
+    [circuit, selectedCompId, pushState]
+  );
+
+  // Remove IC from socket via picker modal (routes safely through confirmation)
   const handleRemoveICFromBase = (baseIndex: number) => {
-    const board = circuit.trainerBoards?.[0];
-    const slot = board?.icSlots?.[baseIndex];
-    const baseX = slot ? slot.x : (TRAINER_BOARD_LAYOUT.icBasesX[baseIndex] ?? 54);
-    const baseY = slot ? slot.y : TRAINER_BOARD_LAYOUT.icBasesY;
-
-    const existing = circuit.components.find(
-      (c) =>
-        (c.type.startsWith('ic_') || c.type === 'custom_ic') &&
-        Math.abs(c.x - baseX) < 80 &&
-        Math.abs(c.y - baseY) < 50
-    );
-
-    if (!existing) {
-      setPickerBaseIndex(null);
-      return;
-    }
-
-    const remainingComps = circuit.components.filter((c) => c.id !== existing.id);
-    const remainingWires = circuit.wires.filter(
-      (w) => w.fromCompId !== existing.id && w.toCompId !== existing.id
-    );
-    const cleaned = cleanupOrphanJunctions(remainingComps, remainingWires);
-
-    const res = simulateCircuit({ ...circuit, components: cleaned.components, wires: cleaned.wires });
-    pushState(res.circuit);
-    if (res.buzzerActive) {
-      soundFx.startBuzzer();
-    } else {
-      soundFx.stopBuzzer();
-    }
-    if (selectedCompId === existing.id) setSelectedCompId(null);
     setPickerBaseIndex(null);
-    soundFx.playButtonTap();
-    showToast(`Removed ${existing.label} from IC Socket ${baseIndex + 1}`);
+    handleRequestEjectIC(baseIndex);
   };
 
   // Update Component Position (continuous dragging at 60fps)
@@ -1478,17 +1527,9 @@ export function App() {
 
   const currentMountedIC =
     pickerBaseIndex !== null
-      ? circuit.components.find((c) => {
-          const board = circuit.trainerBoards?.[0];
-          const slot = board?.icSlots?.[pickerBaseIndex];
-          const baseX = slot ? slot.x : (TRAINER_BOARD_LAYOUT.icBasesX[pickerBaseIndex] ?? 54);
-          const baseY = slot ? slot.y : TRAINER_BOARD_LAYOUT.icBasesY;
-          return (
-            (c.type.startsWith('ic_') || c.type === 'custom_ic') &&
-            Math.abs(c.x - baseX) < 80 &&
-            Math.abs(c.y - baseY) < 50
-          );
-        })
+      ? (circuit.trainerBoards?.[0]?.icSlots?.[pickerBaseIndex]
+          ? getMountedICOnSocket(circuit, circuit.trainerBoards[0].icSlots[pickerBaseIndex])
+          : circuit.components.find((c) => c.customProps?.trainerMount?.baseIndex === pickerBaseIndex))
       : undefined;
 
   // Render Modern Light Landing Page if in 'landing' view or not authenticated
@@ -1735,8 +1776,13 @@ export function App() {
             setSelectedCompIds([]);
             setSelectedCompId(null);
           } else if (selectedCompId) {
-            handleDeleteComponent(selectedCompId);
-            setSelectedCompId(null);
+            const comp = circuit.components.find((c) => c.id === selectedCompId);
+            if (comp?.customProps?.trainerMount) {
+              handleRequestEjectIC(comp.customProps.trainerMount.baseIndex, comp.id);
+            } else {
+              handleDeleteComponent(selectedCompId);
+              setSelectedCompId(null);
+            }
           } else if (selectedWireId) {
             handleDeleteWire(selectedWireId);
             setSelectedWireId(null);
@@ -1751,6 +1797,7 @@ export function App() {
         onRedo={redo}
         onAddTrainerBoard={handleAddTrainerBoard}
         onRemoveTrainerBoard={handleRemoveTrainerBoard}
+        onRequestEjectIC={handleRequestEjectIC}
         onMouseMoveWorld={(pos) => {
           mouseCanvasPosRef.current = pos;
         }}
@@ -1798,6 +1845,7 @@ export function App() {
         onCopyBoard={handleCopyBoard}
         onDeleteBoard={handleDeleteBoard}
         onRemoveBoard={handleRemoveTrainerBoard}
+        onRequestEjectIC={handleRequestEjectIC}
         isTrainerMode={currentView === 'hardware'}
         clockHz={clockHz}
         isRunning={isRunning}
@@ -1884,6 +1932,50 @@ export function App() {
         }}
         customICs={customICs}
       />
+
+      {/* Compact Non-Blocking Contextual Eject Confirmation Card */}
+      {ejectConfirmation && (
+        <div
+          className="compact-contextual-confirm-card"
+          style={{
+            top: '80px',
+            right: isPropertiesOpen ? '280px' : '30px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="confirm-card-header">
+            <span className="confirm-card-icon">⏏</span>
+            <span className="confirm-card-title">
+              Eject {ejectConfirmation.compLabel} from {ejectConfirmation.socketLabel}?
+            </span>
+          </div>
+          <div className="confirm-card-body">
+            {ejectConfirmation.connectedWiresCount > 0 ? (
+              <span className="wires-warning confirm-card-message">
+                ⚠️ <strong>{ejectConfirmation.connectedWiresCount} connected wire{ejectConfirmation.connectedWiresCount > 1 ? 's' : ''}</strong> will be disconnected.
+              </span>
+            ) : (
+              <span className="wires-clean confirm-card-message">No wires are connected to this socket.</span>
+            )}
+          </div>
+          <div className="confirm-card-actions">
+            <button
+              type="button"
+              className="confirm-btn cancel confirm-card-btn"
+              onClick={() => setEjectConfirmation(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="confirm-btn confirm-eject confirm-card-btn confirm"
+              onClick={() => handleExecuteEjectIC(ejectConfirmation.baseIndex)}
+            >
+              Eject IC
+            </button>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

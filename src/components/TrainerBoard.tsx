@@ -20,6 +20,7 @@ interface TrainerBoardProps {
   onAddModule?: () => void;
   onRemoveModule?: (moduleId?: string) => void;
   onSelectModule?: (moduleId: string) => void;
+  onRequestEjectIC?: (baseIndex: number, compId: string) => void;
   selectedBoardId?: string | null;
   selectedModuleId?: string | null;
 }
@@ -37,6 +38,7 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
   onAddModule,
   onRemoveModule,
   onSelectModule,
+  onRequestEjectIC,
   selectedBoardId,
   selectedModuleId,
 }) => {
@@ -363,7 +365,30 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                           <div className="base-occupied-tag">
                             <span className="base-socket-name">{slot.label}</span>
                             <span className="base-chip-name">{mountedIC.label}</span>
-                            <span className="base-swap-action">Click to Swap IC 🔄</span>
+                            <div className="base-socket-actions-group">
+                              <button
+                                type="button"
+                                className="base-socket-btn swap"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenICPicker?.(slot.baseIndex);
+                                }}
+                                title="Swap this IC with another chip"
+                              >
+                                🔄 Swap
+                              </button>
+                              <button
+                                type="button"
+                                className="base-socket-btn eject"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRequestEjectIC?.(slot.baseIndex, mountedIC.id);
+                                }}
+                                title="Safely eject this IC from socket"
+                              >
+                                ⏏ Eject
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <button

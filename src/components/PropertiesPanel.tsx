@@ -32,6 +32,7 @@ interface PropertiesPanelProps {
   onClearCanvas?: () => void;
   onSelectBoard?: (boardId: string | null) => void;
   onSelectModule?: (moduleId: string | null) => void;
+  onRequestEjectIC?: (baseIndex: number, compId: string) => void;
 }
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -63,6 +64,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onClearCanvas,
   onSelectBoard,
   onSelectModule,
+  onRequestEjectIC,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -104,10 +106,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   if (activeComp) {
     const typeName = getComponentDisplayName(activeComp.type);
     const isMountedIC =
-      (activeComp.type.startsWith('ic_') || activeComp.type === 'custom_ic') &&
-      activeBoard?.icSlots.some(
-        (s) => Math.abs(activeComp.x - s.x) < 50 && Math.abs(activeComp.y - s.y) < 40
-      );
+      Boolean(activeComp.customProps?.trainerMount) ||
+      ((activeComp.type.startsWith('ic_') || activeComp.type === 'custom_ic') &&
+        (activeComp.isTrainerFixed ||
+          activeBoard?.icSlots.some(
+            (s) =>
+              s.mountedComponentId === activeComp.id ||
+              (Math.abs(activeComp.x - s.x) < 50 && Math.abs(activeComp.y - s.y) < 40)
+          )));
 
     return (
       <aside className="properties-panel-dock properties-panel" aria-label="Component Inspector">
@@ -180,16 +186,48 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
 
           {/* Rotation Control */}
-          {onRotateComponent && !activeComp.isTrainerFixed && (
+          {onRotateComponent && (
             <div className="property-row">
               <label className="property-label">Orientation</label>
               <button
                 type="button"
-                className="panel-action-btn"
-                onClick={() => onRotateComponent(activeComp.id)}
+                className="panel-action-btn rotate-btn"
+                disabled={activeComp.isTrainerFixed || isMountedIC}
+                style={
+                  activeComp.isTrainerFixed || isMountedIC
+                    ? { opacity: 0.5, cursor: 'not-allowed' }
+                    : undefined
+                }
+                onClick={() =>
+                  !activeComp.isTrainerFixed && !isMountedIC && onRotateComponent(activeComp.id)
+                }
+                title={
+                  isMountedIC
+                    ? 'Rotation is locked for socket-mounted ICs'
+                    : activeComp.isTrainerFixed
+                    ? 'Rotation is locked for trainer hardware'
+                    : 'Rotate component 90°'
+                }
               >
                 🔄 Rotate 90° (Current: {activeComp.rotation || 0}°)
               </button>
+            </div>
+          )}
+
+          {/* Mounted IC Socket Ownership Status */}
+          {isMountedIC && (
+            <div className="property-row">
+              <label className="property-label">Mount Status</label>
+              <div className="property-coords-grid" style={{ gridTemplateColumns: '1fr' }}>
+                <div className="coord-box" style={{ padding: '6px 8px', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                  <span className="socket-lock-indicator" style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}>
+                    🔒 Socket-Locked (Non-Draggable)
+                  </span>
+                  <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                    Mounted on {activeComp.customProps?.trainerMount?.slotLabel || 'IC Socket'} ({activeBoard?.name || 'Trainer Board'})
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -249,8 +287,29 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </div>
           </div>
 
+          {/* Eject from Socket Button for Mounted ICs */}
+          {isMountedIC && onRequestEjectIC && (
+            <button
+              type="button"
+              className="panel-action-btn eject-panel-btn"
+              style={{
+                background: 'rgba(217, 119, 54, 0.15)',
+                borderColor: '#d97736',
+                color: '#f59e0b',
+                marginTop: '6px',
+                fontWeight: 600,
+              }}
+              onClick={() => {
+                const baseIdx = activeComp.customProps?.trainerMount?.baseIndex ?? 0;
+                onRequestEjectIC(baseIdx, activeComp.id);
+              }}
+            >
+              ⏏ Eject from Socket {activeComp.customProps?.trainerMount?.slotLabel || ''}
+            </button>
+          )}
+
           {/* Delete Component Button */}
-          {!activeComp.isTrainerFixed && (
+          {!activeComp.isTrainerFixed && !isMountedIC && (
             <button
               type="button"
               className="panel-danger-btn"

@@ -10,6 +10,7 @@ interface GateComponentProps {
   onPinMouseUp: (pin: Pin, compId: string, e: React.MouseEvent) => void;
   onToggleSwitch?: (id: string) => void;
   onButtonPress?: (id: string, pressed: boolean) => void;
+  onContextMenu?: (component: CircuitComponent, e: React.MouseEvent) => void;
 }
 
 export const GateComponent: React.FC<GateComponentProps> = ({
@@ -20,6 +21,7 @@ export const GateComponent: React.FC<GateComponentProps> = ({
   onPinMouseUp,
   onToggleSwitch,
   onButtonPress,
+  onContextMenu,
 }) => {
   const { id, type, label, x, y, width, height, inputs, outputs, state } = component;
 
@@ -91,11 +93,16 @@ export const GateComponent: React.FC<GateComponentProps> = ({
         transformOrigin: 'center center',
       }}
       onMouseDown={(e) => {
-        if (component.isTrainerFixed) {
+        if (component.isTrainerFixed && !component.customProps?.trainerMount && !isDipIC) {
           e.stopPropagation();
           return;
         }
         onSelect(id, e);
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu?.(component, e);
       }}
     >
       {/* DIP Package Physical Notch & Pin 1 Indicator */}

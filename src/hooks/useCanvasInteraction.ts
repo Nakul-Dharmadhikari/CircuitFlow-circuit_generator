@@ -91,6 +91,11 @@ export function useCanvasInteraction({
         setToolMode('junction');
       } else if (e.key === 'r' || e.key === 'R') {
         if (selectedCompId) {
+          const comp = components.find((c) => c.id === selectedCompId);
+          if (!comp || comp.isTrainerFixed || comp.customProps?.trainerMount) {
+            // Mounted ICs and trainer fixed components cannot be rotated
+            return;
+          }
           onRotateComponent?.(selectedCompId);
         }
       } else if (e.key === 'f' || e.key === 'F') {
@@ -127,6 +132,7 @@ export function useCanvasInteraction({
     selectedCompId,
     selectedBoardIndex,
     toolMode,
+    components,
     onRotateComponent,
     onFitCircuit,
     onToggleGrid,
@@ -165,19 +171,24 @@ export function useCanvasInteraction({
       if (toolMode === 'pan') return;
 
       const comp = components.find((c) => c.id === id);
-      if (!comp || comp.isTrainerFixed) return;
+      // Strictly prevent dragging any mounted IC or fixed trainer hardware
+      if (!comp || comp.isTrainerFixed || comp.customProps?.trainerMount) {
+        onSelectComponent(id);
+        return;
+      }
 
       const world = screenToWorld({ x: e.clientX, y: e.clientY });
       compDragStartWorldRef.current = world;
 
-      // Group drag: if clicked component is part of multi-selection, drag all selected components
+      // Group drag: if clicked component is part of multi-selection, drag all movable components
       const initialMap = new Map<string, Point>();
       const isMulti = selectedCompIds.includes(id) && selectedCompIds.length > 1;
       const targetIds = isMulti ? selectedCompIds : [id];
 
       for (const targetId of targetIds) {
         const targetComp = components.find((c) => c.id === targetId);
-        if (targetComp && !targetComp.isTrainerFixed) {
+        // Exclude any mounted ICs or trainer-fixed hardware from group translation
+        if (targetComp && !targetComp.isTrainerFixed && !targetComp.customProps?.trainerMount) {
           initialMap.set(targetId, { x: targetComp.x, y: targetComp.y });
         }
       }
@@ -202,12 +213,18 @@ export function useCanvasInteraction({
 
       const initialMap = new Map<string, Point>();
       const prefix = boardIndex === 0 ? 'trainer_' : `trainer_b${boardIndex}_`;
+      const targetBoardId = boardIndex === 0 ? 'board_1' : `board_${boardIndex + 1}`;
 
       for (const c of components) {
+        const isMountedOnThisBoard =
+          c.customProps?.trainerMount?.boardId === targetBoardId ||
+          (boardIndex === 0 && !c.customProps?.trainerMount?.boardId && c.customProps?.trainerMount !== undefined);
+
         const isBoardComp =
           c.customProps?.boardIndex === boardIndex ||
           (boardIndex === 0 && c.id.startsWith('trainer_') && !c.id.match(/^trainer_b\d+_/)) ||
-          c.id.startsWith(prefix);
+          c.id.startsWith(prefix) ||
+          isMountedOnThisBoard;
 
         if (isBoardComp) {
           initialMap.set(c.id, { x: c.x, y: c.y });

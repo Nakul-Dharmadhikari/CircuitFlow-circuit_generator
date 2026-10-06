@@ -1,5 +1,5 @@
-import type { Circuit, CircuitComponent } from '../../types/circuit';
-import { createComponent, simulateCircuit } from '../simulator';
+import type { Circuit, CircuitComponent, ComponentType, CustomICDefinition } from '../../types/circuit';
+import { cleanupOrphanJunctions, createComponent, simulateCircuit } from '../simulator';
 
 export interface TrainerICSlot {
   id: string; // e.g. "board_1_ic_1"
@@ -11,6 +11,7 @@ export interface TrainerICSlot {
   baseIndex: number; // 0, 1, 2, ...
   moduleId: string;
   boardId: string;
+  mountedComponentId?: string; // Authoritative ID of mounted CircuitComponent
 }
 
 export interface TrainerModuleConfig {
@@ -877,12 +878,32 @@ export function getMountedICOnSocket(
   }
   if (!slot) return undefined;
 
-  return circuit.components.find(
-    (c) =>
-      (c.type.startsWith('ic_') || c.type === 'custom_ic') &&
-      (c.customProps?.trainerMount?.socketId === slot.id ||
-        (Math.abs(c.x - slot.x) < 50 && Math.abs(c.y - slot.y) < 40))
-  );
+  return circuit.components.find((c) => {
+    const isIC = c.type.startsWith('ic_') || c.type === 'custom_ic';
+    if (!isIC) return false;
+
+    // 1. Authoritative slot.mountedComponentId check
+    if (slot!.mountedComponentId && c.id === slot!.mountedComponentId) {
+      return true;
+    }
+
+    // 2. Authoritative trainerMount socketId check
+    if (c.customProps?.trainerMount?.socketId === slot!.id) {
+      return true;
+    }
+
+    // 3. Fallback check by baseIndex on matching board
+    if (
+      c.customProps?.trainerMount &&
+      c.customProps.trainerMount.boardId === slot!.boardId &&
+      c.customProps.trainerMount.baseIndex === slot!.baseIndex
+    ) {
+      return true;
+    }
+
+    // 4. Legacy fallback: spatial proximity within socket footprint
+    return Math.abs(c.x - slot!.x) < 50 && Math.abs(c.y - slot!.y) < 40;
+  });
 }
 
 /**
@@ -900,4 +921,360 @@ export function findAvailableICSocket(
     if (!occupied) return slot;
   }
   return null;
+}
+
+/**
+ * Synchronizes and locks all mounted IC positions strictly to their owning sockets.
+ * Enforces the authoritative hierarchy: Board -> Module -> Socket -> Mounted IC.
+ * Also upgrades any legacy ICs positioned directly on a socket.
+ */
+export function syncMountedICPositions(circuit: Circuit): Circuit {
+  const boards = circuit.trainerBoards || [];
+  if (boards.length === 0) return circuit;
+
+  // Build lookup of all sockets across all boards
+  const socketMap = new Map<string, { board: TrainerBoardModel; module: TrainerModuleConfig; slot: TrainerICSlot }>();
+  for (const board of boards) {
+    for (const mod of board.modules) {
+      for (const slotId of mod.icSlotIds) {
+        const slot = board.icSlots.find((s) => s.id === slotId);
+        if (slot) {
+          socketMap.set(slot.id, { board, module: mod, slot });
+        }
+      }
+    }
+  }
+
+  // Also build fallback lookup by baseIndex on default board
+  const baseIndexMap = new Map<number, { board: TrainerBoardModel; module: TrainerModuleConfig; slot: TrainerICSlot }>();
+  for (const board of boards) {
+    for (const slot of board.icSlots) {
+      baseIndexMap.set(slot.baseIndex, {
+        board,
+        module: board.modules.find((m) => m.id === slot.moduleId) || board.modules[0],
+        slot,
+      });
+    }
+  }
+
+  let hasChanges = false;
+  const updatedComponents = circuit.components.map((c) => {
+    const isIC = c.type.startsWith('ic_') || c.type === 'custom_ic';
+    if (!isIC) return c;
+
+    // Check if explicitly mounted via trainerMount
+    let mountMeta = c.customProps?.trainerMount;
+    let socketInfo = mountMeta ? socketMap.get(mountMeta.socketId) : undefined;
+
+    // Fallback: check baseIndex if socketId was not found
+    if (!socketInfo && mountMeta && mountMeta.baseIndex !== undefined) {
+      socketInfo = baseIndexMap.get(mountMeta.baseIndex);
+    }
+
+    // Fallback for legacy circuits: detect IC sitting over a socket
+    if (!socketInfo && !c.customProps?.isStandalone) {
+      for (const entry of baseIndexMap.values()) {
+        const { slot } = entry;
+        if (Math.abs(c.x - slot.x) < 50 && Math.abs(c.y - slot.y) < 40) {
+          socketInfo = entry;
+          break;
+        }
+      }
+    }
+
+    if (socketInfo) {
+      const { board, module: mod, slot } = socketInfo;
+      const expectedMount = {
+        boardId: board.id,
+        moduleId: mod.id,
+        socketId: slot.id,
+        baseIndex: slot.baseIndex,
+        slotLabel: slot.label,
+      };
+
+      // Check if update is needed
+      const posDiff = c.x !== slot.x || c.y !== slot.y;
+      const rotDiff = (c.rotation || 0) !== 0;
+      const fixedDiff = !c.isTrainerFixed;
+      const metaDiff =
+        !mountMeta ||
+        mountMeta.socketId !== slot.id ||
+        mountMeta.boardId !== board.id ||
+        mountMeta.moduleId !== mod.id;
+
+      if (posDiff || rotDiff || fixedDiff || metaDiff) {
+        hasChanges = true;
+        return {
+          ...c,
+          x: slot.x,
+          y: slot.y,
+          rotation: 0, // strictly horizontal DIP alignment in socket
+          isTrainerFixed: true,
+          customProps: {
+            ...c.customProps,
+            trainerMount: expectedMount,
+          },
+        };
+      }
+    }
+
+    return c;
+  });
+
+  // Also sync slot.mountedComponentId on all slots
+  let boardChanges = false;
+  const updatedBoards = boards.map((board) => {
+    let slotChanges = false;
+    const nextSlots = board.icSlots.map((slot) => {
+      const mounted = updatedComponents.find(
+        (c) => c.customProps?.trainerMount?.socketId === slot.id
+      );
+      const nextCompId = mounted ? mounted.id : undefined;
+      if (slot.mountedComponentId !== nextCompId) {
+        slotChanges = true;
+        return { ...slot, mountedComponentId: nextCompId };
+      }
+      return slot;
+    });
+
+    if (slotChanges) {
+      boardChanges = true;
+      return { ...board, icSlots: nextSlots };
+    }
+    return board;
+  });
+
+  if (!hasChanges && !boardChanges) return circuit;
+
+  return {
+    ...circuit,
+    components: updatedComponents,
+    trainerBoards: updatedBoards,
+  };
+}
+
+/**
+ * Mounts an IC onto a specified IC socket on the Trainer Board.
+ * Automatically enforces:
+ *  - Socket-authoritative positioning (x = slot.x, y = slot.y)
+ *  - Fixed socket locking (isTrainerFixed = true, rotation = 0)
+ *  - Complete trainerMount metadata (boardId, moduleId, socketId, baseIndex)
+ *  - Clean disconnection of any previous IC sitting in this socket
+ */
+export function mountICOnSocket(
+  circuit: Circuit,
+  socketIdOrIndex: string | number,
+  componentType: ComponentType,
+  customICDef?: CustomICDefinition,
+  boardId: string = 'board_1'
+): { circuit: Circuit; mountedComponent: CircuitComponent } {
+  const boards = circuit.trainerBoards || [];
+  const targetBoard = boards.find((b) => b.id === boardId) || boards[0];
+
+  let targetSlot: TrainerICSlot | undefined;
+  if (typeof socketIdOrIndex === 'string') {
+    targetSlot = targetBoard?.icSlots.find((s) => s.id === socketIdOrIndex);
+  } else {
+    targetSlot = targetBoard?.icSlots.find((s) => s.baseIndex === socketIdOrIndex);
+  }
+
+  if (!targetSlot) {
+    throw new Error(`Target IC socket (${socketIdOrIndex}) not found on board ${boardId}`);
+  }
+
+  // 1. Remove existing IC and its connected wires if currently occupied
+  const existing = getMountedICOnSocket(circuit, targetSlot);
+  let remainingComponents = circuit.components;
+  let remainingWires = circuit.wires;
+
+  if (existing) {
+    remainingComponents = remainingComponents.filter((c) => c.id !== existing.id);
+    remainingWires = remainingWires.filter(
+      (w) => w.fromCompId !== existing.id && w.toCompId !== existing.id
+    );
+  }
+
+  // 2. Instantiate new IC component positioned strictly at socket coordinates
+  let newComp: CircuitComponent;
+  if (componentType === 'custom_ic' && customICDef) {
+    newComp = createComponent(
+      'custom_ic',
+      targetSlot.x,
+      targetSlot.y,
+      customICDef.partNumber || customICDef.code,
+      { customIC: customICDef, isCustomLabel: true }
+    );
+  } else {
+    newComp = createComponent(componentType, targetSlot.x, targetSlot.y);
+  }
+
+  newComp.x = targetSlot.x;
+  newComp.y = targetSlot.y;
+  newComp.rotation = 0;
+  newComp.isTrainerFixed = true;
+  newComp.customProps = {
+    ...newComp.customProps,
+    trainerMount: {
+      boardId: targetBoard.id,
+      moduleId: targetSlot.moduleId,
+      socketId: targetSlot.id,
+      baseIndex: targetSlot.baseIndex,
+      slotLabel: targetSlot.label,
+    },
+  };
+
+  // 3. Mark socket with mountedComponentId
+  const updatedBoards = boards.map((b) => {
+    if (b.id !== targetBoard.id) return b;
+    return {
+      ...b,
+      icSlots: b.icSlots.map((s) =>
+        s.id === targetSlot!.id ? { ...s, mountedComponentId: newComp.id } : s
+      ),
+    };
+  });
+
+  const nextCircuit: Circuit = {
+    ...circuit,
+    components: [...remainingComponents, newComp],
+    wires: remainingWires,
+    trainerBoards: updatedBoards,
+  };
+
+  const syncedCircuit = syncMountedICPositions(nextCircuit);
+  const simResult = simulateCircuit(syncedCircuit);
+
+  return {
+    circuit: simResult.circuit,
+    mountedComponent: newComp,
+  };
+}
+
+/**
+ * Safely ejects an IC from a socket.
+ * Returns the updated circuit, the ejected component, and the number of disconnected wires.
+ */
+export function ejectICFromSocket(
+  circuit: Circuit,
+  socketIdOrIndex: string | number,
+  boardId: string = 'board_1'
+): { circuit: Circuit; ejectedComponent?: CircuitComponent; disconnectedWiresCount: number } {
+  const boards = circuit.trainerBoards || [];
+  const targetBoard = boards.find((b) => b.id === boardId) || boards[0];
+
+  let targetSlot: TrainerICSlot | undefined;
+  if (typeof socketIdOrIndex === 'string') {
+    targetSlot = targetBoard?.icSlots.find((s) => s.id === socketIdOrIndex);
+  } else {
+    targetSlot = targetBoard?.icSlots.find((s) => s.baseIndex === socketIdOrIndex);
+  }
+
+  if (!targetSlot) {
+    return { circuit, disconnectedWiresCount: 0 };
+  }
+
+  const mounted = getMountedICOnSocket(circuit, targetSlot);
+  if (!mounted) {
+    return { circuit, disconnectedWiresCount: 0 };
+  }
+
+  // Count and remove wires connected to this IC
+  const connectedWires = circuit.wires.filter(
+    (w) => w.fromCompId === mounted.id || w.toCompId === mounted.id
+  );
+  const remainingWires = circuit.wires.filter(
+    (w) => w.fromCompId !== mounted.id && w.toCompId !== mounted.id
+  );
+
+  const remainingComponents = circuit.components.filter((c) => c.id !== mounted.id);
+  const cleaned = cleanupOrphanJunctions(remainingComponents, remainingWires);
+
+  // Clear slot.mountedComponentId
+  const updatedBoards = boards.map((b) => {
+    if (b.id !== targetBoard.id) return b;
+    return {
+      ...b,
+      icSlots: b.icSlots.map((s) =>
+        s.id === targetSlot!.id ? { ...s, mountedComponentId: undefined } : s
+      ),
+    };
+  });
+
+  const nextCircuit: Circuit = {
+    ...circuit,
+    components: cleaned.components,
+    wires: cleaned.wires,
+    trainerBoards: updatedBoards,
+  };
+
+  const simResult = simulateCircuit(nextCircuit);
+
+  return {
+    circuit: simResult.circuit,
+    ejectedComponent: mounted,
+    disconnectedWiresCount: connectedWires.length,
+  };
+}
+
+/**
+ * Moves a Trainer Board and all its components synchronously by (deltaX, deltaY).
+ * Enforces the strict spatial hierarchy: Board -> Module -> Socket -> Mounted IC.
+ */
+export function moveTrainerBoard(
+  circuit: Circuit,
+  boardId: string,
+  deltaX: number,
+  deltaY: number
+): Circuit {
+  const boards = circuit.trainerBoards || [];
+  const targetBoard = boards.find((b) => b.id === boardId) || boards[0];
+  if (!targetBoard) return circuit;
+
+  const idPrefix = boardId === 'board_1' ? 'trainer_' : `${boardId}_trainer_`;
+
+  // 1. Shift board, its modules, and its sockets
+  const updatedBoards = boards.map((b) => {
+    if (b.id !== targetBoard.id) return b;
+    return {
+      ...b,
+      x: b.x + deltaX,
+      y: b.y + deltaY,
+      modules: b.modules.map((m) => ({
+        ...m,
+        x: m.x + deltaX,
+        y: m.y + deltaY,
+      })),
+      icSlots: b.icSlots.map((s) => ({
+        ...s,
+        x: s.x + deltaX,
+        y: s.y + deltaY,
+      })),
+    };
+  });
+
+  // 2. Shift chassis components
+  const updatedComponents = circuit.components.map((c) => {
+    const isBoardChassis =
+      c.customProps?.boardId === targetBoard.id ||
+      c.customProps?.boardIndex === (targetBoard.id === 'board_1' ? 0 : undefined) ||
+      c.id.startsWith(idPrefix);
+
+    if (isBoardChassis) {
+      return {
+        ...c,
+        x: c.x + deltaX,
+        y: c.y + deltaY,
+      };
+    }
+    return c;
+  });
+
+  // 3. Derive mounted IC positions strictly from slot.x, slot.y
+  const nextCircuit = syncMountedICPositions({
+    ...circuit,
+    components: updatedComponents,
+    trainerBoards: updatedBoards,
+  });
+
+  return nextCircuit;
 }

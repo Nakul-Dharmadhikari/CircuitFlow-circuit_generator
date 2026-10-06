@@ -12,6 +12,10 @@ import {
   getMountedICOnSocket,
   findAvailableICSocket,
   calculateBoardWidth,
+  syncMountedICPositions,
+  mountICOnSocket,
+  ejectICFromSocket,
+  moveTrainerBoard,
   type TrainerBoardModel,
   type TrainerModuleConfig,
   type TrainerICSlot,
@@ -28,6 +32,10 @@ export {
   getMountedICOnSocket,
   findAvailableICSocket,
   calculateBoardWidth,
+  syncMountedICPositions,
+  mountICOnSocket,
+  ejectICFromSocket,
+  moveTrainerBoard,
   type TrainerBoardModel,
   type TrainerModuleConfig,
   type TrainerICSlot,
@@ -514,11 +522,11 @@ export function ensureTrainerKit(circuit: Circuit): Circuit {
     }
   }
 
-  return {
+  return syncMountedICPositions({
     ...circuit,
     components,
     trainerBoards: boards,
-  };
+  });
 }
 
 export function isTrainerComponentId(id: string): boolean {

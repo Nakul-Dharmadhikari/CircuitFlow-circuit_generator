@@ -174,6 +174,14 @@ export interface SavedCircuit {
   wireCount: number;
 }
 
+export interface TrainerMountMetadata {
+  boardId: string;
+  moduleId: string;
+  socketId: string;
+  baseIndex: number;
+  slotLabel?: string;
+}
+
 export interface CircuitComponent {
   id: string;
   type: ComponentType;
@@ -203,6 +211,7 @@ export interface CircuitComponent {
     frequency?: number; // for Clock: in Hz
     audioTone?: number; // for Buzzer: in Hz
     inputCount?: number;
+    trainerMount?: TrainerMountMetadata;
     [key: string]: any;
   };
   customIcId?: string; // ID referencing CustomICDefinition

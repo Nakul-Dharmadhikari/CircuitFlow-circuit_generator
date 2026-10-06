@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect } from 'react';
-import type { Circuit, ComponentType, CustomICDefinition, Wire } from '../types/circuit';
+import type { Circuit, CircuitComponent, ComponentType, CustomICDefinition, Wire } from '../types/circuit';
 import { GateComponent } from './GateComponent';
 import { WireRenderer } from './WireRenderer';
 import { TrainerBoard } from './TrainerBoard';
@@ -68,6 +68,7 @@ interface CanvasProps {
   onDropCustomIC?: (ic: CustomICDefinition, pos: { x: number; y: number }) => void;
   onFitCircuit?: () => void;
   onToggleGrid?: () => void;
+  onRequestEjectIC?: (baseIndex: number, compId: string) => void;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -124,6 +125,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onDropCustomIC,
   onFitCircuit,
   onToggleGrid,
+  onRequestEjectIC,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mouseWorldPosRef = useRef<Point>({ x: 300, y: 300 });
@@ -232,8 +234,16 @@ export const Canvas: React.FC<CanvasProps> = ({
     worldY: number;
   } | null>(null);
 
+  const [componentContextMenu, setComponentContextMenu] = React.useState<{
+    visible: boolean;
+    component: CircuitComponent;
+    screenX: number;
+    screenY: number;
+  } | null>(null);
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (componentContextMenu) setComponentContextMenu(null);
     const world = screenToWorldCoord({ x: e.clientX, y: e.clientY });
     setContextMenu({
       visible: true,
@@ -244,9 +254,23 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
   };
 
+  const handleComponentContextMenu = (comp: CircuitComponent, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelectComponent(comp.id);
+    if (contextMenu) setContextMenu(null);
+    setComponentContextMenu({
+      visible: true,
+      component: comp,
+      screenX: Math.min(e.clientX, window.innerWidth - 220),
+      screenY: Math.min(e.clientY, window.innerHeight - 260),
+    });
+  };
+
   // Compound Mouse Handlers
   const onMouseDown = (e: React.MouseEvent) => {
     if (contextMenu) setContextMenu(null);
+    if (componentContextMenu) setComponentContextMenu(null);
     handleCanvasMouseDown(e);
   };
 
@@ -360,6 +384,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             left: `${contextMenu.screenX}px`,
             top: `${contextMenu.screenY}px`,
           }}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -440,6 +465,108 @@ export const Canvas: React.FC<CanvasProps> = ({
         </div>
       )}
 
+      {/* Component Right-Click Context Menu */}
+      {componentContextMenu?.visible && (
+        <div
+          className="canvas-context-menu component-context-menu"
+          style={{
+            left: `${componentContextMenu.screenX}px`,
+            top: `${componentContextMenu.screenY}px`,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="context-menu-header">
+            <span className="context-menu-title">
+              {componentContextMenu.component.customProps?.trainerMount
+                ? `📌 ${componentContextMenu.component.label} (${componentContextMenu.component.customProps.trainerMount.slotLabel || 'Mounted'})`
+                : `⚡ ${componentContextMenu.component.label}`}
+            </span>
+          </div>
+          <div className="context-menu-divider" />
+
+          {/* If mounted on trainer board socket */}
+          {componentContextMenu.component.customProps?.trainerMount ? (
+            <>
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onSelectComponent(componentContextMenu.component.id);
+                  setComponentContextMenu(null);
+                }}
+              >
+                <span>🔍 Inspect Properties</span>
+              </button>
+
+              <button
+                type="button"
+                className="context-menu-item danger eject-ic-item"
+                onClick={() => {
+                  const mount = componentContextMenu.component.customProps?.trainerMount;
+                  const baseIndex = mount?.baseIndex ?? 0;
+                  onRequestEjectIC?.(baseIndex, componentContextMenu.component.id);
+                  setComponentContextMenu(null);
+                }}
+              >
+                <span>⏏ Eject IC from Socket</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onSelectComponent(componentContextMenu.component.id);
+                  setComponentContextMenu(null);
+                }}
+              >
+                <span>🔍 Inspect Properties</span>
+              </button>
+
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onRotateComponent?.(componentContextMenu.component.id);
+                  setComponentContextMenu(null);
+                }}
+              >
+                <span>🔄 Rotate 90°</span>
+                <span className="context-menu-shortcut">R</span>
+              </button>
+
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onCopy?.();
+                  setComponentContextMenu(null);
+                }}
+              >
+                <span>📄 Copy</span>
+                <span className="context-menu-shortcut">Ctrl+C</span>
+              </button>
+
+              <div className="context-menu-divider" />
+
+              <button
+                type="button"
+                className="context-menu-item danger"
+                onClick={() => {
+                  onDeleteSelected?.();
+                  setComponentContextMenu(null);
+                }}
+              >
+                <span>🗑️ Delete Component</span>
+                <span className="context-menu-shortcut">Del</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Circuit World Transform Layer (Pure infinite world, affected by pan/zoom) */}
       <div
         className="canvas-transform-layer"
@@ -461,6 +588,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             onAddModule={onAddModule}
             onRemoveModule={onRemoveModule}
             onSelectModule={onSelectModule}
+            onRequestEjectIC={onRequestEjectIC}
             selectedBoardId={selectedBoardId}
             selectedModuleId={selectedModuleId}
           />
@@ -510,6 +638,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             onPinMouseUp={handlePinMouseUp}
             onToggleSwitch={onToggleSwitch}
             onButtonPress={onButtonPress}
+            onContextMenu={handleComponentContextMenu}
           />
         ))}
 
