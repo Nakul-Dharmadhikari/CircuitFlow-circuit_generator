@@ -40,6 +40,10 @@ import { AppShell } from './app/AppShell';
 import type { WorkbenchView } from './hooks/useUIState';
 import { simulationEngine } from './core/simulation-engine';
 import { getNextRotation } from './utils/geometry';
+import {
+  calculateDestructiveConsequences,
+  type DestructiveConfirmationState,
+} from './types/destructiveConfirmation';
 
 const CLIPBOARD_STORAGE_KEY = 'circuitflow_clipboard';
 
@@ -142,7 +146,10 @@ export function App() {
     { timestamp: number; values: Record<string, '0' | '1' | 'Z' | 'X'> }[]
   >([]);
 
-  // Contextual Non-Blocking Eject IC Confirmation State
+  // Centralized Destructive Action Confirmation State (Phase 3)
+  const [destructiveConfirmation, setDestructiveConfirmation] = useState<DestructiveConfirmationState | null>(null);
+
+  // Contextual Non-Blocking Eject IC Confirmation State (retained for test compatibility)
   const [ejectConfirmation, setEjectConfirmation] = useState<{
     baseIndex: number;
     compId: string;
@@ -487,6 +494,37 @@ export function App() {
     showToast('Deleted Trainer Board');
   }, [commitAction]);
 
+  // Remove a specific Digital Trainer Board instance
+  const handleRemoveTrainerBoard = useCallback(
+    (boardIndex: number) => {
+      const isTrainerCompForBoard = (c: CircuitComponent) => {
+        if (c.customProps?.boardIndex === boardIndex) return true;
+        if (
+          boardIndex === 0 &&
+          c.id.startsWith('trainer_') &&
+          !c.id.match(/^trainer_b\d+_/)
+        ) {
+          return true;
+        }
+        if (c.id.startsWith(`trainer_b${boardIndex}_`)) return true;
+        return false;
+      };
+
+      const compsToRemove = circuit.components.filter(isTrainerCompForBoard);
+      const removeIds = new Set(compsToRemove.map((c) => c.id));
+      const nextComps = circuit.components.filter((c) => !removeIds.has(c.id));
+      const nextWires = circuit.wires.filter(
+        (w) => !removeIds.has(w.fromCompId) && !removeIds.has(w.toCompId)
+      );
+      const cleaned = cleanupOrphanJunctions(nextComps, nextWires);
+      const res = simulateCircuit({ components: cleaned.components, wires: cleaned.wires });
+      pushState(res.circuit);
+      soundFx.playButtonTap();
+      showToast(`Removed Digital Trainer Board #${boardIndex + 1}`);
+    },
+    [circuit, pushState]
+  );
+
   // Add Component to Canvas (snaps ICs into empty horizontal IC base sockets when available)
   const handleAddComponent = (type: ComponentType) => {
     let posX = Math.round((-pan.x + 300) / zoom / 10) * 10;
@@ -558,16 +596,122 @@ export function App() {
 
       if (!targetComp) return;
 
-      const connectedWires = circuit.wires.filter(
-        (w) => w.fromCompId === targetComp.id || w.toCompId === targetComp.id
-      );
+      const socketLabel = slot?.label || `IC${baseIndex + 1}`;
+      const consequences = calculateDestructiveConsequences(circuit, 'eject_mounted_ic', {
+        baseIndex,
+        componentId: targetComp.id,
+      });
+
+      setDestructiveConfirmation({
+        type: 'eject_mounted_ic',
+        title: `Eject ${targetComp.label} from ${socketLabel}?`,
+        targetLabel: targetComp.label,
+        socketLabel,
+        consequences,
+        baseIndex,
+        componentId: targetComp.id,
+      });
 
       setEjectConfirmation({
         baseIndex,
         compId: targetComp.id,
         compLabel: targetComp.label,
-        socketLabel: slot?.label || `IC${baseIndex + 1}`,
-        connectedWiresCount: connectedWires.length,
+        socketLabel,
+        connectedWiresCount: consequences.affectedWiresCount,
+      });
+    },
+    [circuit]
+  );
+
+  // Request contextual confirmation to delete single component
+  const handleRequestDeleteComponent = useCallback(
+    (id: string) => {
+      const target = circuit.components.find((c) => c.id === id);
+      if (!target) return;
+      if (target.isTrainerFixed && !target.customProps?.trainerMount) {
+        showToast('Trainer Kit fixed ports cannot be deleted');
+        return;
+      }
+      if (target.customProps?.trainerMount) {
+        handleRequestEjectIC(target.customProps.trainerMount.baseIndex, target.id);
+        return;
+      }
+      const consequences = calculateDestructiveConsequences(circuit, 'remove_component', {
+        componentId: id,
+      });
+      setDestructiveConfirmation({
+        type: 'remove_component',
+        title: `Remove ${target.label}?`,
+        targetLabel: target.label,
+        consequences,
+        componentId: id,
+      });
+    },
+    [circuit, handleRequestEjectIC]
+  );
+
+  // Request contextual confirmation to delete multiple selected components
+  const handleRequestDeleteSelected = useCallback(() => {
+    if (selectedCompIds.length > 1) {
+      const consequences = calculateDestructiveConsequences(circuit, 'remove_multi_components', {
+        componentIds: selectedCompIds,
+      });
+      setDestructiveConfirmation({
+        type: 'remove_multi_components',
+        title: `Remove ${selectedCompIds.length} Selected Components?`,
+        targetLabel: `${selectedCompIds.length} components`,
+        consequences,
+        componentIds: selectedCompIds,
+      });
+    } else if (selectedCompId) {
+      handleRequestDeleteComponent(selectedCompId);
+    }
+  }, [circuit, selectedCompIds, selectedCompId, handleRequestDeleteComponent]);
+
+  // Request contextual confirmation to remove module
+  const handleRequestRemoveModule = useCallback(
+    (boardId: string, moduleId: string) => {
+      const board =
+        (circuit.trainerBoards || []).find((b) => b.id === boardId) || circuit.trainerBoards?.[0];
+      const mod = board?.modules.find((m) => m.id === moduleId);
+      if (!mod || mod.index === 0) {
+        showToast('Primary Trainer Module 1 cannot be removed');
+        return;
+      }
+      const consequences = calculateDestructiveConsequences(circuit, 'remove_module', {
+        boardId,
+        moduleId,
+      });
+      setDestructiveConfirmation({
+        type: 'remove_module',
+        title: `Remove ${mod.name} from Trainer Board?`,
+        targetLabel: mod.name,
+        consequences,
+        boardId,
+        moduleId,
+      });
+    },
+    [circuit]
+  );
+
+  // Request contextual confirmation to remove board
+  const handleRequestRemoveBoard = useCallback(
+    (boardIndex: number, boardId: string) => {
+      if ((circuit.trainerBoards?.length || 1) <= 1) {
+        showToast('Primary Digital Trainer Kit cannot be removed');
+        return;
+      }
+      const consequences = calculateDestructiveConsequences(circuit, 'remove_board', {
+        boardIndex,
+        boardId,
+      });
+      setDestructiveConfirmation({
+        type: 'remove_board',
+        title: `Remove Digital Trainer Board #${boardIndex + 1}?`,
+        targetLabel: `Trainer Board #${boardIndex + 1}`,
+        consequences,
+        boardIndex,
+        boardId,
       });
     },
     [circuit]
@@ -591,6 +735,7 @@ export function App() {
         setSelectedCompId(null);
       }
       setEjectConfirmation(null);
+      setDestructiveConfirmation(null);
       soundFx.playButtonTap();
       const wireMsg =
         res.disconnectedWiresCount > 0
@@ -602,6 +747,100 @@ export function App() {
     },
     [circuit, selectedCompId, pushState]
   );
+
+  // Centralized execution of destructive actions (executed exactly once upon confirm)
+  const handleExecuteDestructiveAction = useCallback(() => {
+    if (!destructiveConfirmation) return;
+    const { type, componentId, componentIds, baseIndex, moduleId, boardIndex } = destructiveConfirmation;
+
+    switch (type) {
+      case 'remove_component': {
+        if (componentId) {
+          const target = circuit.components.find((c) => c.id === componentId);
+          if (target?.isTrainerFixed && !target.customProps?.trainerMount) break;
+          const remainingComps = circuit.components.filter((c) => c.id !== componentId);
+          const remainingWires = circuit.wires.filter(
+            (w) => w.fromCompId !== componentId && w.toCompId !== componentId
+          );
+          const cleaned = cleanupOrphanJunctions(remainingComps, remainingWires);
+          const res = simulateCircuit({ components: cleaned.components, wires: cleaned.wires });
+          pushState(res.circuit);
+          if (res.buzzerActive) soundFx.startBuzzer(); else soundFx.stopBuzzer();
+          if (selectedCompId === componentId) setSelectedCompId(null);
+          setSelectedCompIds((ids) => ids.filter((id) => id !== componentId));
+          soundFx.playButtonTap();
+          recordWaveformSample(res.circuit);
+          showToast(`Removed component ${destructiveConfirmation.targetLabel}`);
+        }
+        break;
+      }
+
+      case 'remove_multi_components': {
+        const idSet = new Set(componentIds || []);
+        const remainingComps = circuit.components.filter((c) => !idSet.has(c.id));
+        const remainingWires = circuit.wires.filter(
+          (w) => !idSet.has(w.fromCompId) && !idSet.has(w.toCompId)
+        );
+        const cleaned = cleanupOrphanJunctions(remainingComps, remainingWires);
+        const res = simulateCircuit({ components: cleaned.components, wires: cleaned.wires });
+        pushState(res.circuit);
+        if (res.buzzerActive) soundFx.startBuzzer(); else soundFx.stopBuzzer();
+        setSelectedCompId(null);
+        setSelectedCompIds([]);
+        soundFx.playButtonTap();
+        recordWaveformSample(res.circuit);
+        showToast(`Removed ${idSet.size} components`);
+        break;
+      }
+
+      case 'eject_mounted_ic': {
+        if (baseIndex !== undefined) {
+          handleExecuteEjectIC(baseIndex);
+        }
+        break;
+      }
+
+      case 'remove_module': {
+        if (moduleId) {
+          handleRemoveModule(moduleId);
+        }
+        break;
+      }
+
+      case 'remove_board': {
+        if (boardIndex !== undefined) {
+          handleRemoveTrainerBoard(boardIndex);
+        }
+        break;
+      }
+    }
+
+    setDestructiveConfirmation(null);
+    setEjectConfirmation(null);
+  }, [
+    destructiveConfirmation,
+    circuit,
+    selectedCompId,
+    pushState,
+    recordWaveformSample,
+    handleExecuteEjectIC,
+    handleRemoveModule,
+    handleRemoveTrainerBoard,
+  ]);
+
+  // Click-outside safe dismiss for destructive confirmation
+  useEffect(() => {
+    if (!destructiveConfirmation) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('.compact-contextual-confirm-card')) {
+        setDestructiveConfirmation(null);
+        setEjectConfirmation(null);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [destructiveConfirmation]);
 
   // Remove IC from socket via picker modal (routes safely through confirmation)
   const handleRemoveICFromBase = (baseIndex: number) => {
@@ -1215,37 +1454,6 @@ export function App() {
     showToast(`Added Digital Trainer Board #${nextBoardIndex + 1}`);
   }, [circuit, pushState, workbenchMode]);
 
-  // Remove a specific Digital Trainer Board instance
-  const handleRemoveTrainerBoard = useCallback(
-    (boardIndex: number) => {
-      const isTrainerCompForBoard = (c: CircuitComponent) => {
-        if (c.customProps?.boardIndex === boardIndex) return true;
-        if (
-          boardIndex === 0 &&
-          c.id.startsWith('trainer_') &&
-          !c.id.match(/^trainer_b\d+_/)
-        ) {
-          return true;
-        }
-        if (c.id.startsWith(`trainer_b${boardIndex}_`)) return true;
-        return false;
-      };
-
-      const compsToRemove = circuit.components.filter(isTrainerCompForBoard);
-      const removeIds = new Set(compsToRemove.map((c) => c.id));
-      const nextComps = circuit.components.filter((c) => !removeIds.has(c.id));
-      const nextWires = circuit.wires.filter(
-        (w) => !removeIds.has(w.fromCompId) && !removeIds.has(w.toCompId)
-      );
-      const cleaned = cleanupOrphanJunctions(nextComps, nextWires);
-      const res = simulateCircuit({ components: cleaned.components, wires: cleaned.wires });
-      pushState(res.circuit);
-      soundFx.playButtonTap();
-      showToast(`Removed Digital Trainer Board #${boardIndex + 1}`);
-    },
-    [circuit, pushState]
-  );
-
   // Load Pre-Built Lab Experiment
   const handleLoadExperiment = (exp: LabExperiment) => {
     setIsRunning(false);
@@ -1465,26 +1673,41 @@ export function App() {
           handleRotateComponent(selectedCompId);
         }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (destructiveConfirmation) return;
         if (isAllSelected) {
           e.preventDefault();
           handleClearCanvas();
           setIsAllSelected(false);
           return;
         }
-        if (selectedBoardIndex !== null) {
+        if (selectedCompIds.length > 1) {
           e.preventDefault();
-          handleRemoveTrainerBoard(selectedBoardIndex);
-          setSelectedBoardIndex(null);
+          handleRequestDeleteSelected();
           return;
         }
         if (selectedCompId) {
           e.preventDefault();
-          handleDeleteComponent(selectedCompId);
-        } else if (selectedWireId) {
+          handleRequestDeleteComponent(selectedCompId);
+          return;
+        }
+        if (selectedBoardIndex !== null) {
+          e.preventDefault();
+          const boardId = circuit.trainerBoards?.[selectedBoardIndex]?.id || `board_${selectedBoardIndex + 1}`;
+          handleRequestRemoveBoard(selectedBoardIndex, boardId);
+          return;
+        }
+        if (selectedWireId) {
           e.preventDefault();
           handleDeleteWire(selectedWireId);
+          return;
         }
       } else if (e.key === 'Escape') {
+        if (destructiveConfirmation) {
+          e.preventDefault();
+          setDestructiveConfirmation(null);
+          setEjectConfirmation(null);
+          return;
+        }
         setIsAllSelected(false);
         setSelectedCompId(null);
         setSelectedWireId(null);
@@ -1500,10 +1723,13 @@ export function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
+    circuit,
     isAllSelected,
     selectedCompId,
+    selectedCompIds,
     selectedWireId,
     selectedBoardIndex,
+    destructiveConfirmation,
     canUndo,
     canRedo,
     undo,
@@ -1516,9 +1742,10 @@ export function App() {
     handleFitCircuit,
     handleRotateSelectedComponent,
     runSimulationStep,
-    handleDeleteComponent,
+    handleRequestDeleteComponent,
+    handleRequestDeleteSelected,
+    handleRequestRemoveBoard,
     handleDeleteWire,
-    handleRemoveTrainerBoard,
     handleNewCircuit,
   ]);
 
@@ -1622,10 +1849,13 @@ export function App() {
       onCopy={handleCopy}
       onPaste={() => handlePaste()}
       onDeleteSelected={() => {
+        if (destructiveConfirmation) return;
         if (isAllSelected) {
           handleClearCanvas();
+        } else if (selectedCompIds.length > 1) {
+          handleRequestDeleteSelected();
         } else if (selectedCompId) {
-          handleDeleteComponent(selectedCompId);
+          handleRequestDeleteComponent(selectedCompId);
         } else if (selectedWireId) {
           handleDeleteWire(selectedWireId);
         }
@@ -1766,23 +1996,16 @@ export function App() {
         onCopyBoard={handleCopyBoard}
         onPasteAtPosition={(pos) => handlePaste(pos)}
         onDeleteSelected={() => {
+          if (destructiveConfirmation) return;
           if (isAllSelected) {
             handleClearCanvas();
           } else if (selectedBoardIndex !== null) {
-            handleRemoveTrainerBoard(selectedBoardIndex);
-            setSelectedBoardIndex(null);
+            const boardId = circuit.trainerBoards?.[selectedBoardIndex]?.id || `board_${selectedBoardIndex + 1}`;
+            handleRequestRemoveBoard(selectedBoardIndex, boardId);
           } else if (selectedCompIds.length > 1) {
-            selectedCompIds.forEach((id) => handleDeleteComponent(id));
-            setSelectedCompIds([]);
-            setSelectedCompId(null);
+            handleRequestDeleteSelected();
           } else if (selectedCompId) {
-            const comp = circuit.components.find((c) => c.id === selectedCompId);
-            if (comp?.customProps?.trainerMount) {
-              handleRequestEjectIC(comp.customProps.trainerMount.baseIndex, comp.id);
-            } else {
-              handleDeleteComponent(selectedCompId);
-              setSelectedCompId(null);
-            }
+            handleRequestDeleteComponent(selectedCompId);
           } else if (selectedWireId) {
             handleDeleteWire(selectedWireId);
             setSelectedWireId(null);
@@ -1798,6 +2021,25 @@ export function App() {
         onAddTrainerBoard={handleAddTrainerBoard}
         onRemoveTrainerBoard={handleRemoveTrainerBoard}
         onRequestEjectIC={handleRequestEjectIC}
+        onRequestDeleteComponent={handleRequestDeleteComponent}
+        onRequestDeleteSelected={handleRequestDeleteSelected}
+        onRequestRemoveModule={handleRequestRemoveModule}
+        onRequestRemoveBoard={handleRequestRemoveBoard}
+        onTogglePower={() => {
+          setIsRunning((r) => !r);
+          showToast(isRunning ? 'Trainer DC 5V Power OFF' : 'Trainer DC 5V Power ON');
+        }}
+        onOpenCustomICStudio={(comp) => {
+          setSelectedCompId(comp.id);
+          setIsCustomICModalOpen(true);
+        }}
+        onToggleLockComponent={(compId) => {
+          const comp = circuit.components.find((c) => c.id === compId);
+          if (!comp) return;
+          const isLocked = !comp.customProps?.locked;
+          handleUpdateProps(compId, { ...comp.customProps, locked: isLocked });
+          showToast(isLocked ? `Locked ${comp.label}` : `Unlocked ${comp.label}`);
+        }}
         onMouseMoveWorld={(pos) => {
           mouseCanvasPosRef.current = pos;
         }}
@@ -1846,6 +2088,9 @@ export function App() {
         onDeleteBoard={handleDeleteBoard}
         onRemoveBoard={handleRemoveTrainerBoard}
         onRequestEjectIC={handleRequestEjectIC}
+        onRequestDeleteComponent={handleRequestDeleteComponent}
+        onRequestDeleteBoard={handleRequestRemoveBoard}
+        onRequestRemoveModule={handleRequestRemoveModule}
         isTrainerMode={currentView === 'hardware'}
         clockHz={clockHz}
         isRunning={isRunning}
@@ -1933,49 +2178,81 @@ export function App() {
         customICs={customICs}
       />
 
-      {/* Compact Non-Blocking Contextual Eject Confirmation Card */}
-      {ejectConfirmation && (
-        <div
-          className="compact-contextual-confirm-card"
-          style={{
-            top: '80px',
-            right: isPropertiesOpen ? '280px' : '30px',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="confirm-card-header">
-            <span className="confirm-card-icon">⏏</span>
-            <span className="confirm-card-title">
-              Eject {ejectConfirmation.compLabel} from {ejectConfirmation.socketLabel}?
-            </span>
-          </div>
-          <div className="confirm-card-body">
-            {ejectConfirmation.connectedWiresCount > 0 ? (
-              <span className="wires-warning confirm-card-message">
-                ⚠️ <strong>{ejectConfirmation.connectedWiresCount} connected wire{ejectConfirmation.connectedWiresCount > 1 ? 's' : ''}</strong> will be disconnected.
+      {/* Compact Non-Blocking Contextual Confirmation Card (Phase 3 Safe Destructive Actions) */}
+      {(destructiveConfirmation || ejectConfirmation) && (() => {
+        const conf = destructiveConfirmation || {
+          type: 'eject_mounted_ic' as const,
+          title: `Eject ${ejectConfirmation!.compLabel} from ${ejectConfirmation!.socketLabel}?`,
+          targetLabel: ejectConfirmation!.compLabel,
+          socketLabel: ejectConfirmation!.socketLabel,
+          consequences: {
+            affectedWiresCount: ejectConfirmation!.connectedWiresCount,
+            affectedComponentsCount: 1,
+            affectedMountedICsCount: 1,
+            summaryText:
+              ejectConfirmation!.connectedWiresCount > 0
+                ? `⚠️ ${ejectConfirmation!.connectedWiresCount} connected wire${
+                    ejectConfirmation!.connectedWiresCount > 1 ? 's' : ''
+                  } will be disconnected.`
+                : 'No wires are connected to this socket.',
+          },
+          baseIndex: ejectConfirmation!.baseIndex,
+          componentId: ejectConfirmation!.compId,
+        };
+
+        const isEject = conf.type === 'eject_mounted_ic';
+        const hasWiresAffected = conf.consequences.affectedWiresCount > 0;
+
+        return (
+          <div
+            className="compact-contextual-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            style={{
+              top: '80px',
+              right: isPropertiesOpen ? '290px' : '30px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="confirm-card-header">
+              <span className="confirm-card-icon">{isEject ? '⏏' : '⚠️'}</span>
+              <span className="confirm-card-title">{conf.title}</span>
+            </div>
+            <div className="confirm-card-body">
+              <span className={`confirm-card-message ${hasWiresAffected ? 'wires-warning' : 'wires-clean'}`}>
+                {conf.consequences.summaryText}
               </span>
-            ) : (
-              <span className="wires-clean confirm-card-message">No wires are connected to this socket.</span>
-            )}
+            </div>
+            <div className="confirm-card-actions">
+              <button
+                type="button"
+                className="confirm-btn cancel confirm-card-btn"
+                onClick={() => {
+                  setDestructiveConfirmation(null);
+                  setEjectConfirmation(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`confirm-btn confirm-card-btn confirm ${
+                  isEject ? 'confirm-eject' : 'confirm-delete'
+                }`}
+                onClick={handleExecuteDestructiveAction}
+              >
+                {isEject
+                  ? 'Eject IC'
+                  : conf.type === 'remove_board'
+                  ? 'Remove Board'
+                  : conf.type === 'remove_module'
+                  ? 'Remove Module'
+                  : 'Remove'}
+              </button>
+            </div>
           </div>
-          <div className="confirm-card-actions">
-            <button
-              type="button"
-              className="confirm-btn cancel confirm-card-btn"
-              onClick={() => setEjectConfirmation(null)}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="confirm-btn confirm-eject confirm-card-btn confirm"
-              onClick={() => handleExecuteEjectIC(ejectConfirmation.baseIndex)}
-            >
-              Eject IC
-            </button>
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </AppShell>
   );
 }

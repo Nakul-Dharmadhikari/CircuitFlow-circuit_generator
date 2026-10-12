@@ -26,6 +26,7 @@ interface WireRendererProps {
   onWireDoubleClick?: (wireId: string, clientX: number, clientY: number, e: React.MouseEvent) => void;
   onWireMouseUp?: (wireId: string, clientX: number, clientY: number, e: React.MouseEvent) => void;
   onAddJunctionAtCoords?: (wireId: string, x: number, y: number) => void;
+  onWireContextMenu?: (wire: Wire, e: React.MouseEvent) => void;
 }
 
 /**
@@ -64,6 +65,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
   onWireDoubleClick,
   onWireMouseUp,
   onAddJunctionAtCoords,
+  onWireContextMenu,
 }) => {
   const [hoveredWireId, setHoveredWireId] = useState<string | null>(null);
 
@@ -135,6 +137,11 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
                   e.stopPropagation();
                   onWireMouseUp?.(wire.id, e.clientX, e.clientY, e);
                 }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onWireContextMenu?.(wire, e);
               }}
             >
               <title>{`Wire: ${startEp.pinId} ➔ ${endEp.pinId} [${wire.value}]`}</title>

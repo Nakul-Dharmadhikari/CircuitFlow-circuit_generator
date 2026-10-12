@@ -2320,6 +2320,22 @@
   background: #d97736;
 }
 
+.confirm-btn.confirm-delete {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.confirm-btn.confirm-delete:hover {
+  background: #ef4444;
+}
+
+.confirm-btn:focus-visible,
+.context-menu-item:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 1px;
+}
+
 
 /* ==========================================================================
    Schematic Mode Engineering Canvas & Selection Box

@@ -33,6 +33,9 @@ interface PropertiesPanelProps {
   onSelectBoard?: (boardId: string | null) => void;
   onSelectModule?: (moduleId: string | null) => void;
   onRequestEjectIC?: (baseIndex: number, compId: string) => void;
+  onRequestDeleteComponent?: (compId: string) => void;
+  onRequestDeleteBoard?: (boardIndex: number, boardId: string) => void;
+  onRequestRemoveModule?: (boardId: string, moduleId: string) => void;
 }
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -65,6 +68,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onSelectBoard,
   onSelectModule,
   onRequestEjectIC,
+  onRequestDeleteComponent,
+  onRequestDeleteBoard,
+  onRequestRemoveModule,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -313,7 +319,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <button
               type="button"
               className="panel-danger-btn"
-              onClick={() => onDeleteComponent(activeComp.id)}
+              onClick={() => {
+                if (onRequestDeleteComponent) {
+                  onRequestDeleteComponent(activeComp.id);
+                } else {
+                  onDeleteComponent(activeComp.id);
+                }
+              }}
             >
               🗑️ Delete Component
             </button>
@@ -450,11 +462,17 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </div>
           </div>
 
-          {onRemoveModule && activeModule.index > 0 && (
+          {(onRequestRemoveModule || onRemoveModule) && activeModule.index > 0 && (
             <button
               type="button"
               className="panel-danger-btn"
-              onClick={() => onRemoveModule(activeModule.id)}
+              onClick={() => {
+                if (onRequestRemoveModule) {
+                  onRequestRemoveModule(activeBoard?.id || 'board_1', activeModule.id);
+                } else if (onRemoveModule) {
+                  onRemoveModule(activeModule.id);
+                }
+              }}
             >
               ✕ Remove This Module
             </button>
@@ -558,13 +576,19 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   📋 Duplicate Board
                 </button>
               )}
-              {(onDeleteBoard || onRemoveBoard) && (circuit?.trainerBoards || []).length > 1 && (
+              {(onDeleteBoard || onRemoveBoard || onRequestDeleteBoard) && (circuit?.trainerBoards || []).length > 1 && (
                 <button
                   type="button"
                   className="panel-danger-btn"
                   onClick={() => {
-                    if (onDeleteBoard) onDeleteBoard(activeBoard?.id || selectedBoardIndex || 0);
-                    else if (onRemoveBoard && selectedBoardIndex !== null && selectedBoardIndex !== undefined) onRemoveBoard(selectedBoardIndex);
+                    const boardId = activeBoard?.id || `board_${(selectedBoardIndex || 0) + 1}`;
+                    if (onRequestDeleteBoard) {
+                      onRequestDeleteBoard(selectedBoardIndex || 0, boardId);
+                    } else if (onDeleteBoard) {
+                      onDeleteBoard(boardId);
+                    } else if (onRemoveBoard && selectedBoardIndex !== null && selectedBoardIndex !== undefined) {
+                      onRemoveBoard(selectedBoardIndex);
+                    }
                   }}
                 >
                   🗑️ Delete Board

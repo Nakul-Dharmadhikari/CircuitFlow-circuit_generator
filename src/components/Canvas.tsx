@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useEffect } from 'react';
 import type { Circuit, CircuitComponent, ComponentType, CustomICDefinition, Wire } from '../types/circuit';
+import type { TrainerBoardModel, TrainerModuleConfig } from '../engine/trainer/trainerBoardModel';
 import { GateComponent } from './GateComponent';
 import { WireRenderer } from './WireRenderer';
 import { TrainerBoard } from './TrainerBoard';
@@ -69,6 +70,13 @@ interface CanvasProps {
   onFitCircuit?: () => void;
   onToggleGrid?: () => void;
   onRequestEjectIC?: (baseIndex: number, compId: string) => void;
+  onRequestDeleteComponent?: (compId: string) => void;
+  onRequestDeleteSelected?: () => void;
+  onRequestRemoveModule?: (boardId: string, moduleId: string) => void;
+  onRequestRemoveBoard?: (boardIndex: number, boardId: string) => void;
+  onTogglePower?: () => void;
+  onOpenCustomICStudio?: (comp: CircuitComponent) => void;
+  onToggleLockComponent?: (compId: string) => void;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -126,6 +134,13 @@ export const Canvas: React.FC<CanvasProps> = ({
   onFitCircuit,
   onToggleGrid,
   onRequestEjectIC,
+  onRequestDeleteComponent,
+  onRequestDeleteSelected,
+  onRequestRemoveModule,
+  onRequestRemoveBoard,
+  onTogglePower,
+  onOpenCustomICStudio,
+  onToggleLockComponent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mouseWorldPosRef = useRef<Point>({ x: 300, y: 300 });
@@ -225,30 +240,38 @@ export const Canvas: React.FC<CanvasProps> = ({
     };
   }, [zoom, pan, onPanChange, onZoomChange]);
 
-  // Right-Click Context Menu State
-  const [contextMenu, setContextMenu] = React.useState<{
-    visible: boolean;
-    screenX: number;
-    screenY: number;
-    worldX: number;
-    worldY: number;
-  } | null>(null);
+  // Unified Right-Click Context Menu State (Phase 3)
+  type ActiveContextMenu =
+    | { type: 'canvas'; screenX: number; screenY: number; worldX: number; worldY: number }
+    | { type: 'component'; screenX: number; screenY: number; component: CircuitComponent }
+    | { type: 'wire'; screenX: number; screenY: number; wire: Wire }
+    | { type: 'board'; screenX: number; screenY: number; board: TrainerBoardModel; boardIndex: number }
+    | { type: 'module'; screenX: number; screenY: number; board: TrainerBoardModel; module: TrainerModuleConfig }
+    | null;
 
-  const [componentContextMenu, setComponentContextMenu] = React.useState<{
-    visible: boolean;
-    component: CircuitComponent;
-    screenX: number;
-    screenY: number;
-  } | null>(null);
+  const [activeContextMenu, setActiveContextMenu] = React.useState<ActiveContextMenu>(null);
+
+  // Viewport-safe Context Menu clamping helper
+  const clampMenuPosition = useCallback((clientX: number, clientY: number, width = 230, height = 280) => {
+    const pad = 12;
+    const topPad = 64; // Clear top app navigation bar
+    const maxX = Math.max(pad, window.innerWidth - width - pad);
+    const maxY = Math.max(topPad, window.innerHeight - height - pad);
+    return {
+      x: Math.min(Math.max(pad, clientX), maxX),
+      y: Math.min(Math.max(topPad, clientY), maxY),
+    };
+  }, []);
 
   const handleContextMenu = (e: React.MouseEvent) => {
+    if (e.defaultPrevented) return;
     e.preventDefault();
-    if (componentContextMenu) setComponentContextMenu(null);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 210, 260);
     const world = screenToWorldCoord({ x: e.clientX, y: e.clientY });
-    setContextMenu({
-      visible: true,
-      screenX: Math.min(e.clientX, window.innerWidth - 200),
-      screenY: Math.min(e.clientY, window.innerHeight - 240),
+    setActiveContextMenu({
+      type: 'canvas',
+      screenX: pos.x,
+      screenY: pos.y,
       worldX: Math.round(world.x),
       worldY: Math.round(world.y),
     });
@@ -258,19 +281,81 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.preventDefault();
     e.stopPropagation();
     onSelectComponent(comp.id);
-    if (contextMenu) setContextMenu(null);
-    setComponentContextMenu({
-      visible: true,
+    const pos = clampMenuPosition(e.clientX, e.clientY, 230, 280);
+    setActiveContextMenu({
+      type: 'component',
+      screenX: pos.x,
+      screenY: pos.y,
       component: comp,
-      screenX: Math.min(e.clientX, window.innerWidth - 220),
-      screenY: Math.min(e.clientY, window.innerHeight - 260),
     });
   };
 
+  const handleWireContextMenu = (wire: Wire, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelectWire?.(wire.id);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 210, 200);
+    setActiveContextMenu({
+      type: 'wire',
+      screenX: pos.x,
+      screenY: pos.y,
+      wire,
+    });
+  };
+
+  const handleBoardContextMenu = (board: TrainerBoardModel, boardIndex: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelectBoard?.(board.id || boardIndex);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 240, 260);
+    setActiveContextMenu({
+      type: 'board',
+      screenX: pos.x,
+      screenY: pos.y,
+      board,
+      boardIndex,
+    });
+  };
+
+  const handleModuleContextMenu = (board: TrainerBoardModel, module: TrainerModuleConfig, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelectModule?.(module.id);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 240, 240);
+    setActiveContextMenu({
+      type: 'module',
+      screenX: pos.x,
+      screenY: pos.y,
+      board,
+      module,
+    });
+  };
+
+  // Safe dismiss with Escape and clicking outside
+  useEffect(() => {
+    if (!activeContextMenu) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveContextMenu(null);
+      }
+    };
+    const handleClickAway = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('.canvas-context-menu')) {
+        setActiveContextMenu(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mousedown', handleClickAway);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mousedown', handleClickAway);
+    };
+  }, [activeContextMenu]);
+
   // Compound Mouse Handlers
   const onMouseDown = (e: React.MouseEvent) => {
-    if (contextMenu) setContextMenu(null);
-    if (componentContextMenu) setComponentContextMenu(null);
+    if (activeContextMenu) setActiveContextMenu(null);
     handleCanvasMouseDown(e);
   };
 
@@ -376,52 +461,77 @@ export const Canvas: React.FC<CanvasProps> = ({
         onPaste={() => onPasteAtPosition?.(mouseWorldPosRef.current)}
       />
 
-      {/* Right-Click Context Menu (Fixed in screen coordinates) */}
-      {contextMenu?.visible && (
+      {/* 1. Empty Canvas Right-Click Context Menu */}
+      {activeContextMenu?.type === 'canvas' && (
         <div
-          className="canvas-context-menu"
+          className="canvas-context-menu empty-canvas-menu"
           style={{
-            left: `${contextMenu.screenX}px`,
-            top: `${contextMenu.screenY}px`,
+            left: `${activeContextMenu.screenX}px`,
+            top: `${activeContextMenu.screenY}px`,
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            className="context-menu-item"
-            onClick={() => {
-              onPasteAtPosition?.({ x: contextMenu.worldX, y: contextMenu.worldY });
-              setContextMenu(null);
-            }}
-          >
-            <span>📋 Paste Here</span>
-            <span className="context-menu-shortcut">Ctrl+V</span>
-          </button>
+          <div className="context-menu-header">
+            <span className="context-menu-title">CANVAS ACTIONS</span>
+          </div>
+          <div className="context-menu-divider" />
 
-          <button
-            type="button"
-            className="context-menu-item"
-            onClick={() => {
-              onCopy?.();
-              setContextMenu(null);
-            }}
-          >
-            <span>📄 Copy Selection</span>
-            <span className="context-menu-shortcut">Ctrl+C</span>
-          </button>
+          {onPasteAtPosition && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onPasteAtPosition({ x: activeContextMenu.worldX, y: activeContextMenu.worldY });
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>📋 Paste Here</span>
+              <span className="context-menu-shortcut">Ctrl+V</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="context-menu-item"
-            onClick={() => {
-              onSelectAll?.();
-              setContextMenu(null);
-            }}
-          >
-            <span>🔲 Select All</span>
-            <span className="context-menu-shortcut">Ctrl+A</span>
-          </button>
+          {onSelectAll && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onSelectAll();
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>🎯 Select All</span>
+              <span className="context-menu-shortcut">Ctrl+A</span>
+            </button>
+          )}
+
+          {onFitCircuit && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onFitCircuit();
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>🔍 Fit Circuit to Screen</span>
+              <span className="context-menu-shortcut">F</span>
+            </button>
+          )}
+
+          {onToggleGrid && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onToggleGrid();
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>▦ Toggle Grid</span>
+              <span className="context-menu-shortcut">G</span>
+            </button>
+          )}
 
           <div className="context-menu-divider" />
 
@@ -431,10 +541,10 @@ export const Canvas: React.FC<CanvasProps> = ({
               className="context-menu-item"
               onClick={() => {
                 onAddTrainerBoard();
-                setContextMenu(null);
+                setActiveContextMenu(null);
               }}
             >
-              <span>🎓 + Add Trainer Board</span>
+              <span>➕ Add Hardware Trainer</span>
             </button>
           )}
 
@@ -443,124 +553,429 @@ export const Canvas: React.FC<CanvasProps> = ({
             className="context-menu-item"
             onClick={() => {
               onToggleLibrary();
-              setContextMenu(null);
+              setActiveContextMenu(null);
             }}
           >
             <span>📦 Add Components & ICs</span>
           </button>
 
-          {(selectedCompId || selectedWireId || isAllSelected) && (
-            <button
-              type="button"
-              className="context-menu-item danger"
-              onClick={() => {
-                onDeleteSelected?.();
-                setContextMenu(null);
-              }}
-            >
-              <span>🗑️ Delete Selected</span>
-              <span className="context-menu-shortcut">Del</span>
-            </button>
+          {(selectedCompIds.length > 0 || selectedCompId || selectedWireId) && (
+            <>
+              <div className="context-menu-divider" />
+              <button
+                type="button"
+                className="context-menu-item danger"
+                onClick={() => {
+                  if (selectedCompIds.length > 1) {
+                    onRequestDeleteSelected?.();
+                  } else if (selectedCompId) {
+                    onRequestDeleteComponent?.(selectedCompId);
+                  } else if (selectedWireId) {
+                    onDeleteWire(selectedWireId);
+                  }
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>🗑️ Delete Selected</span>
+                <span className="context-menu-shortcut">Del</span>
+              </button>
+            </>
           )}
         </div>
       )}
 
-      {/* Component Right-Click Context Menu */}
-      {componentContextMenu?.visible && (
+      {/* 2. Component Context Menu (Mounted IC, Custom IC, or Ordinary Component) */}
+      {activeContextMenu?.type === 'component' && (() => {
+        const comp = activeContextMenu.component;
+        const isMounted = Boolean(comp.customProps?.trainerMount);
+        const isCustomIC = Boolean(comp.customProps?.isCustomIC || comp.type === 'custom_ic');
+
+        if (isMounted) {
+          return (
+            <div
+              className="canvas-context-menu component-context-menu mounted-ic-menu"
+              style={{
+                left: `${activeContextMenu.screenX}px`,
+                top: `${activeContextMenu.screenY}px`,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="context-menu-header">
+                <span className="context-menu-title">
+                  📌 {comp.label} ({comp.customProps?.trainerMount?.slotLabel || 'Mounted'})
+                </span>
+              </div>
+              <div className="context-menu-divider" />
+
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onSelectComponent(comp.id);
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>🔍 Inspect Properties</span>
+              </button>
+
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onSelectComponent(comp.id);
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>📋 View Pinout</span>
+              </button>
+
+              {isCustomIC && onOpenCustomICStudio && (
+                <button
+                  type="button"
+                  className="context-menu-item"
+                  onClick={() => {
+                    onOpenCustomICStudio(comp);
+                    setActiveContextMenu(null);
+                  }}
+                >
+                  <span>🧩 Open Internal Logic</span>
+                </button>
+              )}
+
+              <div className="context-menu-divider" />
+
+              <button
+                type="button"
+                className="context-menu-item danger eject-ic-item"
+                onClick={() => {
+                  const mount = comp.customProps?.trainerMount;
+                  const baseIndex = mount?.baseIndex ?? 0;
+                  onRequestEjectIC?.(baseIndex, comp.id);
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>⏏ Eject IC from Socket</span>
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            className="canvas-context-menu component-context-menu"
+            style={{
+              left: `${activeContextMenu.screenX}px`,
+              top: `${activeContextMenu.screenY}px`,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="context-menu-header">
+              <span className="context-menu-title">
+                {isCustomIC ? `🧩 ${comp.label} (Custom IC)` : `⚡ ${comp.label}`}
+              </span>
+            </div>
+            <div className="context-menu-divider" />
+
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onSelectComponent(comp.id);
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>🔍 Inspect Properties</span>
+            </button>
+
+            {!comp.isTrainerFixed && onRotateComponent && (
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onRotateComponent(comp.id);
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>🔄 Rotate 90°</span>
+                <span className="context-menu-shortcut">R</span>
+              </button>
+            )}
+
+            {!comp.isTrainerFixed && onCopy && (
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onCopy();
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>📄 Duplicate</span>
+                <span className="context-menu-shortcut">Ctrl+C</span>
+              </button>
+            )}
+
+            {isCustomIC && onOpenCustomICStudio && (
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onOpenCustomICStudio(comp);
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>🧩 Open Internal Logic</span>
+              </button>
+            )}
+
+            {onToggleLockComponent && !comp.isTrainerFixed && (
+              <button
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onToggleLockComponent(comp.id);
+                  setActiveContextMenu(null);
+                }}
+              >
+                <span>{comp.customProps?.locked ? '🔓 Unlock Component' : '🔒 Lock Component'}</span>
+              </button>
+            )}
+
+            {!comp.isTrainerFixed && (
+              <>
+                <div className="context-menu-divider" />
+                <button
+                  type="button"
+                  className="context-menu-item danger remove-component-item"
+                  onClick={() => {
+                    if (onRequestDeleteComponent) {
+                      onRequestDeleteComponent(comp.id);
+                    } else {
+                      onDeleteSelected?.();
+                    }
+                    setActiveContextMenu(null);
+                  }}
+                >
+                  <span>🗑️ Remove Component</span>
+                  <span className="context-menu-shortcut">Del</span>
+                </button>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* 3. Wire Context Menu */}
+      {activeContextMenu?.type === 'wire' && (
         <div
-          className="canvas-context-menu component-context-menu"
+          className="canvas-context-menu wire-context-menu"
           style={{
-            left: `${componentContextMenu.screenX}px`,
-            top: `${componentContextMenu.screenY}px`,
+            left: `${activeContextMenu.screenX}px`,
+            top: `${activeContextMenu.screenY}px`,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="context-menu-header">
+            <span className="context-menu-title">⚡ WIRE ({activeContextMenu.wire.value})</span>
+          </div>
+          <div className="context-menu-divider" />
+
+          <button
+            type="button"
+            className="context-menu-item"
+            onClick={() => {
+              onSelectWire?.(activeContextMenu.wire.id);
+              setActiveContextMenu(null);
+            }}
+          >
+            <span>🔍 Inspect Wire</span>
+          </button>
+
+          {onBranchWire && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                const world = screenToWorldCoord({ x: activeContextMenu.screenX, y: activeContextMenu.screenY });
+                onBranchWire(
+                  activeContextMenu.wire.id,
+                  Math.round(world.x / 10) * 10,
+                  Math.round(world.y / 10) * 10
+                );
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>➕ Add Junction</span>
+            </button>
+          )}
+
+          <div className="context-menu-divider" />
+
+          <button
+            type="button"
+            className="context-menu-item danger remove-wire-item"
+            onClick={() => {
+              onDeleteWire(activeContextMenu.wire.id);
+              setActiveContextMenu(null);
+            }}
+          >
+            <span>🗑️ Remove Wire</span>
+            <span className="context-menu-shortcut">Del</span>
+          </button>
+        </div>
+      )}
+
+      {/* 4. Trainer Board Context Menu */}
+      {activeContextMenu?.type === 'board' && (
+        <div
+          className="canvas-context-menu board-context-menu"
+          style={{
+            left: `${activeContextMenu.screenX}px`,
+            top: `${activeContextMenu.screenY}px`,
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="context-menu-header">
             <span className="context-menu-title">
-              {componentContextMenu.component.customProps?.trainerMount
-                ? `📌 ${componentContextMenu.component.label} (${componentContextMenu.component.customProps.trainerMount.slotLabel || 'Mounted'})`
-                : `⚡ ${componentContextMenu.component.label}`}
+              📟 {activeContextMenu.board.name || `Trainer Board #${activeContextMenu.boardIndex + 1}`}
             </span>
           </div>
           <div className="context-menu-divider" />
 
-          {/* If mounted on trainer board socket */}
-          {componentContextMenu.component.customProps?.trainerMount ? (
-            <>
-              <button
-                type="button"
-                className="context-menu-item"
-                onClick={() => {
-                  onSelectComponent(componentContextMenu.component.id);
-                  setComponentContextMenu(null);
-                }}
-              >
-                <span>🔍 Inspect Properties</span>
-              </button>
+          <button
+            type="button"
+            className="context-menu-item"
+            onClick={() => {
+              onSelectBoard?.(activeContextMenu.board.id || activeContextMenu.boardIndex);
+              setActiveContextMenu(null);
+            }}
+          >
+            <span>🔍 Inspect Board</span>
+          </button>
 
+          {onCopyBoard && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onCopyBoard(activeContextMenu.boardIndex);
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>📋 Duplicate Board</span>
+            </button>
+          )}
+
+          {onAddModule && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onAddModule();
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>➕ Extend Board (+ Module)</span>
+            </button>
+          )}
+
+          {onTogglePower && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onTogglePower();
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>⚡ Toggle Power (DC 5V)</span>
+            </button>
+          )}
+
+          {(circuit.trainerBoards?.length || 1) > 1 && (
+            <>
+              <div className="context-menu-divider" />
               <button
                 type="button"
-                className="context-menu-item danger eject-ic-item"
+                className="context-menu-item danger remove-board-item"
                 onClick={() => {
-                  const mount = componentContextMenu.component.customProps?.trainerMount;
-                  const baseIndex = mount?.baseIndex ?? 0;
-                  onRequestEjectIC?.(baseIndex, componentContextMenu.component.id);
-                  setComponentContextMenu(null);
+                  if (onRequestRemoveBoard) {
+                    onRequestRemoveBoard(activeContextMenu.boardIndex, activeContextMenu.board.id);
+                  } else if (onRemoveTrainerBoard) {
+                    onRemoveTrainerBoard(activeContextMenu.boardIndex);
+                  }
+                  setActiveContextMenu(null);
                 }}
               >
-                <span>⏏ Eject IC from Socket</span>
+                <span>🗑️ Remove Trainer Board</span>
               </button>
             </>
-          ) : (
+          )}
+        </div>
+      )}
+
+      {/* 5. Trainer Module Context Menu */}
+      {activeContextMenu?.type === 'module' && (
+        <div
+          className="canvas-context-menu module-context-menu"
+          style={{
+            left: `${activeContextMenu.screenX}px`,
+            top: `${activeContextMenu.screenY}px`,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="context-menu-header">
+            <span className="context-menu-title">
+              🧩 {activeContextMenu.module.name} (Slot #{activeContextMenu.module.index + 1})
+            </span>
+          </div>
+          <div className="context-menu-divider" />
+
+          <button
+            type="button"
+            className="context-menu-item"
+            onClick={() => {
+              onSelectModule?.(activeContextMenu.module.id);
+              setActiveContextMenu(null);
+            }}
+          >
+            <span>🔍 Inspect Module</span>
+          </button>
+
+          {onAddModule && (
+            <button
+              type="button"
+              className="context-menu-item"
+              onClick={() => {
+                onAddModule();
+                setActiveContextMenu(null);
+              }}
+            >
+              <span>➕ Add Module</span>
+            </button>
+          )}
+
+          {activeContextMenu.module.index > 0 && (
             <>
-              <button
-                type="button"
-                className="context-menu-item"
-                onClick={() => {
-                  onSelectComponent(componentContextMenu.component.id);
-                  setComponentContextMenu(null);
-                }}
-              >
-                <span>🔍 Inspect Properties</span>
-              </button>
-
-              <button
-                type="button"
-                className="context-menu-item"
-                onClick={() => {
-                  onRotateComponent?.(componentContextMenu.component.id);
-                  setComponentContextMenu(null);
-                }}
-              >
-                <span>🔄 Rotate 90°</span>
-                <span className="context-menu-shortcut">R</span>
-              </button>
-
-              <button
-                type="button"
-                className="context-menu-item"
-                onClick={() => {
-                  onCopy?.();
-                  setComponentContextMenu(null);
-                }}
-              >
-                <span>📄 Copy</span>
-                <span className="context-menu-shortcut">Ctrl+C</span>
-              </button>
-
               <div className="context-menu-divider" />
-
               <button
                 type="button"
-                className="context-menu-item danger"
+                className="context-menu-item danger remove-module-item"
                 onClick={() => {
-                  onDeleteSelected?.();
-                  setComponentContextMenu(null);
+                  if (onRequestRemoveModule) {
+                    onRequestRemoveModule(activeContextMenu.board.id, activeContextMenu.module.id);
+                  } else if (onRemoveModule) {
+                    onRemoveModule(activeContextMenu.module.id);
+                  }
+                  setActiveContextMenu(null);
                 }}
               >
-                <span>🗑️ Delete Component</span>
-                <span className="context-menu-shortcut">Del</span>
+                <span>✕ Remove Module</span>
               </button>
             </>
           )}
@@ -589,6 +1004,10 @@ export const Canvas: React.FC<CanvasProps> = ({
             onRemoveModule={onRemoveModule}
             onSelectModule={onSelectModule}
             onRequestEjectIC={onRequestEjectIC}
+            onRequestRemoveModule={onRequestRemoveModule}
+            onRequestRemoveBoard={onRequestRemoveBoard}
+            onBoardContextMenu={handleBoardContextMenu}
+            onModuleContextMenu={handleModuleContextMenu}
             selectedBoardId={selectedBoardId}
             selectedModuleId={selectedModuleId}
           />
@@ -618,6 +1037,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           onWireDoubleClick={handleWireDoubleClick}
           onWireMouseUp={handleWireMouseUp}
           onAddJunctionAtCoords={(wireId, x, y) => onBranchWire?.(wireId, x, y)}
+          onWireContextMenu={handleWireContextMenu}
         />
 
         {/* Circuit Component Nodes */}

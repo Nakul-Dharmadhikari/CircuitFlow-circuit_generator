@@ -5,6 +5,7 @@ import {
   TRAINER_CONSTANTS,
   type TrainerBoardModel,
   type TrainerICSlot,
+  type TrainerModuleConfig,
 } from '../engine/trainer/trainerBoardModel';
 
 interface TrainerBoardProps {
@@ -21,6 +22,10 @@ interface TrainerBoardProps {
   onRemoveModule?: (moduleId?: string) => void;
   onSelectModule?: (moduleId: string) => void;
   onRequestEjectIC?: (baseIndex: number, compId: string) => void;
+  onRequestRemoveModule?: (boardId: string, moduleId: string) => void;
+  onRequestRemoveBoard?: (boardIndex: number, boardId: string) => void;
+  onBoardContextMenu?: (board: TrainerBoardModel, boardIndex: number, e: React.MouseEvent) => void;
+  onModuleContextMenu?: (board: TrainerBoardModel, module: TrainerModuleConfig, e: React.MouseEvent) => void;
   selectedBoardId?: string | null;
   selectedModuleId?: string | null;
 }
@@ -39,6 +44,10 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
   onRemoveModule,
   onSelectModule,
   onRequestEjectIC,
+  onRequestRemoveModule,
+  onRequestRemoveBoard,
+  onBoardContextMenu,
+  onModuleContextMenu,
   selectedBoardId,
   selectedModuleId,
 }) => {
@@ -182,6 +191,19 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                 onSelectBoard?.(boardIndex);
               }
             }}
+            onContextMenu={(e) => {
+              if (
+                (e.target as HTMLElement).classList.contains('hardware-trainer-board') ||
+                (e.target as HTMLElement).closest('.trainer-board-drag-header') ||
+                (e.target as HTMLElement).closest('.trainer-top-strip')
+              ) {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectBoard?.(boardModel.id);
+                onSelectBoard?.(boardIndex);
+                onBoardContextMenu?.(boardModel, boardIndex, e);
+              }
+            }}
           >
             {/* =====================================================================
                 TOP DRAGGABLE HEADER BAR (DRAG HANDLE & QUICK ACTIONS)
@@ -195,6 +217,13 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                   onSelectBoard?.(boardIndex);
                   onStartDragBoard?.(boardIndex, e);
                 }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectBoard?.(boardModel.id);
+                onSelectBoard?.(boardIndex);
+                onBoardContextMenu?.(boardModel, boardIndex, e);
               }}
             >
               <div className="trainer-board-drag-title">
@@ -217,13 +246,17 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                     📋 Copy
                   </button>
                 )}
-                {boardsToRender.length > 1 && onRemoveBoard && (
+                {boardsToRender.length > 1 && (onRemoveBoard || onRequestRemoveBoard) && (
                   <button
                     type="button"
                     className="trainer-remove-board-btn"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onRemoveBoard(boardIndex);
+                      if (onRequestRemoveBoard) {
+                        onRequestRemoveBoard(boardIndex, boardModel.id);
+                      } else {
+                        onRemoveBoard?.(boardIndex);
+                      }
                     }}
                     title={`Remove Trainer Board #${boardIndex + 1} from workbench`}
                   >
@@ -282,6 +315,12 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                       e.stopPropagation();
                       onSelectModule?.(mod.id);
                     }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelectModule?.(mod.id);
+                      onModuleContextMenu?.(boardModel, mod, e);
+                    }}
                   >
                     {/* Module Header Bar / Subtle Silkscreen Divider */}
                     <div className="module-banner">
@@ -292,15 +331,17 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                         </span>
                       </div>
 
-                      {modIdx > 0 && onRemoveModule && (
+                      {modIdx > 0 && (onRemoveModule || onRequestRemoveModule) && (
                         <button
                           type="button"
                           className="module-remove-btn"
                           title={`Remove ${mod.name} and its generated sockets/inputs`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Remove ${mod.name}? Any ICs mounted on its sockets will be unmounted.`)) {
-                              onRemoveModule(mod.id);
+                            if (onRequestRemoveModule) {
+                              onRequestRemoveModule(boardModel.id, mod.id);
+                            } else {
+                              onRemoveModule?.(mod.id);
                             }
                           }}
                         >
