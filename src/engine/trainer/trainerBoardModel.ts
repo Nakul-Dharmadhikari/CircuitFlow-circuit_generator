@@ -522,7 +522,9 @@ export function addModuleToTrainerBoard(
   if (!targetBoard) {
     const initial = createInitialTrainerBoard(boardId);
     targetBoard = initial.board;
-    updatedComponents = [...updatedComponents, ...initial.components];
+    const existingIds = new Set(updatedComponents.map((c) => c.id));
+    const missing = initial.components.filter((c) => !existingIds.has(c.id));
+    updatedComponents = [...updatedComponents, ...missing];
   }
 
   const existingModules = targetBoard.modules;

@@ -252,7 +252,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [activeContextMenu, setActiveContextMenu] = React.useState<ActiveContextMenu>(null);
 
   // Viewport-safe Context Menu clamping helper
-  const clampMenuPosition = useCallback((clientX: number, clientY: number, width = 230, height = 280) => {
+  const clampMenuPosition = useCallback((clientX: number, clientY: number, width = 240, height = 310) => {
     const pad = 12;
     const topPad = 64; // Clear top app navigation bar
     const maxX = Math.max(pad, window.innerWidth - width - pad);
@@ -266,7 +266,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleContextMenu = (e: React.MouseEvent) => {
     if (e.defaultPrevented) return;
     e.preventDefault();
-    const pos = clampMenuPosition(e.clientX, e.clientY, 210, 260);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 230, 310);
     const world = screenToWorldCoord({ x: e.clientX, y: e.clientY });
     setActiveContextMenu({
       type: 'canvas',
@@ -281,7 +281,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.preventDefault();
     e.stopPropagation();
     onSelectComponent(comp.id);
-    const pos = clampMenuPosition(e.clientX, e.clientY, 230, 280);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 240, 290);
     setActiveContextMenu({
       type: 'component',
       screenX: pos.x,
@@ -294,7 +294,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.preventDefault();
     e.stopPropagation();
     onSelectWire?.(wire.id);
-    const pos = clampMenuPosition(e.clientX, e.clientY, 210, 200);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 220, 220);
     setActiveContextMenu({
       type: 'wire',
       screenX: pos.x,
@@ -307,7 +307,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.preventDefault();
     e.stopPropagation();
     onSelectBoard?.(board.id || boardIndex);
-    const pos = clampMenuPosition(e.clientX, e.clientY, 240, 260);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 240, 290);
     setActiveContextMenu({
       type: 'board',
       screenX: pos.x,
@@ -321,7 +321,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.preventDefault();
     e.stopPropagation();
     onSelectModule?.(module.id);
-    const pos = clampMenuPosition(e.clientX, e.clientY, 240, 240);
+    const pos = clampMenuPosition(e.clientX, e.clientY, 240, 270);
     setActiveContextMenu({
       type: 'module',
       screenX: pos.x,
