@@ -1,111 +1,166 @@
 :root {
   /* ==========================================================================
-     CircuitFlow Theme Variables — "Tactile Precision Workbench"
-     Non-AI, Authentic Hardware Laboratory Aesthetic
+     CIRCUITFLOW COPPER LAB DESIGN SYSTEM (Default: Dark Graphite Lab)
+     Brand Identity: Deep Graphite + Warm Copper Accent + Signal Logic Colors
      ========================================================================== */
 
-  /* Surface & Canvas (Dark / Obsidian Workbench - Default) */
-  --bg-app: #0d1117;
-  --bg-canvas: #121820;
-  --bg-panel: #161f2c;
-  --bg-panel-elevated: #1d2738;
-  --bg-subtle: #232f42;
-  --bg-hover: #2d3b52;
-  --bg-active: #384863;
+  /* Surface & Background Hierarchy (Graphite Palette) */
+  --bg-app: #121417;             /* Deep graphite application floor */
+  --bg-canvas: #16191d;          /* Infinite schematic/circuit canvas */
+  --bg-panel: #1a1d21;           /* Primary panels, TopBar, toolbar bases */
+  --bg-panel-elevated: #22262c;  /* Elevated cards, dropdowns, inspector, drawer */
+  --bg-subtle: #292e36;          /* Subtle buttons, input backgrounds, tool groups */
+  --bg-hover: #323842;           /* Hover states on interactive surfaces */
+  --bg-active: #3c4450;          /* Pressed/active surface states */
 
   /* Borders & Dividers */
-  --border-subtle: #2b384c;
-  --border-strong: #3b4d68;
-  --border-focus: #38bdf8;
+  --border-subtle: #2e343e;      /* Subtle dividers and grid bounds */
+  --border-strong: #3f4754;      /* Card outlines, panel borders */
+  --border-focus: #d97736;       /* Focus ring (Copper Brand Accent) */
 
   /* Text & Typography */
-  --text-primary: #f0f6fc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-mono: #6ee7b7;
+  --text-primary: #f3f4f6;       /* Primary high-contrast technical text */
+  --text-secondary: #9ca3af;     /* Secondary descriptions, labels */
+  --text-muted: #6b7280;         /* Muted metadata, hotkeys, dimensions */
+  --text-mono: #34d399;          /* Monospace readouts, logic expressions */
 
-  /* Digital Electronics Logic State Colors */
-  --signal-high: #22c55e;        /* HIGH / 5V (Electric Emerald) */
-  --signal-high-glow: rgba(34, 197, 94, 0.45);
-  --signal-low: #475569;         /* LOW / 0V (Muted Cold Slate) */
+  /* Copper Brand Accent Family */
+  --accent-copper: #d97736;        /* Primary Copper Accent */
+  --accent-copper-hover: #ea8a47;  /* Bright Copper for hover */
+  --accent-copper-active: #c25e1a; /* Deep Burnt Copper for active/pressed */
+  --accent-copper-dark: #b35010;   /* Darker Copper border/shadow */
+  --accent-copper-glow: rgba(217, 119, 54, 0.35);
+  --accent-copper-subtle: rgba(217, 119, 54, 0.14);
+
+  /* Selection & Interaction States */
+  --selection-stroke: #d97736;
+  --selection-fill: rgba(217, 119, 54, 0.12);
+  --selection-glow: rgba(217, 119, 54, 0.4);
+  --wire-hover: #ea8a47;
+
+  /* Digital Electronics Logic State Colors (Standard IEEE/TTL Semantic Mapping) */
+  --signal-high: #22c55e;        /* HIGH / 5V (Signal Green / Emerald) */
+  --signal-high-glow: rgba(34, 197, 94, 0.42);
+  --signal-low: #64748b;         /* LOW / 0V (Muted Cold Slate) */
   --signal-low-glow: transparent;
-  --signal-z: #f59e0b;           /* High-Impedance (Amber Gold) */
-  --signal-x: #ef4444;           /* Contention / Error (Crimson) */
-  --signal-bus: #818cf8;         /* Multi-bit Bus */
-  --signal-clock: #06b6d4;       /* Clock Pulse Line (Cyan) */
+  --signal-z: #f59e0b;           /* High-Impedance / Floating (Amber Gold) */
+  --signal-z-glow: rgba(245, 158, 11, 0.35);
+  --signal-x: #ef4444;           /* Contention / Fault / Error (Crimson) */
+  --signal-x-glow: rgba(239, 68, 68, 0.4);
+  --signal-warning: #f59e0b;     /* Warning indicator */
+  --signal-bus: #818cf8;         /* Multi-bit Data Bus (Periwinkle) */
+  --signal-clock: #06b6d4;       /* Clock Pulse Generator (Cyan) */
 
   /* Canvas Grid */
-  --grid-dot-color: #273549;
+  --grid-dot-color: #2b313b;
   --grid-dot-size: 1.5px;
   --grid-pitch: 20px;
 
   /* Component Bodies (IC Packages & Gates) */
-  --gate-fill: #1a2332;
-  --gate-stroke: #4b5e7d;
-  --gate-stroke-selected: #38bdf8;
-  --pin-fill: #334155;
-  --pin-hover: #38bdf8;
+  --gate-fill: #1a1e24;
+  --gate-stroke: #454e5b;
+  --gate-stroke-selected: #d97736;
+  --pin-fill: #374151;
+  --pin-hover: #d97736;
 
   /* Tactile Switch Visual Tokens */
-  --switch-track-off: #161f2c;
-  --switch-track-border: #3b4d68;
-  --switch-thumb: #f8fafc;
+  --switch-track-off: #1e232a;
+  --switch-track-border: #3f4754;
+  --switch-thumb: #f3f4f6;
   --switch-thumb-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
 
   /* Shadows & Elevation */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 12px var(--signal-high-glow);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.65);
+  --shadow-copper: 0 0 12px var(--accent-copper-glow);
+
+  /* Geometry & Radius Primitives */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.12s ease;
+  --transition-normal: 0.18s ease;
 
   /* Fonts */
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 }
 
-/* Daylight Blueprint Lab (Light Mode - Enhanced Contrast) */
+/* ==========================================================================
+   CIRCUITFLOW COPPER LAB — LIGHT THEME (Warm Ivory / Drafting Parchment)
+   Architectural Warm Ivory Surfaces + Deep Charcoal Text + Rich Copper Inks
+   ========================================================================== */
 [data-theme='light'] {
-  --bg-app: #f1f5f9;
-  --bg-canvas: #f8fafc;
-  --bg-panel: #ffffff;
-  --bg-panel-elevated: #f1f5f9;
-  --bg-subtle: #e2e8f0;
-  --bg-hover: #cbd5e1;
-  --bg-active: #94a3b8;
+  /* Surface & Background Hierarchy (Warm Ivory / Cream) */
+  --bg-app: #f4f1ea;             /* Warm ivory application canvas floor */
+  --bg-canvas: #ebe7dd;          /* Architectural parchment drafting canvas */
+  --bg-panel: #fcfbf8;           /* Pure warm cream panel surface */
+  --bg-panel-elevated: #f3efe5;  /* Elevated ivory card surface */
+  --bg-subtle: #e6e1d5;          /* Subtle warm stone tint */
+  --bg-hover: #ddd7c9;          /* Warm hover tint */
+  --bg-active: #d1c9b8;         /* Warm active tint */
 
-  --border-subtle: #cbd5e1;
-  --border-strong: #64748b;
-  --border-focus: #0284c7;
+  /* Borders & Dividers */
+  --border-subtle: #d6cfbf;      /* Warm subtle border */
+  --border-strong: #b0a794;      /* Defined warm boundary */
+  --border-focus: #c25e1a;       /* Deep copper focus ring */
 
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  --text-mono: #047857;
+  /* Text & Typography */
+  --text-primary: #1c1917;       /* Deep warm obsidian ink */
+  --text-secondary: #44403c;     /* Warm charcoal secondary text */
+  --text-muted: #78716c;         /* Warm stone muted technical text */
+  --text-mono: #047857;          /* Engineering green mono text */
 
-  --signal-high: #16a34a;
+  /* Copper Brand Accent Family */
+  --accent-copper: #c25e1a;        /* Deep Copper Accent for high contrast on light */
+  --accent-copper-hover: #d97736;  /* Vivid Copper on hover */
+  --accent-copper-active: #b35010; /* Dark Burnt Copper on active */
+  --accent-copper-dark: #92400e;
+  --accent-copper-glow: rgba(194, 94, 26, 0.28);
+  --accent-copper-subtle: rgba(194, 94, 26, 0.12);
+
+  /* Selection & Interaction States */
+  --selection-stroke: #c25e1a;
+  --selection-fill: rgba(194, 94, 26, 0.12);
+  --selection-glow: rgba(194, 94, 26, 0.35);
+  --wire-hover: #d97736;
+
+  /* Digital Electronics Logic State Colors */
+  --signal-high: #16a34a;        /* HIGH / 5V (High-contrast emerald) */
   --signal-high-glow: rgba(22, 163, 74, 0.35);
-  --signal-low: #64748b;
+  --signal-low: #64748b;         /* LOW / 0V (Neutral Slate) */
   --signal-low-glow: transparent;
-  --signal-z: #d97706;
-  --signal-x: #dc2626;
+  --signal-z: #d97706;           /* High-Impedance (Deep Amber) */
+  --signal-z-glow: rgba(217, 119, 6, 0.3);
+  --signal-x: #dc2626;           /* Contention / Fault / Error (Crimson) */
+  --signal-x-glow: rgba(220, 38, 38, 0.35);
+  --signal-warning: #d97706;
   --signal-bus: #4f46e5;
   --signal-clock: #0891b2;
 
-  --grid-dot-color: #cbd5e1;
-  --gate-fill: #ffffff;
-  --gate-stroke: #475569;
-  --gate-stroke-selected: #0284c7;
-  --pin-fill: #64748b;
-  --pin-hover: #0284c7;
+  /* Canvas Grid */
+  --grid-dot-color: #c8c1af;
 
-  /* Tactile Switch Visual Tokens (Crisp & High Contrast in Light Mode) */
-  --switch-track-off: #cbd5e1;
-  --switch-track-border: #64748b;
+  /* Component Bodies (IC Packages & Gates) */
+  --gate-fill: #fcfbf8;
+  --gate-stroke: #57534e;
+  --gate-stroke-selected: #c25e1a;
+  --pin-fill: #78716c;
+  --pin-hover: #c25e1a;
+
+  /* Tactile Switch Visual Tokens */
+  --switch-track-off: #d6cfbf;
+  --switch-track-border: #a8a29e;
   --switch-thumb: #ffffff;
   --switch-thumb-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.3);
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
-  --shadow-glow: 0 0 8px rgba(22, 163, 74, 0.35);
+  /* Shadows & Elevation */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.18);
+  --shadow-copper: 0 0 8px rgba(194, 94, 26, 0.3);
 }

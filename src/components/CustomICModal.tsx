@@ -578,7 +578,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', background: 'rgba(0,0,0,0.15)', padding: '8px', borderRadius: '6px' }}>
                       {/* Input Pins */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#38bdf8' }}>📥 Inputs:</span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-copper)' }}>📥 Inputs:</span>
                         {unit.inputPins.map((pNum, inIdx) => (
                           <div key={inIdx} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                             <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
@@ -682,7 +682,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                           width: '24px',
                           height: '24px',
                           borderRadius: '4px',
-                          border: `1.5px solid ${isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#475569'}`,
+                          border: `1.5px solid ${isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? 'var(--accent-copper)' : '#475569'}`,
                           background: testVal === '1' ? '#22c55e' : '#1e293b',
                           color: testVal === '1' ? '#000' : '#fff',
                           fontWeight: 900,
@@ -695,7 +695,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                       >
                         {testVal}
                       </div>
-                      <span style={{ fontSize: '9px', fontWeight: 800, color: isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#64748b' }}>
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? 'var(--accent-copper)' : '#64748b' }}>
                         {pMap?.name}
                       </span>
                     </div>
@@ -733,7 +733,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                       }}
                       title={`Pin ${pinNum}: ${pMap?.name} (${pMap?.type})${isInput ? ' - Click to toggle test input' : ''}`}
                     >
-                      <span style={{ fontSize: '9px', fontWeight: 800, color: isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#64748b' }}>
+                      <span style={{ fontSize: '9px', fontWeight: 800, color: isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? 'var(--accent-copper)' : '#64748b' }}>
                         {pMap?.name}
                       </span>
                       <div
@@ -741,7 +741,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                           width: '24px',
                           height: '24px',
                           borderRadius: '4px',
-                          border: `1.5px solid ${isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? '#38bdf8' : '#475569'}`,
+                          border: `1.5px solid ${isPower ? '#f59e0b' : isOutput ? '#22c55e' : isInput ? 'var(--accent-copper)' : '#475569'}`,
                           background: testVal === '1' ? '#22c55e' : '#1e293b',
                           color: testVal === '1' ? '#000' : '#fff',
                           fontWeight: 900,
@@ -781,7 +781,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                     return (
                       <tr key={p.pin} style={{ borderBottom: '1px solid var(--border-color)' }}>
                         <td style={{ padding: '4px 8px', fontWeight: 800 }}>Pin {p.pin}</td>
-                        <td style={{ padding: '4px 8px', fontWeight: 800, color: isPow ? '#f59e0b' : isOut ? '#22c55e' : '#38bdf8' }}>{p.name}</td>
+                        <td style={{ padding: '4px 8px', fontWeight: 800, color: isPow ? '#f59e0b' : isOut ? '#22c55e' : 'var(--accent-copper)' }}>{p.name}</td>
                         <td style={{ padding: '4px 8px', textTransform: 'uppercase', fontSize: '10px' }}>{p.type}</td>
                         <td style={{ padding: '4px 8px', fontWeight: 900, color: val === '1' ? '#22c55e' : '#94a3b8' }}>
                           {val === '1' ? 'HIGH (1)' : 'LOW (0)'}

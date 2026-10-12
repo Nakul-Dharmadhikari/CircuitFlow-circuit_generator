@@ -52,12 +52,12 @@
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  background: linear-gradient(135deg, var(--accent-copper-active), var(--accent-copper));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+  box-shadow: 0 2px 8px var(--accent-copper-glow);
 }
 
 .brand-title {
@@ -71,9 +71,9 @@
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
-  background-color: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background-color: var(--accent-copper-subtle);
+  color: var(--accent-copper);
+  border: 1px solid var(--accent-copper);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -187,7 +187,7 @@
 .project-name-input:focus {
   border-color: var(--border-focus);
   background-color: var(--bg-canvas);
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 0 2px var(--accent-copper-glow);
 }
 
 .unsaved-dot {
@@ -232,14 +232,14 @@
 }
 
 .shell-btn.primary {
-  background: linear-gradient(135deg, #0284c7, #0369a1);
-  border-color: #38bdf8;
+  background: linear-gradient(135deg, var(--accent-copper), var(--accent-copper-active));
+  border-color: var(--accent-copper);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 2px 8px var(--accent-copper-glow);
 }
 
 .shell-btn.primary:hover {
-  background: linear-gradient(135deg, #0369a1, #075985);
+  background: linear-gradient(135deg, var(--accent-copper-hover), var(--accent-copper));
 }
 
 .shell-btn.running {
@@ -290,7 +290,7 @@
 
 .mode-seg-btn.active {
   background-color: var(--bg-panel-elevated);
-  color: #38bdf8;
+  color: var(--accent-copper);
   font-weight: 700;
   border-color: var(--border-focus);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
@@ -325,7 +325,7 @@
 }
 
 .dropdown-item.selected {
-  color: #38bdf8;
+  color: var(--accent-copper);
   font-weight: 700;
 }
 
@@ -345,7 +345,7 @@
 .clock-select-badge {
   background-color: var(--bg-subtle);
   border: 1px solid var(--border-subtle);
-  color: #38bdf8;
+  color: var(--accent-copper);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
@@ -402,9 +402,9 @@
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 3px;
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: var(--accent-copper-subtle);
+  color: var(--accent-copper);
+  border: 1px solid var(--accent-copper);
 }
 
 /* Responsive TopBar Breakpoints (1366, 1200, 1024) */
@@ -483,8 +483,8 @@
 
 .nav-tab-btn.active {
   background-color: var(--bg-panel-elevated);
-  border-color: var(--border-subtle);
-  color: #38bdf8;
+  border-color: var(--border-focus);
+  color: var(--accent-copper);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
@@ -520,18 +520,18 @@
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: rgba(22, 31, 44, 0.9);
+  background-color: var(--bg-panel-elevated);
   border: 1px solid var(--border-focus);
   backdrop-filter: blur(8px);
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 12px;
-  color: #38bdf8;
+  color: var(--accent-copper);
   z-index: 30;
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
 }
 
 /* Analysis Dedicated Page Shell */

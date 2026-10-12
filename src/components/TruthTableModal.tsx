@@ -207,8 +207,8 @@ export const TruthTableModal: React.FC<TruthTableModalProps> = ({
                           <span
                             style={{
                               fontSize: '11px',
-                              backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                              color: '#38bdf8',
+                              backgroundColor: 'var(--accent-copper-subtle)',
+                              color: 'var(--accent-copper)',
                               padding: '2px 8px',
                               borderRadius: '4px',
                               fontFamily: 'var(--font-mono)',

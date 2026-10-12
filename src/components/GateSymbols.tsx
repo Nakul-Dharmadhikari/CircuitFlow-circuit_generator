@@ -270,11 +270,11 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
       return (
         <svg width={width} height={height} viewBox="0 0 80 44">
           {/* Probe Body & Needle */}
-          <line x1="8" y1="22" x2="24" y2="22" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
-          <circle cx="8" cy="22" r="2.5" fill="#38bdf8" />
+          <line x1="8" y1="22" x2="24" y2="22" stroke="var(--accent-copper)" strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="8" cy="22" r="2.5" fill="var(--accent-copper)" />
           <rect x="24" y="11" width="48" height="22" rx="4" fill={fillColor} stroke={strokeColor} strokeWidth={strokeWidth} />
           <rect x="28" y="14" width="22" height="16" rx="2" fill="var(--bg-active)" />
-          <text x="39" y="26" fill="#38bdf8" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+          <text x="39" y="26" fill="var(--accent-copper)" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
             5V
           </text>
           <text x="60" y="25" fill={textMuted} fontSize="8" fontFamily="var(--font-mono)" textAnchor="middle">
@@ -613,7 +613,7 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
       return (
         <svg width={width} height={height} viewBox="0 0 60 44">
           <rect x="12" y="5" width="36" height="34" rx="4" fill="var(--bg-active)" stroke={strokeColor} strokeWidth={strokeWidth} />
-          <text x="30" y="27" fill="#38bdf8" fontSize="16" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
+          <text x="30" y="27" fill="var(--accent-copper)" fontSize="16" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
             F
           </text>
           <text x="30" y="36" fill={textMuted} fontSize="6" fontFamily="var(--font-mono)" textAnchor="middle">
@@ -638,9 +638,9 @@ export const GateSymbol: React.FC<GateSymbolProps> = ({ type, width, height }) =
       return (
         <svg width={width} height={height} viewBox="0 0 70 40">
           {/* Signal source terminal / Logic Pin */}
-          <rect x="8" y="10" width="38" height="20" rx="4" fill="#0284c7" stroke="#38bdf8" strokeWidth="1.5" />
-          <line x1="46" y1="20" x2="62" y2="20" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
-          <circle cx="62" cy="20" r="3" fill="#38bdf8" />
+          <rect x="8" y="10" width="38" height="20" rx="4" fill="var(--accent-copper-active)" stroke="var(--accent-copper)" strokeWidth="1.5" />
+          <line x1="46" y1="20" x2="62" y2="20" stroke="var(--accent-copper)" strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="62" cy="20" r="3" fill="var(--accent-copper)" />
           <text x="27" y="24" fill="#ffffff" fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fontWeight="bold">
             IN
           </text>

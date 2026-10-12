@@ -34,22 +34,22 @@ interface WireRendererProps {
  */
 function getWireStateColor(val: LogicValue, isSelected: boolean, isHovered: boolean): { stroke: string; glow: string } {
   if (isSelected) {
-    return { stroke: '#38bdf8', glow: 'rgba(56, 189, 248, 0.4)' };
+    return { stroke: 'var(--selection-stroke, #d97736)', glow: 'var(--selection-glow, rgba(217, 119, 54, 0.4))' };
   }
   if (isHovered) {
-    return { stroke: '#60a5fa', glow: 'rgba(96, 165, 250, 0.35)' };
+    return { stroke: 'var(--wire-hover, #ea8a47)', glow: 'rgba(217, 119, 54, 0.3)' };
   }
   switch (val) {
     case '1':
-      return { stroke: '#22c55e', glow: 'rgba(34, 197, 94, 0.3)' }; // HIGH: Vivid Green
+      return { stroke: 'var(--signal-high, #22c55e)', glow: 'var(--signal-high-glow, rgba(34, 197, 94, 0.3))' };
     case '0':
-      return { stroke: '#475569', glow: 'transparent' }; // LOW: Slate Blue-Gray
+      return { stroke: 'var(--signal-low, #64748b)', glow: 'transparent' };
     case 'Z':
-      return { stroke: '#94a3b8', glow: 'transparent' }; // HIGH-Z: Muted Gray
+      return { stroke: 'var(--signal-z, #f59e0b)', glow: 'var(--signal-z-glow, rgba(245, 158, 11, 0.25))' };
     case 'X':
-      return { stroke: '#ef4444', glow: 'rgba(239, 68, 68, 0.4)' }; // Conflict: Red
+      return { stroke: 'var(--signal-x, #ef4444)', glow: 'var(--signal-x-glow, rgba(239, 68, 68, 0.4))' };
     default:
-      return { stroke: '#64748b', glow: 'transparent' };
+      return { stroke: 'var(--signal-low, #64748b)', glow: 'transparent' };
   }
 }
 
@@ -299,19 +299,19 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
             <path
               d={pathData}
               fill="none"
-              stroke="#38bdf8"
+              stroke="var(--accent-copper, #d97736)"
               strokeWidth="2"
               strokeDasharray="4 3"
               style={{
-                filter: 'drop-shadow(0 0 4px #38bdf8)',
+                filter: 'drop-shadow(0 0 4px var(--accent-copper-glow, rgba(217, 119, 54, 0.4)))',
               }}
             />
             <circle
               cx={inProgressWire.toX}
               cy={inProgressWire.toY}
               r={4}
-              fill="#38bdf8"
-              stroke="#0f172a"
+              fill="var(--accent-copper, #d97736)"
+              stroke="var(--bg-app, #121417)"
               strokeWidth="1.5"
             />
           </g>

@@ -304,7 +304,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 >
                   <span
                     className="socket-lock-indicator"
-                    style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}
+                    style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-copper)' }}
                   >
                     🔒 Socket-Locked (Non-Draggable)
                   </span>
@@ -319,9 +319,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   type="button"
                   className="panel-action-btn eject-panel-btn"
                   style={{
-                    background: 'rgba(217, 119, 54, 0.15)',
-                    borderColor: '#d97736',
-                    color: '#f59e0b',
+                    background: 'var(--accent-copper-subtle)',
+                    borderColor: 'var(--accent-copper)',
+                    color: 'var(--accent-copper)',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
