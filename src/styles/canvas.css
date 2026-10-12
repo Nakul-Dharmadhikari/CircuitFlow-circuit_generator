@@ -2298,7 +2298,7 @@
 }
 
 .confirm-card-body .wires-warning {
-  color: #fbbf24;
+  color: var(--signal-warning);
 }
 
 .confirm-card-body .wires-clean {

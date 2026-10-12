@@ -81,24 +81,30 @@ assert.ok(themeCssContent.includes('#f3efe5'), 'Elevated ivory #f3efe5 must be p
 pass('Test 2: Established Copper Lab brand & neutral surfaces match specification');
 
 // -----------------------------------------------------------------------------
-// Test 3: Electrical-State Logic Semantics (HIGH, LOW, HIGH-Z, ERROR)
+// Test 3: Electrical-State Logic Semantics & Warning Separation
 // -----------------------------------------------------------------------------
 // Dark mode logic signals:
 // HIGH: signal green (#22c55e)
 // LOW: slate (#64748b)
-// HIGH-Z: amber (#f59e0b)
+// HIGH-Z: neutral grey (#9ca3af)
 // ERROR: crimson (#ef4444)
+// WARNING: amber (#f59e0b)
 assert.ok(themeCssContent.includes('--signal-high: #22c55e;'), 'Dark mode HIGH must be #22c55e');
 assert.ok(themeCssContent.includes('--signal-low: #64748b;'), 'Dark mode LOW must be #64748b');
-assert.ok(themeCssContent.includes('--signal-z: #f59e0b;'), 'Dark mode HIGH-Z must be #f59e0b');
+assert.ok(themeCssContent.includes('--signal-z: #9ca3af;'), 'Dark mode HIGH-Z must be neutral grey #9ca3af');
 assert.ok(themeCssContent.includes('--signal-x: #ef4444;'), 'Dark mode ERROR must be #ef4444');
+assert.ok(themeCssContent.includes('--signal-warning: #f59e0b;'), 'Dark mode WARNING must be amber #f59e0b');
 
 // Light mode logic signals:
 assert.ok(themeCssContent.includes('--signal-high: #16a34a;'), 'Light mode HIGH must be high-contrast #16a34a');
-assert.ok(themeCssContent.includes('--signal-low: #64748b;'), 'Light mode LOW must be slate #64748b');
-assert.ok(themeCssContent.includes('--signal-z: #d97706;'), 'Light mode HIGH-Z must be #d97706');
+assert.ok(themeCssContent.includes('--signal-z: #52525b;'), 'Light mode HIGH-Z must be neutral zinc grey #52525b');
 assert.ok(themeCssContent.includes('--signal-x: #dc2626;'), 'Light mode ERROR must be #dc2626');
-pass('Test 3: Logic state signals follow IEEE/TTL standard semantic mapping');
+assert.ok(themeCssContent.includes('--signal-warning: #d97706;'), 'Light mode WARNING must be deep amber #d97706');
+
+// Assert HIGH-Z and WARNING are strictly different colours
+assert.notStrictEqual('#9ca3af', '#f59e0b', 'Dark HIGH-Z and WARNING must not be identical');
+assert.notStrictEqual('#52525b', '#d97706', 'Light HIGH-Z and WARNING must not be identical');
+pass('Test 3: HIGH-Z is neutral grey and WARNING is amber (distinct semantic separation)');
 
 // -----------------------------------------------------------------------------
 // Test 4: WCAG AA Luminance & Contrast Calculation
@@ -139,6 +145,47 @@ pass(`Test 4B: Light mode primary text contrast is ${lightContrast.toFixed(2)}:1
 const copperLightContrast = getContrastRatio('#c25e1a', '#f4f1ea');
 assert.ok(copperLightContrast >= 3.0, `Copper accent contrast on ivory should be >= 3.0:1 (got ${copperLightContrast.toFixed(2)})`);
 pass(`Test 4C: Light mode copper accent contrast is ${copperLightContrast.toFixed(2)}:1 (exceeds 3.0:1 threshold)`);
+
+// Visual distinguishability check across all 5 states (Euclidean RGB distance >= 35)
+function rgbDistance(hex1: string, hex2: string): number {
+  const [r1, g1, b1] = hexToRgb(hex1);
+  const [r2, g2, b2] = hexToRgb(hex2);
+  return Math.sqrt(Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2));
+}
+
+const darkSignals = {
+  HIGH: '#22c55e',
+  LOW: '#64748b',
+  'HIGH-Z': '#9ca3af',
+  ERROR: '#ef4444',
+  WARNING: '#f59e0b',
+};
+
+const darkKeys = Object.keys(darkSignals) as (keyof typeof darkSignals)[];
+for (let i = 0; i < darkKeys.length; i++) {
+  for (let j = i + 1; j < darkKeys.length; j++) {
+    const d = rgbDistance(darkSignals[darkKeys[i]], darkSignals[darkKeys[j]]);
+    assert.ok(d >= 35, `Dark states ${darkKeys[i]} and ${darkKeys[j]} must be distinct (distance: ${d.toFixed(1)})`);
+  }
+}
+pass('Test 4D: Dark mode signals (HIGH, LOW, HIGH-Z, ERROR, WARNING) are visually distinct');
+
+const lightSignals = {
+  HIGH: '#16a34a',
+  LOW: '#64748b',
+  'HIGH-Z': '#52525b',
+  ERROR: '#dc2626',
+  WARNING: '#d97706',
+};
+
+const lightKeys = Object.keys(lightSignals) as (keyof typeof lightSignals)[];
+for (let i = 0; i < lightKeys.length; i++) {
+  for (let j = i + 1; j < lightKeys.length; j++) {
+    const d = rgbDistance(lightSignals[lightKeys[i]], lightSignals[lightKeys[j]]);
+    assert.ok(d >= 35, `Light states ${lightKeys[i]} and ${lightKeys[j]} must be distinct (distance: ${d.toFixed(1)})`);
+  }
+}
+pass('Test 4E: Light mode signals (HIGH, LOW, HIGH-Z, ERROR, WARNING) are visually distinct');
 
 // -----------------------------------------------------------------------------
 // Test 5: Verify no rogue blue accents in shell.css or ui.css

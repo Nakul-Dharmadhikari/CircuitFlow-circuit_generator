@@ -137,7 +137,7 @@ export const TruthTableModal: React.FC<TruthTableModalProps> = ({
                 <div
                   style={{
                     backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                    color: 'var(--signal-z)',
+                    color: 'var(--signal-warning)',
                     padding: '8px 12px',
                     borderRadius: '6px',
                     fontSize: '12px',

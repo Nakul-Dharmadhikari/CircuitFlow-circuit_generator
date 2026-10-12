@@ -45,7 +45,7 @@ function getWireStateColor(val: LogicValue, isSelected: boolean, isHovered: bool
     case '0':
       return { stroke: 'var(--signal-low, #64748b)', glow: 'transparent' };
     case 'Z':
-      return { stroke: 'var(--signal-z, #f59e0b)', glow: 'var(--signal-z-glow, rgba(245, 158, 11, 0.25))' };
+      return { stroke: 'var(--signal-z, #9ca3af)', glow: 'var(--signal-z-glow, transparent)' };
     case 'X':
       return { stroke: 'var(--signal-x, #ef4444)', glow: 'var(--signal-x-glow, rgba(239, 68, 68, 0.4))' };
     default:

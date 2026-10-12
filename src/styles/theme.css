@@ -43,11 +43,12 @@
   --signal-high-glow: rgba(34, 197, 94, 0.42);
   --signal-low: #64748b;         /* LOW / 0V (Muted Cold Slate) */
   --signal-low-glow: transparent;
-  --signal-z: #f59e0b;           /* High-Impedance / Floating (Amber Gold) */
-  --signal-z-glow: rgba(245, 158, 11, 0.35);
+  --signal-z: #9ca3af;           /* High-Impedance / Floating Tri-State (Neutral Grey) */
+  --signal-z-glow: rgba(156, 163, 175, 0.25);
   --signal-x: #ef4444;           /* Contention / Fault / Error (Crimson) */
   --signal-x-glow: rgba(239, 68, 68, 0.4);
-  --signal-warning: #f59e0b;     /* Warning indicator */
+  --signal-warning: #f59e0b;     /* Warning indicator (Amber) */
+  --signal-warning-glow: rgba(245, 158, 11, 0.35);
   --signal-bus: #818cf8;         /* Multi-bit Data Bus (Periwinkle) */
   --signal-clock: #06b6d4;       /* Clock Pulse Generator (Cyan) */
 
@@ -134,11 +135,12 @@
   --signal-high-glow: rgba(22, 163, 74, 0.35);
   --signal-low: #64748b;         /* LOW / 0V (Neutral Slate) */
   --signal-low-glow: transparent;
-  --signal-z: #d97706;           /* High-Impedance (Deep Amber) */
-  --signal-z-glow: rgba(217, 119, 6, 0.3);
+  --signal-z: #52525b;           /* High-Impedance / Floating Tri-State (Neutral Zinc Grey) */
+  --signal-z-glow: rgba(82, 82, 91, 0.2);
   --signal-x: #dc2626;           /* Contention / Fault / Error (Crimson) */
   --signal-x-glow: rgba(220, 38, 38, 0.35);
-  --signal-warning: #d97706;
+  --signal-warning: #d97706;     /* Warning indicator (Deep Amber) */
+  --signal-warning-glow: rgba(217, 119, 6, 0.3);
   --signal-bus: #4f46e5;
   --signal-clock: #0891b2;
 

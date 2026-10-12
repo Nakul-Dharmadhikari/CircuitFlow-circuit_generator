@@ -194,8 +194,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: var(--signal-z);
-  box-shadow: 0 0 6px var(--signal-z);
+  background-color: var(--signal-warning);
+  box-shadow: 0 0 6px var(--signal-warning);
 }
 
 /* Right Section: Simulator Controls */

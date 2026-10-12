@@ -67,16 +67,22 @@ async function runPhase6BrowserVerification() {
       const appBg = window.getComputedStyle(appShell).backgroundColor;
       const topbarBg = window.getComputedStyle(topbar).backgroundColor;
       const brandIconBg = window.getComputedStyle(brandIcon).backgroundImage;
-      return { rootTheme, appBg, topbarBg, brandIconBg };
+      const computedZ = window.getComputedStyle(document.documentElement).getPropertyValue('--signal-z').trim();
+      const computedWarn = window.getComputedStyle(document.documentElement).getPropertyValue('--signal-warning').trim();
+      return { rootTheme, appBg, topbarBg, brandIconBg, computedZ, computedWarn };
     });
 
     console.log(`Default theme detected: ${defaultThemeInfo.rootTheme}`);
     console.log(`App Shell background: ${defaultThemeInfo.appBg}`);
     console.log(`TopBar background: ${defaultThemeInfo.topbarBg}`);
+    console.log(`Computed Dark HIGH-Z token: ${defaultThemeInfo.computedZ}`);
+    console.log(`Computed Dark WARNING token: ${defaultThemeInfo.computedWarn}`);
     assert.strictEqual(defaultThemeInfo.rootTheme, 'dark', 'Default theme must be dark');
     assert.strictEqual(defaultThemeInfo.appBg, 'rgb(18, 20, 23)', 'Dark app background must be #121417');
     assert.strictEqual(defaultThemeInfo.topbarBg, 'rgb(26, 29, 33)', 'Dark TopBar background must be #1a1d21');
-    pass('Step 1: Application starts in Copper Lab Dark Graphite theme by default');
+    assert.strictEqual(defaultThemeInfo.computedZ, '#9ca3af', 'Dark HIGH-Z must be neutral grey #9ca3af');
+    assert.strictEqual(defaultThemeInfo.computedWarn, '#f59e0b', 'Dark WARNING must be amber #f59e0b');
+    pass('Step 1: Application starts in Copper Lab Dark Graphite theme by default with neutral grey HIGH-Z');
 
     // Screenshot 1: Dark 1600x900
     const dark1600Path = path.join(screenshotsDir, 'phase6-dark-1600x900.png');
@@ -116,18 +122,24 @@ async function runPhase6BrowserVerification() {
       const topbar = document.querySelector('.app-topbar') as HTMLElement;
       const appBg = window.getComputedStyle(appShell).backgroundColor;
       const topbarBg = window.getComputedStyle(topbar).backgroundColor;
-      return { rootTheme, storageTheme, appBg, topbarBg };
+      const computedZ = window.getComputedStyle(document.documentElement).getPropertyValue('--signal-z').trim();
+      const computedWarn = window.getComputedStyle(document.documentElement).getPropertyValue('--signal-warning').trim();
+      return { rootTheme, storageTheme, appBg, topbarBg, computedZ, computedWarn };
     });
 
     console.log(`Light theme attribute: ${lightThemeInfo.rootTheme}`);
     console.log(`LocalStorage theme: ${lightThemeInfo.storageTheme}`);
     console.log(`Light App Shell background: ${lightThemeInfo.appBg}`);
     console.log(`Light TopBar background: ${lightThemeInfo.topbarBg}`);
+    console.log(`Computed Light HIGH-Z token: ${lightThemeInfo.computedZ}`);
+    console.log(`Computed Light WARNING token: ${lightThemeInfo.computedWarn}`);
     assert.strictEqual(lightThemeInfo.rootTheme, 'light', 'data-theme attribute must be light');
     assert.strictEqual(lightThemeInfo.storageTheme, 'light', 'localStorage theme must be light');
     assert.strictEqual(lightThemeInfo.appBg, 'rgb(244, 241, 234)', 'Light app background must be warm ivory #f4f1ea');
     assert.strictEqual(lightThemeInfo.topbarBg, 'rgb(252, 251, 248)', 'Light TopBar background must be cream panel #fcfbf8');
-    pass('Step 3: Light theme toggles cleanly to Warm Ivory architecture');
+    assert.strictEqual(lightThemeInfo.computedZ, '#52525b', 'Light HIGH-Z must be neutral zinc grey #52525b');
+    assert.strictEqual(lightThemeInfo.computedWarn, '#d97706', 'Light WARNING must be deep amber #d97706');
+    pass('Step 3: Light theme toggles cleanly to Warm Ivory architecture with neutral grey HIGH-Z');
 
     // Screenshot 2: Light 1600x900
     const light1600Path = path.join(screenshotsDir, 'phase6-light-1600x900.png');
