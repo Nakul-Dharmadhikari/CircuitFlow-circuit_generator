@@ -49,6 +49,7 @@ interface HeaderProps {
   onToggleLibrary?: () => void;
   isPropertiesOpen?: boolean;
   onToggleProperties?: () => void;
+  onOpenAnalysisModal?: (tab?: 'overview' | 'truth_table' | 'kmap' | 'timing' | 'sequential' | 'testbench' | 'diagnostics') => void;
 }
 
 type MenuKey = 'file' | 'edit' | 'view' | 'sim' | 'analysis' | 'labs' | 'user' | null;
@@ -99,6 +100,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleLibrary,
   isPropertiesOpen = true,
   onToggleProperties,
+  onOpenAnalysisModal,
 }) => {
   const [activeMenu, setActiveMenu] = useState<MenuKey>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
@@ -362,12 +364,40 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           {activeMenu === 'analysis' && (
             <div className="menu-dropdown-popup">
-              <button type="button" className="menu-item" onClick={() => handleAction(onOpenTruthTable)}>
+              {onOpenAnalysisModal && (
+                <button type="button" className="menu-item" onClick={() => handleAction(() => onOpenAnalysisModal('overview'))}>
+                  <span>🔬 Circuit Analysis Center</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="menu-item"
+                onClick={() => handleAction(onOpenAnalysisModal ? () => onOpenAnalysisModal('truth_table') : onOpenTruthTable)}
+              >
                 <span>📋 Truth Table Generator</span>
               </button>
+              {onOpenAnalysisModal && (
+                <button type="button" className="menu-item" onClick={() => handleAction(() => onOpenAnalysisModal('kmap'))}>
+                  <span>🗺️ Karnaugh Map (2–6 Var)</span>
+                </button>
+              )}
               <button type="button" className="menu-item" onClick={() => handleAction(onToggleWaveform)}>
                 <span>{isWaveformOpen ? '✓ Timing Oscilloscope' : '📈 Timing Oscilloscope'}</span>
               </button>
+              {onOpenAnalysisModal && (
+                <>
+                  <button type="button" className="menu-item" onClick={() => handleAction(() => onOpenAnalysisModal('sequential'))}>
+                    <span>🔄 Sequential State Transitions</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={() => handleAction(() => onOpenAnalysisModal('testbench'))}>
+                    <span>🧪 Test Bench Suite</span>
+                  </button>
+                  <div className="menu-separator" />
+                  <button type="button" className="menu-item" onClick={() => handleAction(() => onOpenAnalysisModal('diagnostics'))}>
+                    <span>⚠️ Circuit Diagnostics</span>
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

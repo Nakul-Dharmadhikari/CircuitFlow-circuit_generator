@@ -30,6 +30,7 @@ import { Canvas } from './components/Canvas';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { WaveformViewer } from './components/WaveformViewer';
 import { TruthTableModal } from './components/TruthTableModal';
+import { AnalysisModal, type AnalysisTab } from './components/AnalysisModal';
 import { LabExperimentsModal } from './components/LabExperimentsModal';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { AuthModal } from './components/AuthModal';
@@ -131,6 +132,13 @@ export function App() {
   // Modals & Panels
   const [isWaveformOpen, setIsWaveformOpen] = useState(false);
   const [isTruthTableOpen, setIsTruthTableOpen] = useState(false);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [analysisModalTab, setAnalysisModalTab] = useState<AnalysisTab>('overview');
+
+  const handleOpenAnalysisModal = useCallback((tab: AnalysisTab = 'overview') => {
+    setAnalysisModalTab(tab);
+    setIsAnalysisModalOpen(true);
+  }, []);
   const [isLabPresetsOpen, setIsLabPresetsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -1845,7 +1853,8 @@ export function App() {
       onOpenAuth={() => setIsAuthOpen(true)}
       onLogout={handleLogout}
       onOpenSavedCircuits={() => setIsSavedCircuitsOpen(true)}
-      onOpenTruthTable={() => setIsTruthTableOpen(true)}
+      onOpenTruthTable={() => handleOpenAnalysisModal('truth_table')}
+      onOpenAnalysisModal={handleOpenAnalysisModal}
       onOpenWaveform={() => setIsWaveformOpen((v) => !v)}
       onOpenLabPresets={() => setIsLabPresetsOpen(true)}
       onOpenShortcuts={() => setIsShortcutsOpen(true)}
@@ -2159,6 +2168,14 @@ export function App() {
         circuit={circuit}
         isOpen={isTruthTableOpen}
         onClose={() => setIsTruthTableOpen(false)}
+      />
+
+      <AnalysisModal
+        circuit={circuit}
+        customICs={customICs}
+        isOpen={isAnalysisModalOpen}
+        initialTab={analysisModalTab}
+        onClose={() => setIsAnalysisModalOpen(false)}
       />
 
       <LabExperimentsModal

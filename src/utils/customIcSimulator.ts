@@ -26,11 +26,14 @@ export interface CustomICTestResult {
 export function isSequentialCircuit(circuit?: Circuit): boolean {
   if (!circuit || !circuit.components) return false;
   return circuit.components.some((c) => {
-    const t = c.type;
+    const t: string = c.type;
     return (
       t === 'd_flipflop' ||
+      t === 'd_flip_flop' ||
       t === 'jk_flipflop' ||
+      t === 'jk_flip_flop' ||
       t === 't_flipflop' ||
+      t === 't_flip_flop' ||
       t === 'sr_latch' ||
       t === 'd_latch' ||
       t === 'counter_4bit' ||

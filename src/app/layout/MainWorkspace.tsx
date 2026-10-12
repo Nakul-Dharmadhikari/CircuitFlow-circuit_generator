@@ -7,6 +7,7 @@ interface MainWorkspaceProps {
   onViewChange: (view: WorkbenchView) => void;
   children: React.ReactNode;
   onOpenTruthTable?: () => void;
+  onOpenAnalysisModal?: (tab?: 'overview' | 'truth_table' | 'kmap' | 'timing' | 'sequential' | 'testbench' | 'diagnostics') => void;
   circuit?: Circuit;
   isRunning?: boolean;
 }
@@ -16,6 +17,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onViewChange,
   children,
   onOpenTruthTable,
+  onOpenAnalysisModal,
   circuit,
   isRunning = false,
 }) => {
@@ -55,19 +57,34 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
       ).length || 0;
     const simStatus = isRunning ? 'Active / Running' : 'Idle / Step Mode';
 
+    const handleLaunch = (tab: 'overview' | 'truth_table' | 'kmap' | 'timing' | 'sequential' | 'testbench' | 'diagnostics') => {
+      if (onOpenAnalysisModal) {
+        onOpenAnalysisModal(tab);
+      } else if (onOpenTruthTable) {
+        onOpenTruthTable();
+      }
+    };
+
     return (
       <main className="analysis-workspace-view">
         <div className="analysis-header">
           <div className="analysis-title">
-            <span>📊 Circuit Analysis & State Verification</span>
+            <span>🔬 Unified Circuit Analysis Center</span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               type="button"
               className="shell-btn primary"
-              onClick={onOpenTruthTable}
+              onClick={() => handleLaunch('overview')}
             >
-              <span>📋 Open Truth Table Matrix</span>
+              <span>🔬 Open Analysis Modal</span>
+            </button>
+            <button
+              type="button"
+              className="shell-btn"
+              onClick={() => handleLaunch('truth_table')}
+            >
+              <span>📋 Truth Table</span>
             </button>
             <button
               type="button"
@@ -134,13 +151,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           }}
         >
           <h3 style={{ fontSize: '15px', color: 'var(--text-primary)' }}>
-            Integrated Analysis Engine
+            Unified Analysis Suites
           </h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            The analysis engine evaluates the unified circuit model across combinational and sequential domains.
-            Click <strong>Open Truth Table Matrix</strong> above to generate the full state transition table, or return to the workbench to modify inputs and inspect live waveform dynamics.
+            The analysis engine evaluates the unified circuit model across combinational and sequential domains, with full support for schematic canvas, digital trainer board, and Custom IC internal circuits.
           </p>
-
 
           <div
             style={{
@@ -156,9 +171,11 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 backgroundColor: 'var(--bg-subtle)',
                 borderRadius: '6px',
                 border: '1px solid var(--border-strong)',
+                cursor: 'pointer',
               }}
+              onClick={() => handleLaunch('truth_table')}
             >
-              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px' }}>
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: 'var(--brand-accent)' }}>
                 🧮 Combinational Truth Tables
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -172,9 +189,29 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 backgroundColor: 'var(--bg-subtle)',
                 borderRadius: '6px',
                 border: '1px solid var(--border-strong)',
+                cursor: 'pointer',
               }}
+              onClick={() => handleLaunch('kmap')}
             >
-              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px' }}>
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: 'var(--brand-accent)' }}>
+                🗺 Karnaugh Maps (2–6 Variables)
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Standard Gray-code ordering with Quine-McCluskey prime implicant minimization.
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '16px',
+                backgroundColor: 'var(--bg-subtle)',
+                borderRadius: '6px',
+                border: '1px solid var(--border-strong)',
+                cursor: 'pointer',
+              }}
+              onClick={() => handleLaunch('sequential')}
+            >
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: 'var(--brand-accent)' }}>
                 ⏱ Sequential State Transitions
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -188,13 +225,51 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 backgroundColor: 'var(--bg-subtle)',
                 borderRadius: '6px',
                 border: '1px solid var(--border-strong)',
+                cursor: 'pointer',
               }}
+              onClick={() => handleLaunch('timing')}
             >
-              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px' }}>
-                🗺 Karnaugh Maps (Phase 5)
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: 'var(--brand-accent)' }}>
+                📈 Discrete Timing Traces
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                SOP / POS algebraic minimization and prime implicant grouping.
+                Multi-step digital waveform traces with clock edge tracking.
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '16px',
+                backgroundColor: 'var(--bg-subtle)',
+                borderRadius: '6px',
+                border: '1px solid var(--border-strong)',
+                cursor: 'pointer',
+              }}
+              onClick={() => handleLaunch('testbench')}
+            >
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: 'var(--brand-accent)' }}>
+                🧪 Test Bench Verification
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Automated test vector execution with pass/fail evaluation and mismatch reports.
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '16px',
+                backgroundColor: 'var(--bg-subtle)',
+                borderRadius: '6px',
+                border: '1px solid var(--border-strong)',
+                cursor: 'pointer',
+              }}
+              onClick={() => handleLaunch('diagnostics')}
+            >
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: 'var(--brand-accent)' }}>
+                🩺 Circuit Diagnostics
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Detect floating inputs, unconnected outputs, driver contention, and broken references.
               </div>
             </div>
           </div>

@@ -75,6 +75,7 @@ interface TopBarProps {
   onToggleInspector?: () => void;
   clockHz: number;
   onClockHzChange: (hz: number) => void;
+  onOpenAnalysisModal?: (tab?: 'overview' | 'truth_table' | 'kmap' | 'timing' | 'sequential' | 'testbench' | 'diagnostics') => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -83,6 +84,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onProjectNameChange,
   currentView,
   onViewChange,
+  onOpenAnalysisModal,
   isRunning,
   onToggleRun,
   onStep,
@@ -669,24 +671,30 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
             {activeMenu === 'analysis' && (
               <div className="menu-dropdown" role="menu">
+                {onOpenAnalysisModal && (
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      onOpenAnalysisModal('overview');
+                      closeMenu();
+                    }}
+                    role="menuitem"
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      🔬 Circuit Analysis Center...
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className="dropdown-item"
                   onClick={() => {
-                    onViewChange('analysis');
-                    closeMenu();
-                  }}
-                  role="menuitem"
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <IconChart size={14} /> Full Analysis Workspace View
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={() => {
-                    onOpenTruthTable();
+                    if (onOpenAnalysisModal) {
+                      onOpenAnalysisModal('truth_table');
+                    } else {
+                      onOpenTruthTable();
+                    }
                     closeMenu();
                   }}
                   role="menuitem"
@@ -695,6 +703,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <IconTable size={14} /> Truth Table & State Analyzer...
                   </span>
                 </button>
+                {onOpenAnalysisModal && (
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      onOpenAnalysisModal('kmap');
+                      closeMenu();
+                    }}
+                    role="menuitem"
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      🗺️ Karnaugh Map (2–6 Var)...
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className="dropdown-item"
@@ -706,6 +729,63 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <IconWaveform size={14} /> Oscilloscope Waveform Scope...
+                  </span>
+                </button>
+                {onOpenAnalysisModal && (
+                  <>
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        onOpenAnalysisModal('sequential');
+                        closeMenu();
+                      }}
+                      role="menuitem"
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        🔄 Sequential State Machine...
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        onOpenAnalysisModal('testbench');
+                        closeMenu();
+                      }}
+                      role="menuitem"
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        🧪 Test Bench Suite...
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        onOpenAnalysisModal('diagnostics');
+                        closeMenu();
+                      }}
+                      role="menuitem"
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        ⚠️ Circuit Diagnostics...
+                      </span>
+                    </button>
+                  </>
+                )}
+                <div className="dropdown-divider" />
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    onViewChange('analysis');
+                    closeMenu();
+                  }}
+                  role="menuitem"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconChart size={14} /> Full Analysis Workspace View
                   </span>
                 </button>
               </div>

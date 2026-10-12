@@ -59,6 +59,7 @@ interface AppShellProps {
   activeICCount?: number;
   activeModuleCount?: number;
   circuit?: Circuit;
+  onOpenAnalysisModal?: (tab?: 'overview' | 'truth_table' | 'kmap' | 'timing' | 'sequential' | 'testbench' | 'diagnostics') => void;
   children: React.ReactNode;
 }
 
@@ -116,6 +117,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   activeICCount,
   activeModuleCount = 1,
   circuit,
+  onOpenAnalysisModal,
   children,
 }) => {
   return (
@@ -168,6 +170,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onToggleInspector={onToggleInspector}
         clockHz={clockHz}
         onClockHzChange={onClockHzChange}
+        onOpenAnalysisModal={onOpenAnalysisModal}
       />
 
       {/* Main Workspace (occupies 100% of remaining area, flex: 1, overflow: hidden) */}
@@ -175,6 +178,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         currentView={currentView}
         onViewChange={onViewChange}
         onOpenTruthTable={onOpenTruthTable}
+        onOpenAnalysisModal={onOpenAnalysisModal}
         circuit={circuit}
         isRunning={isRunning}
       >
