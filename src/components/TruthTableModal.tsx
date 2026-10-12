@@ -136,7 +136,8 @@ export const TruthTableModal: React.FC<TruthTableModalProps> = ({
               {tableData.isPartial && (
                 <div
                   style={{
-                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    backgroundColor: 'var(--signal-warning-bg, rgba(245, 158, 11, 0.15))',
+                    border: '1px solid var(--signal-warning-border, rgba(245, 158, 11, 0.35))',
                     color: 'var(--signal-warning)',
                     padding: '8px 12px',
                     borderRadius: '6px',

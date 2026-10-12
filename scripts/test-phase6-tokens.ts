@@ -99,11 +99,13 @@ assert.ok(themeCssContent.includes('--signal-warning: #f59e0b;'), 'Dark mode WAR
 assert.ok(themeCssContent.includes('--signal-high: #16a34a;'), 'Light mode HIGH must be high-contrast #16a34a');
 assert.ok(themeCssContent.includes('--signal-z: #52525b;'), 'Light mode HIGH-Z must be neutral zinc grey #52525b');
 assert.ok(themeCssContent.includes('--signal-x: #dc2626;'), 'Light mode ERROR must be #dc2626');
-assert.ok(themeCssContent.includes('--signal-warning: #d97706;'), 'Light mode WARNING must be deep amber #d97706');
+assert.ok(themeCssContent.includes('--signal-warning: #92400e;'), 'Light mode WARNING must be accessible burnt amber #92400e');
+assert.ok(themeCssContent.includes('--signal-warning-bg:'), 'Warning surface fill token must be declared');
+assert.ok(themeCssContent.includes('--signal-warning-border:'), 'Warning border token must be declared');
 
 // Assert HIGH-Z and WARNING are strictly different colours
 assert.notStrictEqual('#9ca3af', '#f59e0b', 'Dark HIGH-Z and WARNING must not be identical');
-assert.notStrictEqual('#52525b', '#d97706', 'Light HIGH-Z and WARNING must not be identical');
+assert.notStrictEqual('#52525b', '#92400e', 'Light HIGH-Z and WARNING must not be identical');
 pass('Test 3: HIGH-Z is neutral grey and WARNING is amber (distinct semantic separation)');
 
 // -----------------------------------------------------------------------------
@@ -175,7 +177,7 @@ const lightSignals = {
   LOW: '#64748b',
   'HIGH-Z': '#52525b',
   ERROR: '#dc2626',
-  WARNING: '#d97706',
+  WARNING: '#92400e',
 };
 
 const lightKeys = Object.keys(lightSignals) as (keyof typeof lightSignals)[];
@@ -186,6 +188,78 @@ for (let i = 0; i < lightKeys.length; i++) {
   }
 }
 pass('Test 4E: Light mode signals (HIGH, LOW, HIGH-Z, ERROR, WARNING) are visually distinct');
+
+// -----------------------------------------------------------------------------
+// Test 4F: Light-Theme Normal-Sized Warning Text Contrast (Must meet WCAG AA >= 4.5:1)
+// -----------------------------------------------------------------------------
+const lightWarningColor = '#92400e';
+const lightSurfaces: Record<string, string> = {
+  'Warm Ivory Canvas (#ebe7dd)': '#ebe7dd',
+  'App Shell Base (#f4f1ea)': '#f4f1ea',
+  'Modal Dialog Panel (#fcfbf8)': '#fcfbf8',
+  'Contextual Confirm Card Elevated Panel (#f3efe5)': '#f3efe5',
+  'Subtle Container (#e6e1d5)': '#e6e1d5',
+  'Truth Table Warning Banner Surface (#fbeedb)': '#fbeedb',
+};
+
+for (const [surfaceName, bgHex] of Object.entries(lightSurfaces)) {
+  const c = getContrastRatio(lightWarningColor, bgHex);
+  assert.ok(
+    c >= 4.5,
+    `Normal-sized warning text (${lightWarningColor}) on ${surfaceName} must have >= 4.5:1 contrast (got ${c.toFixed(2)}:1)`
+  );
+  console.log(`    ↳ Contrast on ${surfaceName}: ${c.toFixed(2)}:1 (Passes >= 4.5:1)`);
+}
+
+// Negative test: verify that deprecated #d97706 strictly fails on canvas
+const deprecatedContrast = getContrastRatio('#d97706', '#ebe7dd');
+assert.ok(
+  deprecatedContrast < 4.5,
+  `Deprecated #d97706 must register as failing the 4.5:1 threshold (got ${deprecatedContrast.toFixed(2)}:1)`
+);
+pass('Test 4F: Light-theme warning text achieves >= 4.5:1 contrast on all surfaces (negative test confirmed failure of insufficient tokens)');
+
+// -----------------------------------------------------------------------------
+// Test 4G: Dark-Theme Normal-Sized Warning Text Contrast (Must meet WCAG AA >= 4.5:1)
+// -----------------------------------------------------------------------------
+const darkWarningColor = '#f59e0b';
+const darkSurfaces: Record<string, string> = {
+  'Graphite App Shell (#121417)': '#121417',
+  'Dark Canvas (#16191d)': '#16191d',
+  'Modal Dialog Panel (#1a1d21)': '#1a1d21',
+  'Elevated Toolbar Card (#22262c)': '#22262c',
+  'Contextual Confirm Card (#181d24)': '#181d24',
+  'Truth Table Warning Banner Surface (#3b301e)': '#3b301e',
+};
+
+for (const [surfaceName, bgHex] of Object.entries(darkSurfaces)) {
+  const c = getContrastRatio(darkWarningColor, bgHex);
+  assert.ok(
+    c >= 4.5,
+    `Normal-sized warning text (${darkWarningColor}) on ${surfaceName} must have >= 4.5:1 contrast (got ${c.toFixed(2)}:1)`
+  );
+  console.log(`    ↳ Contrast on ${surfaceName}: ${c.toFixed(2)}:1 (Passes >= 4.5:1)`);
+}
+pass('Test 4G: Dark-theme warning text achieves >= 4.5:1 contrast on all surfaces (6.01:1 to 8.59:1)');
+
+// -----------------------------------------------------------------------------
+// Test 4H: Warning Usage Role Audit
+// -----------------------------------------------------------------------------
+// 1. TopBar unsaved-dot: graphical indicator (6px dot, no text)
+const topbarContent = fs.readFileSync(path.resolve(process.cwd(), 'src/app/layout/TopBar.tsx'), 'utf8');
+assert.ok(topbarContent.includes('className="unsaved-dot"'), 'TopBar must feature unsaved-dot');
+assert.ok(!topbarContent.includes('className="unsaved-dot">'), 'unsaved-dot must be a self-closing graphical indicator');
+
+// 2. Wire removal confirmation: normal-sized text
+const canvasCssContent = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/canvas.css'), 'utf8');
+assert.ok(canvasCssContent.includes('.confirm-card-body .wires-warning'), 'canvas.css must style .wires-warning');
+assert.ok(canvasCssContent.includes('color: var(--signal-warning)'), '.wires-warning must use --signal-warning token');
+
+// 3. Truth Table partial notice: normal-sized text with warning bg
+const truthTableContent = fs.readFileSync(path.resolve(process.cwd(), 'src/components/TruthTableModal.tsx'), 'utf8');
+assert.ok(truthTableContent.includes('color: \'var(--signal-warning)\''), 'TruthTableModal must use --signal-warning');
+assert.ok(truthTableContent.includes('var(--signal-warning-bg'), 'TruthTableModal must use --signal-warning-bg');
+pass('Test 4H: Warning token role audit verified (graphical indicators vs normal-sized text surfaces)');
 
 // -----------------------------------------------------------------------------
 // Test 5: Verify no rogue blue accents in shell.css or ui.css

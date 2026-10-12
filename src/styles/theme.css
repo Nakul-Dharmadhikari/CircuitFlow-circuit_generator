@@ -48,6 +48,8 @@
   --signal-x: #ef4444;           /* Contention / Fault / Error (Crimson) */
   --signal-x-glow: rgba(239, 68, 68, 0.4);
   --signal-warning: #f59e0b;     /* Warning indicator (Amber) */
+  --signal-warning-bg: rgba(245, 158, 11, 0.15); /* Warning background fill */
+  --signal-warning-border: rgba(245, 158, 11, 0.35); /* Warning border */
   --signal-warning-glow: rgba(245, 158, 11, 0.35);
   --signal-bus: #818cf8;         /* Multi-bit Data Bus (Periwinkle) */
   --signal-clock: #06b6d4;       /* Clock Pulse Generator (Cyan) */
@@ -139,8 +141,10 @@
   --signal-z-glow: rgba(82, 82, 91, 0.2);
   --signal-x: #dc2626;           /* Contention / Fault / Error (Crimson) */
   --signal-x-glow: rgba(220, 38, 38, 0.35);
-  --signal-warning: #d97706;     /* Warning indicator (Deep Amber) */
-  --signal-warning-glow: rgba(217, 119, 6, 0.3);
+  --signal-warning: #92400e;     /* High-contrast warning text (Burnt Amber, >= 4.5:1 on light surfaces) */
+  --signal-warning-bg: rgba(245, 158, 11, 0.12); /* Warning background fill */
+  --signal-warning-border: rgba(146, 64, 14, 0.25); /* Warning border */
+  --signal-warning-glow: rgba(146, 64, 14, 0.25);
   --signal-bus: #4f46e5;
   --signal-clock: #0891b2;
 

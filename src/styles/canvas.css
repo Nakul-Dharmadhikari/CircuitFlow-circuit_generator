@@ -2252,8 +2252,8 @@
 .compact-contextual-confirm-card {
   position: fixed;
   z-index: 10001;
-  background: #181d24;
-  border: 1px solid #d97736;
+  background: var(--bg-panel-elevated, #181d24);
+  border: 1px solid var(--border-focus, #d97736);
   border-radius: 8px;
   padding: 12px 14px;
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.65), 0 0 10px rgba(217, 119, 54, 0.25);
@@ -2266,15 +2266,10 @@
   animation: fadeInPop 0.15s ease-out;
 }
 
-@keyframes fadeInPop {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+[data-theme='light'] .compact-contextual-confirm-card {
+  background: var(--bg-panel-elevated, #f3efe5);
+  border-color: var(--border-focus, #c25e1a);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15), 0 0 10px rgba(194, 94, 26, 0.15);
 }
 
 .confirm-card-header {
@@ -2283,18 +2278,18 @@
   gap: 8px;
   font-size: 13px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-primary, #f1f5f9);
 }
 
 .confirm-card-icon {
   font-size: 15px;
-  color: #d97736;
+  color: var(--accent-copper, #d97736);
 }
 
 .confirm-card-body {
   font-size: 12px;
   line-height: 1.4;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 .confirm-card-body .wires-warning {
@@ -2302,7 +2297,7 @@
 }
 
 .confirm-card-body .wires-clean {
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 .confirm-card-actions {

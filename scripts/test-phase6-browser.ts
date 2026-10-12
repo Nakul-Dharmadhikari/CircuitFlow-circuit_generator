@@ -138,8 +138,8 @@ async function runPhase6BrowserVerification() {
     assert.strictEqual(lightThemeInfo.appBg, 'rgb(244, 241, 234)', 'Light app background must be warm ivory #f4f1ea');
     assert.strictEqual(lightThemeInfo.topbarBg, 'rgb(252, 251, 248)', 'Light TopBar background must be cream panel #fcfbf8');
     assert.strictEqual(lightThemeInfo.computedZ, '#52525b', 'Light HIGH-Z must be neutral zinc grey #52525b');
-    assert.strictEqual(lightThemeInfo.computedWarn, '#d97706', 'Light WARNING must be deep amber #d97706');
-    pass('Step 3: Light theme toggles cleanly to Warm Ivory architecture with neutral grey HIGH-Z');
+    assert.strictEqual(lightThemeInfo.computedWarn, '#92400e', 'Light WARNING must be accessible burnt amber #92400e');
+    pass('Step 3: Light theme toggles cleanly to Warm Ivory architecture with neutral grey HIGH-Z and accessible warning');
 
     // Screenshot 2: Light 1600x900
     const light1600Path = path.join(screenshotsDir, 'phase6-light-1600x900.png');
