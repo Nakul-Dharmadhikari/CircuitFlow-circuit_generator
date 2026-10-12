@@ -1,4 +1,5 @@
 import type { CustomICDefinition } from '../types/circuit';
+import { validateCustomICJSON } from '../utils/customIcValidator';
 
 const CUSTOM_ICS_KEY = 'circuitflow_custom_ics';
 
@@ -39,9 +40,9 @@ export function saveUserCustomIC(ic: CustomICDefinition): CustomICDefinition {
 
     localStorage.setItem(CUSTOM_ICS_KEY, JSON.stringify(allICs));
     return updatedIC;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to save custom IC:', err);
-    return ic;
+    throw new Error(`Failed to save Custom IC to local storage: ${err?.message || 'Storage error'}`);
   }
 }
 
@@ -85,10 +86,9 @@ export function loadCustomICFromJSON(jsonStr: string): {
   ic?: CustomICDefinition;
   error?: string;
 } {
-  try {
-    const parsed = JSON.parse(jsonStr);
-    return { success: true, ic: parsed as CustomICDefinition };
-  } catch (err: any) {
-    return { success: false, error: `Invalid JSON syntax: ${err.message}` };
+  const result = validateCustomICJSON(jsonStr);
+  if (!result.valid) {
+    return { success: false, error: result.error || 'Invalid Custom IC JSON format' };
   }
+  return { success: true, ic: result.ic };
 }

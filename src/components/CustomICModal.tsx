@@ -410,7 +410,13 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
       return;
     }
 
-    saveUserCustomIC(currentDefinition);
+    try {
+      saveUserCustomIC(currentDefinition);
+    } catch (saveErr: any) {
+      alert(`Failed to save Custom IC: ${saveErr?.message || 'Storage error'}`);
+      return;
+    }
+
     try {
       await apiSaveCustomIC(currentDefinition);
     } catch {
@@ -432,7 +438,13 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
       return;
     }
 
-    saveUserCustomIC(currentDefinition);
+    try {
+      saveUserCustomIC(currentDefinition);
+    } catch (saveErr: any) {
+      alert(`Failed to save Custom IC: ${saveErr?.message || 'Storage error'}`);
+      return;
+    }
+
     soundFx.playButtonTap();
 
     if (onMountIC) {

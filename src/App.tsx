@@ -1031,9 +1031,13 @@ export function App() {
 
   // Delete Custom IC from Library
   const handleDeleteCustomIC = (id: string) => {
-    deleteUserCustomIC(id);
-    setCustomICs(getUserCustomICs(currentUser?.id || 'guest'));
-    showToast('Custom IC removed from library');
+    const success = deleteUserCustomIC(id);
+    if (success) {
+      setCustomICs(getUserCustomICs(currentUser?.id || 'guest'));
+      showToast('Custom IC removed from library');
+    } else {
+      showToast('Failed to remove Custom IC from library');
+    }
   };
 
   // Save Custom IC callback from modal

@@ -53,10 +53,27 @@ export function validateCustomIC(
     errors.push({ field: 'vccPin', message: `VCC pin (${vccPin}) and GND pin (${gndPin}) cannot be the same physical pin.`, severity: 'error' });
   }
 
+  if (ic.packageType) {
+    const validPackages = ['DIP-14', 'DIP-16', 'DIP-20'];
+    if (!validPackages.includes(ic.packageType)) {
+      errors.push({
+        field: 'packageType',
+        message: `Invalid package configuration: Package type "${ic.packageType}" is not supported. Must be DIP-14, DIP-16, or DIP-20.`,
+        severity: 'error',
+      });
+    } else if (pinCount && ic.packageType !== `DIP-${pinCount}`) {
+      errors.push({
+        field: 'packageType',
+        message: `Invalid package configuration: Package type "${ic.packageType}" does not match pin count (${pinCount} pins). Expected "DIP-${pinCount}".`,
+        severity: 'error',
+      });
+    }
+  }
+
   // 2. Pins List & Pin Occupancy
   const pins: CustomICPinMapping[] = ic.pins || ic.pinMappings || [];
   if (pins.length === 0) {
-    errors.push({ field: 'pins', message: 'Custom IC must define at least one external pin.', severity: 'error' });
+    errors.push({ field: 'pins', message: 'Missing external pin mappings: Custom IC must define external pins.', severity: 'error' });
   }
 
   const seenPins = new Set<number>();
@@ -107,10 +124,35 @@ export function validateCustomIC(
         errors.push({ field: 'internalCircuit', message: `Duplicate internal component ID: "${comp.id}".`, severity: 'error' });
       }
       compMap.set(comp.id, comp);
+
+      const seenPinIds = new Set<string>();
+      for (const p of [...(comp.inputs || []), ...(comp.outputs || [])]) {
+        if (p.id) {
+          if (seenPinIds.has(p.id)) {
+            errors.push({
+              field: 'internalCircuit',
+              message: `Duplicate pin ID "${p.id}" on component "${comp.label || comp.id}".`,
+              severity: 'error',
+            });
+          }
+          seenPinIds.add(p.id);
+        }
+      }
     }
 
     // Validate internal wires
+    const seenWireIds = new Set<string>();
     for (const wire of internalCircuit.wires || []) {
+      if (wire.id) {
+        if (seenWireIds.has(wire.id)) {
+          errors.push({
+            field: 'internalCircuit',
+            message: `Duplicate wire ID: "${wire.id}".`,
+            severity: 'error',
+          });
+        }
+        seenWireIds.add(wire.id);
+      }
       const fromComp = compMap.get(wire.fromCompId);
       const toComp = compMap.get(wire.toCompId);
 
@@ -217,12 +259,26 @@ export function validateCustomIC(
       });
     }
 
+    if (mappedInputs === 0 && mappedOutputs === 0 && (!legacyGateUnits || legacyGateUnits.length === 0)) {
+      errors.push({
+        field: 'pinMapping',
+        message: 'Missing external pin mappings: At least one external pin must be mapped to an internal circuit component.',
+        severity: 'error',
+      });
+    }
+
     // 6. Direct Self-Reference & Recursive Dependency Cycle Detection
     const ownId = ic.id;
     if (ownId) {
       // Direct self-reference check
+      const getCompCustomIcId = (c: CircuitComponent) =>
+        c.customProps?.customIC?.id ||
+        c.customProps?.customIcId ||
+        c.customProps?.customProps?.customIcId ||
+        c.customProps?.customProps?.customIC?.id;
+
       const selfRef = internalCircuit.components.find(
-        (c) => c.type === 'custom_ic' && (c.customProps?.customIC?.id === ownId || c.customProps?.customIcId === ownId)
+        (c) => c.type === 'custom_ic' && getCompCustomIcId(c) === ownId
       );
       if (selfRef) {
         errors.push({
