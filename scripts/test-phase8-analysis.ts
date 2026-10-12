@@ -389,56 +389,189 @@ function evaluateSOP(expr: string, vars: string[], assignment: Record<string, nu
   return 0;
 }
 
-function verifyExpressionEquivalence(vars: string[], minterms: number[], simplifiedSOP: string) {
+function verifyKMapAndMinimization(
+  testName: string,
+  vars: string[],
+  minterms: number[],
+  outputName: string = 'Y'
+) {
+  const numVars = vars.length;
+  const totalCombinations = Math.pow(2, numVars);
   const mintermSet = new Set(minterms);
-  const totalCombos = Math.pow(2, vars.length);
-  for (let m = 0; m < totalCombos; m++) {
-    const bin = m.toString(2).padStart(vars.length, '0');
+
+  // 1. Generate Truth Table Rows
+  const rows = Array.from({ length: totalCombinations }, (_, m) => {
+    const bin = m.toString(2).padStart(numVars, '0');
+    const inputs: Record<string, LogicValue> = {};
+    vars.forEach((v, idx) => {
+      inputs[v] = bin[idx] as LogicValue;
+    });
+    return {
+      inputs,
+      outputs: { [outputName]: (mintermSet.has(m) ? '1' : '0') as LogicValue },
+    };
+  });
+
+  // 2. Generate Karnaugh Map
+  const kmap = generateKMapFromTruthTable(
+    { inputNames: vars, outputNames: [outputName], rows },
+    outputName
+  );
+  assert.ok(kmap, `[${testName}] K-Map must be generated for ${numVars} variables`);
+  assert.strictEqual(kmap!.numVariables, numVars, `[${testName}] Num variables must be ${numVars}`);
+
+  // 3. Verify K-Map Grids, Cells, and Gray-code to Minterm Placement
+  const visitedMinterms = new Set<number>();
+  for (const grid of kmap!.grids) {
+    for (let r = 0; r < grid.cells.length; r++) {
+      for (let c = 0; c < grid.cells[r].length; c++) {
+        const cell = grid.cells[r][c];
+        const m = cell.minterm;
+        assert.ok(
+          m >= 0 && m < totalCombinations,
+          `[${testName}] Cell minterm ${m} out of bounds [0, ${totalCombinations - 1}]`
+        );
+        const expectedCellVal = mintermSet.has(m) ? '1' : '0';
+        assert.strictEqual(
+          cell.value,
+          expectedCellVal,
+          `[${testName}] Cell (row ${r}, col ${c}) for minterm ${m} has value '${cell.value}', expected '${expectedCellVal}'`
+        );
+        visitedMinterms.add(m);
+      }
+    }
+  }
+  assert.strictEqual(
+    visitedMinterms.size,
+    totalCombinations,
+    `[${testName}] All ${totalCombinations} minterms must be mapped uniquely across K-map grids`
+  );
+
+  // 4. Obtain the actual simplified expression from the existing minimization engine
+  const simplifiedSOP = kmap!.simplifiedSop;
+  assert.ok(simplifiedSOP, `[${testName}] Simplified expression must be defined`);
+
+  // 5. Evaluate that expression for EVERY possible input assignment (all 32 for 5-var, all 64 for 6-var)
+  for (let m = 0; m < totalCombinations; m++) {
+    const bin = m.toString(2).padStart(numVars, '0');
     const assignment: Record<string, number> = {};
     vars.forEach((v, idx) => {
       assignment[v] = parseInt(bin[idx], 10);
     });
     const expectedVal = mintermSet.has(m) ? 1 : 0;
-    const evaluatedVal = evaluateSOP(simplifiedSOP, vars, assignment);
-    assert.strictEqual(
-      evaluatedVal,
-      expectedVal,
-      `Expression "${simplifiedSOP}" evaluated to ${evaluatedVal} for minterm ${m} (${bin}), expected ${expectedVal}`
-    );
+    const observedVal = evaluateSOP(simplifiedSOP, vars, assignment);
+
+    if (observedVal !== expectedVal) {
+      assert.fail(
+        `[${testName}] Minimization equivalence failure! Variable count: ${numVars}, Assignment: ${bin} (minterm ${m}), Expected value: ${expectedVal}, Observed value: ${observedVal}. Expression: "${simplifiedSOP}"`
+      );
+    }
+  }
+
+  // 6. Direct Quine-McCluskey engine equivalence check
+  const directMin = minimizeBooleanFunction(vars, minterms);
+  assert.ok(directMin.simplifiedSOP, `[${testName}] Direct minimization produced expression`);
+  for (let m = 0; m < totalCombinations; m++) {
+    const bin = m.toString(2).padStart(numVars, '0');
+    const assignment: Record<string, number> = {};
+    vars.forEach((v, idx) => {
+      assignment[v] = parseInt(bin[idx], 10);
+    });
+    const expectedVal = mintermSet.has(m) ? 1 : 0;
+    const directObservedVal = evaluateSOP(directMin.simplifiedSOP, vars, assignment);
+    if (directObservedVal !== expectedVal) {
+      assert.fail(
+        `[${testName}] Direct minimization equivalence failure! Variable count: ${numVars}, Assignment: ${bin} (minterm ${m}), Expected value: ${expectedVal}, Observed value: ${directObservedVal}. Expression: "${directMin.simplifiedSOP}"`
+      );
+    }
   }
 }
 
+// -----------------------------------------------------------------------------
+// 2-Variable, 3-Variable, and 4-Variable Minimization Equivalence Checks
+// -----------------------------------------------------------------------------
+
 // Test 1: F(A, B) = minterms 1, 3 => F = B
-const min1 = minimizeBooleanFunction(['A', 'B'], [1, 3]);
-assert.ok(min1.simplifiedSOP, 'Should produce simplified SOP');
-assert.strictEqual(min1.simplifiedSOP.replace(/\s+/g, ''), 'B', 'Minterms {1, 3} must simplify to B');
-verifyExpressionEquivalence(['A', 'B'], [1, 3], min1.simplifiedSOP);
+verifyKMapAndMinimization('2-Var F=B', ['A', 'B'], [1, 3]);
 
 // Test 2: F(A, B, C) = minterms 0, 1, 2, 3 => F = A'
-const min2 = minimizeBooleanFunction(['A', 'B', 'C'], [0, 1, 2, 3]);
-assert.strictEqual(min2.simplifiedSOP.replace(/\s+/g, ''), "A'", 'Minterms {0, 1, 2, 3} must simplify to A\'');
-verifyExpressionEquivalence(['A', 'B', 'C'], [0, 1, 2, 3], min2.simplifiedSOP);
+verifyKMapAndMinimization("2-Var F=A'", ['A', 'B', 'C'], [0, 1, 2, 3]);
 
 // Test 3: 4-variable corners: F(A, B, C, D) = minterms 0, 2, 8, 10 => F = B'·D'
-const min3 = minimizeBooleanFunction(['A', 'B', 'C', 'D'], [0, 2, 8, 10]);
-assert.strictEqual(min3.simplifiedSOP.replace(/\s+/g, ''), "B'·D'", 'Four corners must simplify to B\'·D\'');
-verifyExpressionEquivalence(['A', 'B', 'C', 'D'], [0, 2, 8, 10], min3.simplifiedSOP);
+verifyKMapAndMinimization("4-Var Corners B'·D'", ['A', 'B', 'C', 'D'], [0, 2, 8, 10]);
 
 // Test 4: Majority voter: F(A, B, C) = minterms 3, 5, 6, 7
-const minMaj = minimizeBooleanFunction(['A', 'B', 'C'], [3, 5, 6, 7]);
-verifyExpressionEquivalence(['A', 'B', 'C'], [3, 5, 6, 7], minMaj.simplifiedSOP);
+verifyKMapAndMinimization('3-Var Majority Voter', ['A', 'B', 'C'], [3, 5, 6, 7]);
 
-// Test 5: All 1s => F = 1
-const minAll = minimizeBooleanFunction(['A', 'B'], [0, 1, 2, 3]);
-assert.strictEqual(minAll.simplifiedSOP, '1', 'All minterms must simplify to 1');
-verifyExpressionEquivalence(['A', 'B'], [0, 1, 2, 3], minAll.simplifiedSOP);
+// -----------------------------------------------------------------------------
+// 5-Variable Minimization & Karnaugh Map Equivalence Checks (32 Combinations)
+// -----------------------------------------------------------------------------
+console.log('\n--- 6B. 5-Variable Boolean Minimization & Gray-Code Wrap Equivalence ---');
 
-// Test 6: All 0s => F = 0
-const minNone = minimizeBooleanFunction(['A', 'B'], []);
-assert.strictEqual(minNone.simplifiedSOP, '0', 'Zero minterms must simplify to 0');
-verifyExpressionEquivalence(['A', 'B'], [], minNone.simplifiedSOP);
+// 5-Var Test 1: Multi-implicant spanning Gray-code corner boundaries and layers
+// Minterms {0, 2, 8, 10, 16, 18, 24, 26} (corners in both layers) + {1, 3, 5, 7}
+// Simplifies to C'·E' + A'·B'·E (12 minterms -> 2 terms)
+verifyKMapAndMinimization(
+  '5-Var Multi-Implicant Boundary Wrap',
+  ['A', 'B', 'C', 'D', 'E'],
+  [0, 2, 8, 10, 16, 18, 24, 26, 1, 3, 5, 7]
+);
 
-pass('Quine-McCluskey engine expressions evaluate identically to analyzed functions for all 2^N input combinations');
+// 5-Var Test 2: Single large implicant across layers
+// Minterms {0, 1, 2, 3, 16, 17, 18, 19} -> B'·C' (8 minterms -> 1 term)
+verifyKMapAndMinimization(
+  '5-Var Layer-Merging Implicant',
+  ['A', 'B', 'C', 'D', 'E'],
+  [0, 1, 2, 3, 16, 17, 18, 19]
+);
+
+// 5-Var Test 3: Edge Case — Constant-1 (All 32 minterms)
+verifyKMapAndMinimization(
+  '5-Var Constant-1',
+  ['A', 'B', 'C', 'D', 'E'],
+  Array.from({ length: 32 }, (_, i) => i)
+);
+
+// 5-Var Test 4: Edge Case — Constant-0 (0 minterms)
+verifyKMapAndMinimization('5-Var Constant-0', ['A', 'B', 'C', 'D', 'E'], []);
+
+pass('5-variable K-map and Quine-McCluskey minimization verified for all 32 input assignments');
+
+// -----------------------------------------------------------------------------
+// 6-Variable Minimization & Karnaugh Map Equivalence Checks (64 Combinations)
+// -----------------------------------------------------------------------------
+console.log('\n--- 6C. 6-Variable Boolean Minimization & 4D Gray-Code Wrap Equivalence ---');
+
+// 6-Var Test 1: Multi-implicant spanning 4D Gray-code layers and boundaries
+// 16 corner minterms across all 4 layers (D'·F') + {60, 61, 62, 63} in layer 11 (A·B·C·D)
+// Simplifies to D'·F' + A·B·C·D (20 minterms -> 2 terms)
+verifyKMapAndMinimization(
+  '6-Var 4D Multi-Implicant Wrap',
+  ['A', 'B', 'C', 'D', 'E', 'F'],
+  [0, 2, 8, 10, 16, 18, 24, 26, 32, 34, 40, 42, 48, 50, 56, 58, 60, 61, 62, 63]
+);
+
+// 6-Var Test 2: Non-adjacent layer wrap-around
+// Minterms in layer 00 (0, 2, 8, 10) and layer 10 (32, 34, 40, 42)
+// In Gray-code order (00, 01, 11, 10), layer 00 and 10 wrap around!
+// Simplifies to B'·D'·F' (8 minterms -> 1 term)
+verifyKMapAndMinimization(
+  '6-Var Non-Adjacent Layer Gray Wrap',
+  ['A', 'B', 'C', 'D', 'E', 'F'],
+  [0, 2, 8, 10, 32, 34, 40, 42]
+);
+
+// 6-Var Test 3: Edge Case — Constant-1 (All 64 minterms)
+verifyKMapAndMinimization(
+  '6-Var Constant-1',
+  ['A', 'B', 'C', 'D', 'E', 'F'],
+  Array.from({ length: 64 }, (_, i) => i)
+);
+
+// 6-Var Test 4: Edge Case — Constant-0 (0 minterms)
+verifyKMapAndMinimization('6-Var Constant-0', ['A', 'B', 'C', 'D', 'E', 'F'], []);
+
+pass('6-variable K-map and Quine-McCluskey minimization verified for all 64 input assignments');
 
 // =============================================================================
 // TEST 7: Discrete Timing and Waveform Progression
