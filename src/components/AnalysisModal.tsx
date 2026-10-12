@@ -508,21 +508,21 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                   {/* Render Grids */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', justifyContent: 'center', marginBottom: '24px' }}>
                     {kmapData.grids.map((grid, gIdx) => (
-                      <div key={gIdx} style={{ background: 'var(--bg-surface)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                      <div key={gIdx} className="kmap-grid-card" style={{ background: 'var(--bg-surface)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                         {grid.layerValue && (
-                          <div style={{ textAlign: 'center', marginBottom: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--copper-accent)' }}>
+                          <div className="kmap-layer-label" style={{ textAlign: 'center', marginBottom: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--copper-accent)' }}>
                             Layer {grid.layerValue}
                           </div>
                         )}
 
-                        <table style={{ borderCollapse: 'collapse', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+                        <table className="kmap-table" style={{ borderCollapse: 'collapse', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
                           <thead>
                             <tr>
-                              <th style={{ padding: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              <th className="kmap-var-header" style={{ padding: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
                                 {grid.rowVariables.join('')} \ {grid.colVariables.join('')}
                               </th>
                               {grid.colHeaders.map((ch) => (
-                                <th key={ch} style={{ padding: '6px 14px', fontSize: '12px', color: 'var(--text-primary)', borderBottom: '2px solid var(--border-subtle)' }}>
+                                <th key={ch} className="kmap-col-header" style={{ padding: '6px 14px', fontSize: '12px', color: 'var(--text-primary)', borderBottom: '2px solid var(--border-subtle)' }}>
                                   {ch}
                                 </th>
                               ))}
@@ -531,12 +531,14 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                           <tbody>
                             {grid.cells.map((rowCells, rIdx) => (
                               <tr key={rIdx}>
-                                <td style={{ padding: '8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', borderRight: '2px solid var(--border-subtle)' }}>
+                                <td className="kmap-row-header" style={{ padding: '8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', borderRight: '2px solid var(--border-subtle)' }}>
                                   {grid.rowHeaders[rIdx]}
                                 </td>
                                 {rowCells.map((cell, cIdx) => (
                                   <td
                                     key={cIdx}
+                                    className="kmap-cell"
+                                    data-minterm={cell.minterm}
                                     style={{
                                       width: '48px',
                                       height: '48px',
@@ -545,10 +547,10 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                                       background: cell.value === '1' ? 'rgba(217, 119, 54, 0.15)' : 'transparent',
                                     }}
                                   >
-                                    <span style={{ fontSize: '16px', fontWeight: 700, color: cell.value === '1' ? 'var(--copper-accent)' : 'var(--text-muted)' }}>
+                                    <span className="kmap-cell-value" style={{ fontSize: '16px', fontWeight: 700, color: cell.value === '1' ? 'var(--copper-accent)' : 'var(--text-muted)' }}>
                                       {cell.value}
                                     </span>
-                                    <span style={{ position: 'absolute', bottom: '2px', right: '4px', fontSize: '9px', color: 'var(--text-muted)' }}>
+                                    <span className="kmap-cell-minterm" style={{ position: 'absolute', bottom: '2px', right: '4px', fontSize: '9px', color: 'var(--text-muted)' }}>
                                       {cell.minterm}
                                     </span>
                                   </td>

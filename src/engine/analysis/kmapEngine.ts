@@ -141,11 +141,11 @@ export function generateKMap(
     // 4 Variables: AB (row), CD (col) -> 4x4 grid
     grids.push(build4VarGrid(variables, valueMap));
   } else if (numVars === 5) {
-    // 5 Variables: E=0 layer, E=1 layer, AB (row), CD (col) -> two 4x4 grids
+    // 5 Variables: A=0 layer, A=1 layer, BC (row), DE (col) -> two 4x4 grids
     grids.push(build5VarLayer(variables, valueMap, 0));
     grids.push(build5VarLayer(variables, valueMap, 1));
   } else if (numVars === 6) {
-    // 6 Variables: EF in Gray code (00, 01, 11, 10) -> four 4x4 grids
+    // 6 Variables: AB in Gray code (00, 01, 11, 10), CD (row), EF (col) -> four 4x4 grids
     grids.push(build6VarLayer(variables, valueMap, 0, '00'));
     grids.push(build6VarLayer(variables, valueMap, 1, '01'));
     grids.push(build6VarLayer(variables, valueMap, 3, '11'));

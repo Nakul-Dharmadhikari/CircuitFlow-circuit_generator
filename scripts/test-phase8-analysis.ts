@@ -319,7 +319,7 @@ const fiveVarRows = Array.from({ length: 32 }, (_, m) => {
 const kmap5 = generateKMapFromTruthTable({ inputNames: ['A', 'B', 'C', 'D', 'E'], outputNames: ['F'], rows: fiveVarRows }, 'F');
 assert.ok(kmap5);
 assert.strictEqual(kmap5!.numVariables, 5);
-assert.strictEqual(kmap5!.grids.length, 2, '5-variable K-map has 2 layers (E=0, E=1)');
+assert.strictEqual(kmap5!.grids.length, 2, '5-variable K-map has 2 layers (A=0, A=1)');
 assert.strictEqual(kmap5!.grids[0].cells.length, 4, 'Layer 1 has 4 rows');
 assert.strictEqual(kmap5!.grids[0].cells[0].length, 4, 'Layer 1 has 4 cols');
 
@@ -346,7 +346,7 @@ const kmap6 = generateKMapFromTruthTable(
 );
 assert.ok(kmap6);
 assert.strictEqual(kmap6!.numVariables, 6);
-assert.strictEqual(kmap6!.grids.length, 4, '6-variable K-map has 4 layers (EF in Gray code: 00, 01, 11, 10)');
+assert.strictEqual(kmap6!.grids.length, 4, '6-variable K-map has 4 layers (AB in Gray code: 00, 01, 11, 10)');
 assert.deepStrictEqual(
   kmap6!.grids.map((g) => g.layerValue?.replace(/.*=\s*/, '')),
   ['00', '01', '11', '10'],
@@ -420,24 +420,179 @@ function verifyKMapAndMinimization(
   assert.ok(kmap, `[${testName}] K-Map must be generated for ${numVars} variables`);
   assert.strictEqual(kmap!.numVariables, numVars, `[${testName}] Num variables must be ${numVars}`);
 
-  // 3. Verify K-Map Grids, Cells, and Gray-code to Minterm Placement
+  // 3. Verify K-Map Grids, Cells, Variable Labels, and Independent Minterm Placement
+  const GRAY_1 = ['0', '1'];
+  const GRAY_2 = ['00', '01', '11', '10'];
+  const DEC_2 = [0, 1, 3, 2];
+
+  let expectedGridsCount = 1;
+  if (numVars === 5) expectedGridsCount = 2;
+  if (numVars === 6) expectedGridsCount = 4;
+  assert.strictEqual(
+    kmap!.grids.length,
+    expectedGridsCount,
+    `[${testName}] Must produce exactly ${expectedGridsCount} grid(s) for ${numVars} variables`
+  );
+
   const visitedMinterms = new Set<number>();
-  for (const grid of kmap!.grids) {
+
+  for (let gIdx = 0; gIdx < kmap!.grids.length; gIdx++) {
+    const grid = kmap!.grids[gIdx];
+
+    // Compute expected grid-level structural metadata
+    let expectedRowVars: string[] = [];
+    let expectedColVars: string[] = [];
+    let expectedRowHeaders: string[] = [];
+    let expectedColHeaders: string[] = [];
+    let expectedLayerName: string | undefined = undefined;
+    let expectedLayerValue: string | undefined = undefined;
+    let layerDec = 0;
+    let layerGray = '';
+
+    if (numVars === 2) {
+      expectedRowVars = [vars[0]];
+      expectedColVars = [vars[1]];
+      expectedRowHeaders = GRAY_1;
+      expectedColHeaders = GRAY_1;
+    } else if (numVars === 3) {
+      expectedRowVars = [vars[0]];
+      expectedColVars = [vars[1], vars[2]];
+      expectedRowHeaders = GRAY_1;
+      expectedColHeaders = GRAY_2;
+    } else if (numVars === 4) {
+      expectedRowVars = [vars[0], vars[1]];
+      expectedColVars = [vars[2], vars[3]];
+      expectedRowHeaders = GRAY_2;
+      expectedColHeaders = GRAY_2;
+    } else if (numVars === 5) {
+      layerDec = gIdx; // 0 or 1
+      layerGray = String(gIdx);
+      expectedLayerName = vars[0];
+      expectedLayerValue = `${vars[0]} = ${gIdx}`;
+      expectedRowVars = [vars[1], vars[2]];
+      expectedColVars = [vars[3], vars[4]];
+      expectedRowHeaders = GRAY_2;
+      expectedColHeaders = GRAY_2;
+    } else if (numVars === 6) {
+      layerGray = GRAY_2[gIdx]; // '00', '01', '11', '10'
+      layerDec = DEC_2[gIdx];  // 0, 1, 3, 2
+      expectedLayerName = `${vars[0]}${vars[1]}`;
+      expectedLayerValue = `${vars[0]}${vars[1]} = ${layerGray}`;
+      expectedRowVars = [vars[2], vars[3]];
+      expectedColVars = [vars[4], vars[5]];
+      expectedRowHeaders = GRAY_2;
+      expectedColHeaders = GRAY_2;
+    }
+
+    assert.deepStrictEqual(
+      grid.rowVariables,
+      expectedRowVars,
+      `[${testName}] Grid ${gIdx} rowVariables must match expected`
+    );
+    assert.deepStrictEqual(
+      grid.colVariables,
+      expectedColVars,
+      `[${testName}] Grid ${gIdx} colVariables must match expected`
+    );
+    assert.deepStrictEqual(
+      grid.rowHeaders,
+      expectedRowHeaders,
+      `[${testName}] Grid ${gIdx} rowHeaders must follow Gray-code sequence`
+    );
+    assert.deepStrictEqual(
+      grid.colHeaders,
+      expectedColHeaders,
+      `[${testName}] Grid ${gIdx} colHeaders must follow Gray-code sequence`
+    );
+    if (numVars >= 5) {
+      assert.strictEqual(
+        grid.layerName,
+        expectedLayerName,
+        `[${testName}] Grid ${gIdx} layerName must match expected variable(s)`
+      );
+      assert.strictEqual(
+        grid.layerValue,
+        expectedLayerValue,
+        `[${testName}] Grid ${gIdx} layerValue must match expected Gray assignment`
+      );
+    }
+
+    // Assert independently calculated properties for EVERY individual cell
     for (let r = 0; r < grid.cells.length; r++) {
       for (let c = 0; c < grid.cells[r].length; c++) {
         const cell = grid.cells[r][c];
-        const m = cell.minterm;
-        assert.ok(
-          m >= 0 && m < totalCombinations,
-          `[${testName}] Cell minterm ${m} out of bounds [0, ${totalCombinations - 1}]`
+
+        let expectedRowGray = '';
+        let expectedColGray = '';
+        let expectedBinary = '';
+        let expectedMinterm = 0;
+
+        if (numVars === 2) {
+          expectedRowGray = String(r);
+          expectedColGray = String(c);
+          expectedBinary = `${r}${c}`;
+          expectedMinterm = (r << 1) | c;
+        } else if (numVars === 3) {
+          expectedRowGray = String(r);
+          expectedColGray = GRAY_2[c];
+          expectedBinary = `${r}${GRAY_2[c]}`;
+          expectedMinterm = (r << 2) | DEC_2[c];
+        } else if (numVars === 4) {
+          expectedRowGray = GRAY_2[r];
+          expectedColGray = GRAY_2[c];
+          expectedBinary = `${GRAY_2[r]}${GRAY_2[c]}`;
+          expectedMinterm = (DEC_2[r] << 2) | DEC_2[c];
+        } else if (numVars === 5) {
+          expectedRowGray = GRAY_2[r];
+          expectedColGray = GRAY_2[c];
+          expectedBinary = `${layerDec}${GRAY_2[r]}${GRAY_2[c]}`;
+          expectedMinterm = (layerDec << 4) | (DEC_2[r] << 2) | DEC_2[c];
+        } else if (numVars === 6) {
+          expectedRowGray = GRAY_2[r];
+          expectedColGray = GRAY_2[c];
+          expectedBinary = `${layerGray}${GRAY_2[r]}${GRAY_2[c]}`;
+          expectedMinterm = (layerDec << 4) | (DEC_2[r] << 2) | DEC_2[c];
+        }
+
+        assert.strictEqual(cell.rowIdx, r, `[${testName}] cell.rowIdx mismatch`);
+        assert.strictEqual(cell.colIdx, c, `[${testName}] cell.colIdx mismatch`);
+        assert.strictEqual(
+          cell.rowGray,
+          expectedRowGray,
+          `[${testName}] cell.rowGray mismatch at (${r}, ${c})`
         );
-        const expectedCellVal = mintermSet.has(m) ? '1' : '0';
+        assert.strictEqual(
+          cell.colGray,
+          expectedColGray,
+          `[${testName}] cell.colGray mismatch at (${r}, ${c})`
+        );
+        assert.strictEqual(
+          cell.binaryString,
+          expectedBinary,
+          `[${testName}] cell.binaryString mismatch at grid ${gIdx} (${r}, ${c})`
+        );
+        assert.strictEqual(
+          cell.minterm,
+          expectedMinterm,
+          `[${testName}] cell.minterm independently calculated mismatch at grid ${gIdx} (${r}, ${c})`
+        );
+
+        if (numVars === 5) {
+          assert.strictEqual(cell.layerIdx, layerDec, `[${testName}] 5-var cell.layerIdx mismatch`);
+          assert.strictEqual(cell.layerGray, layerGray, `[${testName}] 5-var cell.layerGray mismatch`);
+        } else if (numVars === 6) {
+          assert.strictEqual(cell.layerIdx, layerDec, `[${testName}] 6-var cell.layerIdx mismatch`);
+          assert.strictEqual(cell.layerGray, layerGray, `[${testName}] 6-var cell.layerGray mismatch`);
+        }
+
+        const expectedCellVal = mintermSet.has(expectedMinterm) ? '1' : '0';
         assert.strictEqual(
           cell.value,
           expectedCellVal,
-          `[${testName}] Cell (row ${r}, col ${c}) for minterm ${m} has value '${cell.value}', expected '${expectedCellVal}'`
+          `[${testName}] Cell value mismatch for minterm ${expectedMinterm} (${expectedBinary}): expected '${expectedCellVal}', got '${cell.value}'`
         );
-        visitedMinterms.add(m);
+
+        visitedMinterms.add(cell.minterm);
       }
     }
   }

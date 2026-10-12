@@ -53,6 +53,57 @@ async function runPhase8BrowserVerification() {
     await new Promise((r) => setTimeout(r, 250));
   };
 
+  const loadPresetExperiment = async (presetTitleQuery: string) => {
+    const closeBtn = await page.$('#btn-close-analysis');
+    if (closeBtn) {
+      await closeBtn.click();
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    const fileBtn = await page.$('.menu-item-wrapper:first-child .menu-item-btn');
+    assert.ok(fileBtn, 'File menu button must exist');
+    await fileBtn.click();
+    await page.waitForSelector('.menu-dropdown', { timeout: 2000 });
+
+    const presetsItem = await page.evaluateHandle(() => {
+      const items = Array.from(document.querySelectorAll('.menu-dropdown .dropdown-item'));
+      return items.find((i) => i.textContent?.includes('Examples & Lab Presets'));
+    });
+    assert.ok(presetsItem, 'Examples & Lab Presets dropdown item must exist');
+    await (presetsItem as any).click();
+
+    await page.waitForSelector('.modal-dialog .experiment-card', { timeout: 3000 });
+    await page.evaluate((query) => {
+      const cards = Array.from(document.querySelectorAll('.modal-dialog .experiment-card'));
+      const target = cards.find((c) => c.querySelector('.exp-title')?.textContent?.includes(query));
+      if (target) (target as HTMLElement).click();
+    }, presetTitleQuery);
+    await new Promise((r) => setTimeout(r, 300));
+  };
+
+  const openAnalysisModal = async (tabId: string = 'overview') => {
+    const analyzeMenuBtn = await page.evaluateHandle(() => {
+      const btns = Array.from(document.querySelectorAll('.menu-item-btn'));
+      return btns.find((b) => b.textContent?.includes('Analyze'));
+    });
+    assert.ok(analyzeMenuBtn, 'Analyze menu button must exist in TopBar');
+    await (analyzeMenuBtn as any).click();
+
+    await page.waitForSelector('.menu-dropdown', { timeout: 2000 });
+
+    const analysisCenterItem = await page.evaluateHandle(() => {
+      const items = Array.from(document.querySelectorAll('.menu-dropdown .dropdown-item'));
+      return items.find((i) => i.textContent?.includes('Analysis Center'));
+    });
+    assert.ok(analysisCenterItem, 'Circuit Analysis Center dropdown item must exist');
+    await (analysisCenterItem as any).click();
+
+    await page.waitForSelector('#analysis-center-modal', { timeout: 3000 });
+    if (tabId) {
+      await selectTab(tabId);
+    }
+  };
+
   try {
     // -------------------------------------------------------------------------
     // 1. Initial Load & Enter Canvas Workspace
@@ -145,22 +196,103 @@ async function runPhase8BrowserVerification() {
     // -------------------------------------------------------------------------
     // 5. Tab 3: Karnaugh Map (2–6 Var) Tab Verification
     // -------------------------------------------------------------------------
-    console.log('Step 5: Navigating to Karnaugh Map tab...');
+    console.log('Step 5: Navigating to Karnaugh Map tab & verifying map layer labels and minterms...');
     await selectTab('kmap');
 
-    const kmapState = await page.evaluate(() => {
+    // 5A. Check initial notice on default circuit with >6 inputs
+    const kmapInitialState = await page.evaluate(() => {
       const modal = document.querySelector('#analysis-center-modal');
       const text = modal?.textContent || '';
-      const outputSelect = modal?.querySelector('#kmap-output-select');
-      const tables = modal?.querySelectorAll('table');
       return {
-        hasOutputSelect: outputSelect !== null,
-        tableCount: tables?.length || 0,
-        textNotice: text.includes('Karnaugh Map') || text.includes('Gray Code'),
+        hasLimitationNotice: text.includes('Karnaugh Maps require between 2 and 6 inputs'),
       };
     });
-    assert.strictEqual(kmapState.textNotice, true, 'K-Map tab renders with Gray code mapping or informative notice');
-    pass('5. Karnaugh Map tab renders with variable ordering and output controls');
+    assert.strictEqual(kmapInitialState.hasLimitationNotice, true, 'K-Map tab renders limitation notice when inputs > 6');
+
+    // 5B. Verify 5-Variable K-Map (2 layers: Layer A = 0, Layer A = 1, BC \ DE, Gray code ordering)
+    console.log('Loading 5-Bit Parity Generator preset to test 5-variable K-Map...');
+    await loadPresetExperiment('5-Bit Parity Generator');
+    await openAnalysisModal('kmap');
+
+    const kmap5Data = await page.evaluate(() => {
+      const modal = document.querySelector('#analysis-center-modal');
+      const gridCards = Array.from(modal?.querySelectorAll('.kmap-grid-card') || []);
+      const layerLabels = Array.from(modal?.querySelectorAll('.kmap-layer-label') || []).map((el) => el.textContent?.trim() || '');
+      const varHeaders = Array.from(modal?.querySelectorAll('.kmap-var-header') || []).map((el) => el.textContent?.trim() || '');
+      const firstGrid = gridCards[0];
+      const rowHeaders = Array.from(firstGrid?.querySelectorAll('.kmap-row-header') || []).map((el) => el.textContent?.trim() || '');
+      const colHeaders = Array.from(firstGrid?.querySelectorAll('.kmap-col-header') || []).map((el) => el.textContent?.trim() || '');
+      const cells = Array.from(modal?.querySelectorAll('.kmap-cell') || []);
+      const minterms = cells.map((c) => parseInt(c.getAttribute('data-minterm') || '-1', 10));
+      const text = modal?.textContent || '';
+
+      return {
+        gridCount: gridCards.length,
+        layerLabels,
+        varHeaders,
+        rowHeaders,
+        colHeaders,
+        cellCount: cells.length,
+        uniqueMinterms: Array.from(new Set(minterms.filter((m) => m >= 0))).sort((a, b) => a - b),
+        hasMinimalSop: text.includes('Quine-McCluskey Minimal Sum of Products'),
+      };
+    });
+
+    assert.strictEqual(kmap5Data.gridCount, 2, '5-variable K-Map must render exactly 2 layers');
+    assert.strictEqual(kmap5Data.layerLabels[0], 'Layer A = 0', '5-variable Layer 1 header must be "Layer A = 0"');
+    assert.strictEqual(kmap5Data.layerLabels[1], 'Layer A = 1', '5-variable Layer 2 header must be "Layer A = 1"');
+    assert.ok(kmap5Data.varHeaders[0]?.includes('BC') && kmap5Data.varHeaders[0]?.includes('DE'), 'Variable header indicates BC (rows) and DE (cols)');
+    assert.deepStrictEqual(kmap5Data.rowHeaders, ['00', '01', '11', '10'], 'Row headers must follow Gray-code sequence');
+    assert.deepStrictEqual(kmap5Data.colHeaders, ['00', '01', '11', '10'], 'Column headers must follow Gray-code sequence');
+    assert.strictEqual(kmap5Data.cellCount, 32, '5-variable K-Map must render 32 cells (2 x 4x4)');
+    assert.strictEqual(kmap5Data.uniqueMinterms.length, 32, 'All 32 minterms (0..31) must be represented');
+    assert.strictEqual(kmap5Data.uniqueMinterms[0], 0, 'First minterm is 0');
+    assert.strictEqual(kmap5Data.uniqueMinterms[31], 31, 'Last minterm is 31');
+    assert.strictEqual(kmap5Data.hasMinimalSop, true, 'Quine-McCluskey minimal expression rendered');
+
+    // 5C. Verify 6-Variable K-Map (4 layers: Gray code ordering 00, 01, 11, 10)
+    console.log('Loading 4:1 Multiplexer preset to test 6-variable K-Map...');
+    await loadPresetExperiment('4:1 Multiplexer');
+    await openAnalysisModal('kmap');
+
+    const kmap6Data = await page.evaluate(() => {
+      const modal = document.querySelector('#analysis-center-modal');
+      const gridCards = Array.from(modal?.querySelectorAll('.kmap-grid-card') || []);
+      const layerLabels = Array.from(modal?.querySelectorAll('.kmap-layer-label') || []).map((el) => el.textContent?.trim() || '');
+      const varHeaders = Array.from(modal?.querySelectorAll('.kmap-var-header') || []).map((el) => el.textContent?.trim() || '');
+      const firstGrid = gridCards[0];
+      const rowHeaders = Array.from(firstGrid?.querySelectorAll('.kmap-row-header') || []).map((el) => el.textContent?.trim() || '');
+      const colHeaders = Array.from(firstGrid?.querySelectorAll('.kmap-col-header') || []).map((el) => el.textContent?.trim() || '');
+      const cells = Array.from(modal?.querySelectorAll('.kmap-cell') || []);
+      const minterms = cells.map((c) => parseInt(c.getAttribute('data-minterm') || '-1', 10));
+      const text = modal?.textContent || '';
+
+      return {
+        gridCount: gridCards.length,
+        layerLabels,
+        varHeaders,
+        rowHeaders,
+        colHeaders,
+        cellCount: cells.length,
+        uniqueMinterms: Array.from(new Set(minterms.filter((m) => m >= 0))).sort((a, b) => a - b),
+        hasMinimalSop: text.includes('Quine-McCluskey Minimal Sum of Products'),
+      };
+    });
+
+    assert.strictEqual(kmap6Data.gridCount, 4, '6-variable K-Map must render exactly 4 layers');
+    assert.ok(kmap6Data.layerLabels[0]?.endsWith('00'), 'Layer 1 must be Gray code 00');
+    assert.ok(kmap6Data.layerLabels[1]?.endsWith('01'), 'Layer 2 must be Gray code 01');
+    assert.ok(kmap6Data.layerLabels[2]?.endsWith('11'), 'Layer 3 must be Gray code 11');
+    assert.ok(kmap6Data.layerLabels[3]?.endsWith('10'), 'Layer 4 must be Gray code 10');
+    assert.deepStrictEqual(kmap6Data.rowHeaders, ['00', '01', '11', '10'], 'Row headers must follow Gray-code sequence');
+    assert.deepStrictEqual(kmap6Data.colHeaders, ['00', '01', '11', '10'], 'Column headers must follow Gray-code sequence');
+    assert.strictEqual(kmap6Data.cellCount, 64, '6-variable K-Map must render 64 cells (4 x 4x4)');
+    assert.strictEqual(kmap6Data.uniqueMinterms.length, 64, 'All 64 minterms (0..63) must be represented');
+    assert.strictEqual(kmap6Data.uniqueMinterms[0], 0, 'First minterm is 0');
+    assert.strictEqual(kmap6Data.uniqueMinterms[63], 63, 'Last minterm is 63');
+    assert.strictEqual(kmap6Data.hasMinimalSop, true, 'Quine-McCluskey minimal expression rendered');
+
+    pass('5. Karnaugh Map tab renders 5-var and 6-var layers (A=0/1 and 00/01/11/10), Gray-code rows/cols, and minterm cell mappings');
 
     // -------------------------------------------------------------------------
     // 6. Tab 4: Timing / Waveform Tab Verification & Steps Interaction

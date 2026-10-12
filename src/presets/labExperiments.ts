@@ -60,7 +60,37 @@ export function getLabExperiments(): LabExperiment[] {
     wires: muxWires,
   }).circuit;
 
-  // 3. JK Flip-Flop Toggle & Divider
+  // 3. 5-Bit Parity Generator (5 inputs: A, B, C, D, E)
+  const parA = createComponent('toggle', 100, 80, 'A');
+  const parB = createComponent('toggle', 100, 160, 'B');
+  const parC = createComponent('toggle', 100, 240, 'C');
+  const parD = createComponent('toggle', 100, 320, 'D');
+  const parE = createComponent('toggle', 100, 400, 'E');
+  const xor1 = createComponent('xor', 260, 120, 'XOR1');
+  const xor2 = createComponent('xor', 260, 280, 'XOR2');
+  const xor3 = createComponent('xor', 400, 200, 'XOR3');
+  const xor4 = createComponent('xor', 540, 260, 'XOR4');
+  const parLed = createComponent('led', 680, 260, 'P (Parity)');
+  parLed.customProps = { color: 'green' };
+
+  const parWires = [
+    { id: 'w_p_a', fromCompId: parA.id, fromPinId: 'out', toCompId: xor1.id, toPinId: 'a', value: '0' as const },
+    { id: 'w_p_b', fromCompId: parB.id, fromPinId: 'out', toCompId: xor1.id, toPinId: 'b', value: '0' as const },
+    { id: 'w_p_c', fromCompId: parC.id, fromPinId: 'out', toCompId: xor2.id, toPinId: 'a', value: '0' as const },
+    { id: 'w_p_d', fromCompId: parD.id, fromPinId: 'out', toCompId: xor2.id, toPinId: 'b', value: '0' as const },
+    { id: 'w_p_x1', fromCompId: xor1.id, fromPinId: 'out', toCompId: xor3.id, toPinId: 'a', value: '0' as const },
+    { id: 'w_p_x2', fromCompId: xor2.id, fromPinId: 'out', toCompId: xor3.id, toPinId: 'b', value: '0' as const },
+    { id: 'w_p_x3', fromCompId: xor3.id, fromPinId: 'out', toCompId: xor4.id, toPinId: 'a', value: '0' as const },
+    { id: 'w_p_e', fromCompId: parE.id, fromPinId: 'out', toCompId: xor4.id, toPinId: 'b', value: '0' as const },
+    { id: 'w_p_y', fromCompId: xor4.id, fromPinId: 'out', toCompId: parLed.id, toPinId: 'in', value: '0' as const },
+  ];
+
+  const parCircuit = simulateCircuit({
+    components: [parA, parB, parC, parD, parE, xor1, xor2, xor3, xor4, parLed],
+    wires: parWires,
+  }).circuit;
+
+  // 4. JK Flip-Flop Toggle & Divider
   const jkPulseClk = createComponent('clock', 100, 150, 'Master Clock');
   const jkSwitchJ = createComponent('vcc', 100, 80, 'J=1');
   const jkSwitchK = createComponent('vcc', 100, 230, 'K=1');
@@ -194,6 +224,14 @@ export function getLabExperiments(): LabExperiment[] {
       description: 'Routes one of four input lines (I0-I3) to a single output line based on 2 select inputs (S1, S0).',
       theory: 'Equivalent to IC 74153. Output Y = I0·S1\'·S0\' + I1·S1\'·S0 + I2·S1·S0\' + I3·S1·S0.',
       circuit: muxCircuit,
+    },
+    {
+      id: 'parity_5bit',
+      title: '5-Bit Parity Generator (A..E)',
+      category: 'Combinational Logic',
+      description: 'Calculates odd/even parity across 5 binary inputs (A, B, C, D, E) using cascaded XOR gates.',
+      theory: 'Parity P = A ⊕ B ⊕ C ⊕ D ⊕ E. Fundamental digital arithmetic check verifying 5-variable Karnaugh mapping across two layers (A=0, A=1).',
+      circuit: parCircuit,
     },
     {
       id: 'jk_flipflop',
