@@ -28,6 +28,7 @@ interface TrainerBoardProps {
   onModuleContextMenu?: (board: TrainerBoardModel, module: TrainerModuleConfig, e: React.MouseEvent) => void;
   selectedBoardId?: string | null;
   selectedModuleId?: string | null;
+  isDeleteMode?: boolean;
 }
 
 export const TrainerBoard: React.FC<TrainerBoardProps> = ({
@@ -50,6 +51,7 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
   onModuleContextMenu,
   selectedBoardId,
   selectedModuleId,
+  isDeleteMode = false,
 }) => {
   // Determine all boards to render:
   // Prefer circuit.trainerBoards if populated; otherwise discover via getTrainerBoards or propBoard
@@ -403,7 +405,15 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                       {/* Center Interactive Mount/Swap Area */}
                       <div className="base-center-interactive">
                         {mountedIC ? (
-                          <div className="base-occupied-tag">
+                          <div
+                            className="base-occupied-tag"
+                            onClick={(e) => {
+                              if (isDeleteMode) {
+                                e.stopPropagation();
+                                onRequestEjectIC?.(slot.baseIndex, mountedIC.id);
+                              }
+                            }}
+                          >
                             <span className="base-socket-name">{slot.label}</span>
                             <span className="base-chip-name">{mountedIC.label}</span>
                             <div className="base-socket-actions-group">

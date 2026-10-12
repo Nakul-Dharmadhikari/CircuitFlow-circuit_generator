@@ -137,6 +137,7 @@ export function App() {
   const [isSavedCircuitsOpen, setIsSavedCircuitsOpen] = useState(false);
   const [isCustomICModalOpen, setIsCustomICModalOpen] = useState(false);
   const [isComponentLibraryOpen, setIsComponentLibraryOpen] = useState(false);
+  const [pendingPlacementType, setPendingPlacementType] = useState<ComponentType | null>(null);
   const [showGrid, setShowGrid] = useState(true);
   const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
   const [pickerBaseIndex, setPickerBaseIndex] = useState<number | null>(null);
@@ -1708,6 +1709,7 @@ export function App() {
           setEjectConfirmation(null);
           return;
         }
+        setPendingPlacementType(null);
         setIsAllSelected(false);
         setSelectedCompId(null);
         setSelectedWireId(null);
@@ -2056,6 +2058,8 @@ export function App() {
         onSelectModule={handleSelectModule}
         selectedBoardId={selectedBoardId}
         selectedModuleId={selectedModuleId}
+        pendingPlacementType={pendingPlacementType}
+        onClearPendingPlacement={() => setPendingPlacementType(null)}
       />
 
       {/* Contextual Properties & Hardware Inspector */}

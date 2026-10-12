@@ -1,6 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User } from '../../types/circuit';
 import type { WorkbenchView } from '../../hooks/useUIState';
+import {
+  IconLightning,
+  IconBoard,
+  IconSchematic,
+  IconPlay,
+  IconPause,
+  IconStep,
+  IconReset,
+  IconSave,
+  IconVolume,
+  IconMute,
+  IconSun,
+  IconMoon,
+  IconUser,
+  IconChip,
+  IconCustomIC,
+  IconTable,
+  IconWaveform,
+  IconChart,
+  IconFolder,
+  IconHelp,
+  IconFit,
+  IconUpload,
+  IconDownload,
+  IconTrash,
+} from '../../components/icons/AppIcons';
 
 interface TopBarProps {
   projectName: string;
@@ -129,58 +155,69 @@ export const TopBar: React.FC<TopBarProps> = ({
   const closeMenu = () => setActiveMenu(null);
 
   return (
-    <header className="app-topbar">
+    <header className="app-topbar" aria-label="CircuitFlow Workbench TopBar">
       {/* -------------------------------------------------------------------
-          LEFT: CircuitFlow Brand + Trainer / Schematic Mode Switch
+          LEFT: CircuitFlow Brand + Primary Mode Switcher (Trainer vs Schematic)
           ------------------------------------------------------------------- */}
       <div className="topbar-left">
         <div
           className="app-brand"
           onClick={() => onViewChange('landing')}
           title="Return to CircuitFlow Overview / Landing"
+          role="button"
+          tabIndex={0}
         >
-          <div className="brand-icon">⚡</div>
+          <div className="brand-icon" aria-hidden="true">
+            <IconLightning size={16} />
+          </div>
           <div className="brand-title">
             <span>CircuitFlow</span>
             <span className="brand-badge">SIM</span>
           </div>
         </div>
 
-        {/* Mode Toggle: Trainer Mode vs Schematic Mode */}
+        {/* Primary View Switcher: Trainer Board vs Schematic Editor */}
         <div className="mode-toggle-segmented" title="Switch Between Hardware Trainer Kit and Schematic Editor">
           <button
             type="button"
             className={`mode-seg-btn ${currentView === 'hardware' ? 'active' : ''}`}
             onClick={() => onViewChange('hardware')}
+            aria-label="Hardware Trainer Board Mode"
           >
-            ⚡ Trainer
+            <IconBoard size={14} style={{ marginRight: 5 }} />
+            <span>Trainer</span>
           </button>
           <button
             type="button"
             className={`mode-seg-btn ${currentView === 'circuit' ? 'active' : ''}`}
             onClick={() => onViewChange('circuit')}
+            aria-label="Schematic Editor Mode"
           >
-            📐 Schematic
+            <IconSchematic size={14} style={{ marginRight: 5 }} />
+            <span>Schematic</span>
           </button>
         </div>
       </div>
 
       {/* -------------------------------------------------------------------
-          CENTER: Dropdown Menus Bar (File, Edit, View, Simulation, Analysis, Labs)
+          CENTER: The 4 Primary Activity Menus (PROJECTS, BUILD, SIMULATE, ANALYZE)
           ------------------------------------------------------------------- */}
       <div className="topbar-center-section" ref={menuBarRef}>
-        <nav className="menu-bar">
-          {/* FILE MENU */}
+        <nav className="menu-bar" aria-label="Application Menus">
+          {/* 1. PROJECTS MENU (First Child) */}
           <div className="menu-item-wrapper">
             <button
               type="button"
-              className={`menu-item-btn ${activeMenu === 'file' ? 'active' : ''}`}
-              onClick={() => handleMenuClick('file')}
+              className={`menu-item-btn ${activeMenu === 'projects' ? 'active' : ''}`}
+              onClick={() => handleMenuClick('projects')}
+              aria-haspopup="true"
+              aria-expanded={activeMenu === 'projects'}
+              title="Project File & Storage Actions"
             >
-              File ▾
+              Projects ▾
             </button>
-            {activeMenu === 'file' && (
-              <div className="menu-dropdown">
+            {activeMenu === 'projects' && (
+              <div className="menu-dropdown" role="menu">
                 <button
                   type="button"
                   className="dropdown-item"
@@ -188,8 +225,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onNewCircuit();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>New Circuit</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconFolder size={14} /> New Project
+                  </span>
                   <span className="dropdown-shortcut">Ctrl+N</span>
                 </button>
                 <button
@@ -199,8 +239,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onOpenSavedCircuits();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Open Saved Circuit...</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconFolder size={14} /> Open Saved Circuit...
+                  </span>
                   <span className="dropdown-shortcut">Ctrl+O</span>
                 </button>
                 <div className="dropdown-divider" />
@@ -211,8 +254,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onSaveCircuit?.();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Save Circuit (.deld)</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconSave size={14} /> Save Circuit (.deld)
+                  </span>
                   <span className="dropdown-shortcut">Ctrl+S</span>
                 </button>
                 <button
@@ -222,8 +268,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onOpenSavedCircuits();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Save As / Project Vault...</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconFolder size={14} /> Saved Projects Vault...
+                  </span>
                 </button>
                 <div className="dropdown-divider" />
                 {onExportJson && (
@@ -234,8 +283,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                       onExportJson();
                       closeMenu();
                     }}
+                    role="menuitem"
                   >
-                    <span>Export Circuit JSON</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <IconDownload size={14} /> Export Circuit JSON
+                    </span>
                   </button>
                 )}
                 {onImportJson && (
@@ -246,8 +298,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                       onImportJson();
                       closeMenu();
                     }}
+                    role="menuitem"
                   >
-                    <span>Import Circuit JSON</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <IconUpload size={14} /> Import Circuit JSON
+                    </span>
                   </button>
                 )}
                 <div className="dropdown-divider" />
@@ -258,35 +313,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onOpenLabPresets();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Lab Experiments & Presets...</span>
+                  <span>Examples & Lab Presets...</span>
                 </button>
                 <div className="dropdown-divider" />
-                <button
-                  type="button"
-                  className="dropdown-item danger-item"
-                  onClick={() => {
-                    onClearCanvas();
-                    closeMenu();
-                  }}
-                >
-                  <span>Clear Workbench</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* EDIT MENU */}
-          <div className="menu-item-wrapper">
-            <button
-              type="button"
-              className={`menu-item-btn ${activeMenu === 'edit' ? 'active' : ''}`}
-              onClick={() => handleMenuClick('edit')}
-            >
-              Edit ▾
-            </button>
-            {activeMenu === 'edit' && (
-              <div className="menu-dropdown">
                 <button
                   type="button"
                   className="dropdown-item"
@@ -295,6 +326,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onUndo();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>Undo</span>
                   <span className="dropdown-shortcut">Ctrl+Z</span>
@@ -307,6 +339,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onRedo();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>Redo</span>
                   <span className="dropdown-shortcut">Ctrl+Y</span>
@@ -320,8 +353,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onCopy?.();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Copy</span>
+                  <span>Copy Selection</span>
                   <span className="dropdown-shortcut">Ctrl+C</span>
                 </button>
                 <button
@@ -332,6 +366,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onPaste?.();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>Paste</span>
                   <span className="dropdown-shortcut">Ctrl+V</span>
@@ -343,6 +378,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onSelectAll?.();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>Select All</span>
                   <span className="dropdown-shortcut">Ctrl+A</span>
@@ -355,57 +391,68 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onDeleteSelected?.();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>Delete Selection</span>
                   <span className="dropdown-shortcut">Del</span>
+                </button>
+                <div className="dropdown-divider" />
+                <button
+                  type="button"
+                  className="dropdown-item danger-item"
+                  onClick={() => {
+                    onClearCanvas();
+                    closeMenu();
+                  }}
+                  role="menuitem"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconTrash size={14} /> Clear Workbench
+                  </span>
                 </button>
               </div>
             )}
           </div>
 
-          {/* VIEW MENU */}
+          {/* 2. BUILD MENU (Includes Labs & Custom IC Studio) */}
           <div className="menu-item-wrapper">
             <button
               type="button"
-              className={`menu-item-btn ${activeMenu === 'view' ? 'active' : ''}`}
-              onClick={() => handleMenuClick('view')}
+              className={`menu-item-btn ${activeMenu === 'build' ? 'active' : ''}`}
+              onClick={() => handleMenuClick('build')}
+              aria-haspopup="true"
+              aria-expanded={activeMenu === 'build'}
+              title="Build, Circuit Modes, Components & Custom IC Studio"
             >
-              View ▾
+              Build & Labs ▾
             </button>
-            {activeMenu === 'view' && (
-              <div className="menu-dropdown">
+            {activeMenu === 'build' && (
+              <div className="menu-dropdown" role="menu">
                 <button
                   type="button"
                   className="dropdown-item"
                   onClick={() => {
-                    onResetViewport?.();
+                    onViewChange('hardware');
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Fit Circuit / Reset View</span>
-                  <span className="dropdown-shortcut">100%</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconBoard size={14} /> Trainer Board Mode
+                  </span>
                 </button>
                 <button
                   type="button"
                   className="dropdown-item"
                   onClick={() => {
-                    onZoomIn?.();
+                    onViewChange('circuit');
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Zoom In</span>
-                  <span className="dropdown-shortcut">+</span>
-                </button>
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={() => {
-                    onZoomOut?.();
-                    closeMenu();
-                  }}
-                >
-                  <span>Zoom Out</span>
-                  <span className="dropdown-shortcut">-</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconSchematic size={14} /> Schematic Mode
+                  </span>
                 </button>
                 <div className="dropdown-divider" />
                 <button
@@ -415,55 +462,96 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onToggleLibrary?.();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Toggle Component Library</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconChip size={14} /> Component Library
+                  </span>
                 </button>
                 <button
                   type="button"
                   className="dropdown-item"
                   onClick={() => {
-                    onToggleInspector?.();
+                    onOpenCustomIC();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Toggle Inspector Panel</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconCustomIC size={14} /> Custom IC Packaging Builder...
+                  </span>
                 </button>
                 <div className="dropdown-divider" />
                 <button
                   type="button"
                   className="dropdown-item"
                   onClick={() => {
-                    onViewChange('hardware');
+                    onOpenLabPresets();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Trainer Board Mode</span>
+                  <span>Lab Experiments & Presets...</span>
                 </button>
                 <button
                   type="button"
                   className="dropdown-item"
                   onClick={() => {
-                    onViewChange('circuit');
+                    onResetViewport?.();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Schematic Mode</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconFit size={14} /> Fit Circuit to Viewport
+                  </span>
+                  <span className="dropdown-shortcut">F</span>
+                </button>
+                {onToggleInspector && (
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      onToggleInspector();
+                      closeMenu();
+                    }}
+                    role="menuitem"
+                  >
+                    <span>Toggle Inspector Panel</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    onOpenShortcuts();
+                    closeMenu();
+                  }}
+                  role="menuitem"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconHelp size={14} /> Keyboard Shortcuts Reference
+                  </span>
+                  <span className="dropdown-shortcut">?</span>
                 </button>
               </div>
             )}
           </div>
 
-          {/* SIMULATION MENU */}
+          {/* 3. SIMULATE MENU */}
           <div className="menu-item-wrapper">
             <button
               type="button"
               className={`menu-item-btn ${activeMenu === 'simulation' ? 'active' : ''}`}
               onClick={() => handleMenuClick('simulation')}
+              aria-haspopup="true"
+              aria-expanded={activeMenu === 'simulation'}
+              title="Simulation Controls & Clock Speeds"
             >
-              Simulation ▾
+              Simulate ▾
             </button>
             {activeMenu === 'simulation' && (
-              <div className="menu-dropdown">
+              <div className="menu-dropdown" role="menu">
                 <button
                   type="button"
                   className="dropdown-item"
@@ -471,8 +559,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onToggleRun();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>{isRunning ? 'Pause Simulation' : 'Run Simulation'}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {isRunning ? <IconPause size={14} /> : <IconPlay size={14} />}
+                    {isRunning ? 'Pause Simulation' : 'Run Simulation'}
+                  </span>
                   <span className="dropdown-shortcut">Space</span>
                 </button>
                 <button
@@ -482,8 +574,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onStep();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Single Step Clock Tick</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconStep size={14} /> Single Step Clock Tick
+                  </span>
                   <span className="dropdown-shortcut">T</span>
                 </button>
                 <button
@@ -493,8 +588,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onReset();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Reset States</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconReset size={14} /> Reset Simulation States
+                  </span>
                 </button>
                 <div className="dropdown-divider" />
                 <div className="dropdown-header">Clock Speed</div>
@@ -505,6 +603,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onClockHzChange(0.5);
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>0.5 Hz (Slow)</span>
                 </button>
@@ -515,6 +614,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onClockHzChange(1);
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>1.0 Hz (Standard)</span>
                 </button>
@@ -525,6 +625,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onClockHzChange(2);
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>2.0 Hz</span>
                 </button>
@@ -535,6 +636,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onClockHzChange(5);
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>5.0 Hz</span>
                 </button>
@@ -545,6 +647,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onClockHzChange(10);
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
                   <span>10.0 Hz (Fast)</span>
                 </button>
@@ -552,17 +655,33 @@ export const TopBar: React.FC<TopBarProps> = ({
             )}
           </div>
 
-          {/* ANALYSIS MENU */}
+          {/* 4. ANALYZE MENU */}
           <div className="menu-item-wrapper">
             <button
               type="button"
               className={`menu-item-btn ${activeMenu === 'analysis' ? 'active' : ''}`}
               onClick={() => handleMenuClick('analysis')}
+              aria-haspopup="true"
+              aria-expanded={activeMenu === 'analysis'}
+              title="Circuit Analysis, Truth Tables & Waveforms"
             >
-              Analysis ▾
+              Analyze ▾
             </button>
             {activeMenu === 'analysis' && (
-              <div className="menu-dropdown">
+              <div className="menu-dropdown" role="menu">
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    onViewChange('analysis');
+                    closeMenu();
+                  }}
+                  role="menuitem"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconChart size={14} /> Full Analysis Workspace View
+                  </span>
+                </button>
                 <button
                   type="button"
                   className="dropdown-item"
@@ -570,8 +689,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onOpenTruthTable();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Truth Table & State Analyzer...</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconTable size={14} /> Truth Table & State Analyzer...
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -580,73 +702,18 @@ export const TopBar: React.FC<TopBarProps> = ({
                     onOpenWaveform();
                     closeMenu();
                   }}
+                  role="menuitem"
                 >
-                  <span>Oscilloscope Waveform Scope...</span>
-                </button>
-                <div className="dropdown-divider" />
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={() => {
-                    onViewChange('analysis');
-                    closeMenu();
-                  }}
-                >
-                  <span>Full Analysis Workspace View</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* LABS MENU */}
-          <div className="menu-item-wrapper">
-            <button
-              type="button"
-              className={`menu-item-btn ${activeMenu === 'labs' ? 'active' : ''}`}
-              onClick={() => handleMenuClick('labs')}
-            >
-              Labs ▾
-            </button>
-            {activeMenu === 'labs' && (
-              <div className="menu-dropdown">
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={() => {
-                    onOpenLabPresets();
-                    closeMenu();
-                  }}
-                >
-                  <span>Lab Experiments & Presets...</span>
-                </button>
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={() => {
-                    onOpenCustomIC();
-                    closeMenu();
-                  }}
-                >
-                  <span>Custom IC Packaging Builder...</span>
-                </button>
-                <div className="dropdown-divider" />
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={() => {
-                    onOpenShortcuts();
-                    closeMenu();
-                  }}
-                >
-                  <span>Keyboard Shortcuts Reference</span>
-                  <span className="dropdown-shortcut">?</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconWaveform size={14} /> Oscilloscope Waveform Scope...
+                  </span>
                 </button>
               </div>
             )}
           </div>
         </nav>
 
-        {/* Project Name Input */}
+        {/* Project Name Editable Input */}
         <div className="project-title-container">
           <input
             type="text"
@@ -655,23 +722,28 @@ export const TopBar: React.FC<TopBarProps> = ({
             onChange={(e) => onProjectNameChange?.(e.target.value)}
             title="Click to rename project"
             placeholder="Untitled Circuit"
+            aria-label="Project Name"
           />
           {isDirty && <div className="unsaved-dot" title="Unsaved changes" />}
         </div>
       </div>
 
       {/* -------------------------------------------------------------------
-          RIGHT: Primary Actions (Run, Step, Clock, Zoom, Save, Theme, User)
+          RIGHT: Primary Controls (Run, Step, Reset, Clock, Zoom, Save, Theme, User)
           ------------------------------------------------------------------- */}
       <div className="topbar-right">
-        {/* Run / Pause Primary Button */}
+        {/* Run / Pause Primary Simulation Button */}
         <button
           type="button"
           className={`shell-btn ${isRunning ? 'running pulse' : 'primary'}`}
           onClick={onToggleRun}
           title="Toggle Simulation Run/Pause (Space)"
+          aria-label={isRunning ? 'Pause Simulation' : 'Run Simulation'}
         >
-          <span>{isRunning ? '⏸ Pause' : '▶ Simulate'}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {isRunning ? <IconPause size={14} /> : <IconPlay size={14} />}
+            <span>{isRunning ? 'Pause' : 'Simulate'}</span>
+          </span>
         </button>
 
         {/* Single Step Tick */}
@@ -680,8 +752,9 @@ export const TopBar: React.FC<TopBarProps> = ({
           className="shell-btn icon-only"
           onClick={onStep}
           title="Single Clock Step (T)"
+          aria-label="Single Step Clock Tick"
         >
-          ⏭
+          <IconStep size={15} />
         </button>
 
         {/* Reset Simulation State */}
@@ -690,16 +763,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           className="shell-btn icon-only"
           onClick={onReset}
           title="Reset Simulation State"
+          aria-label="Reset Simulation State"
         >
-          🔄
+          <IconReset size={15} />
         </button>
 
-        {/* Clock Frequency Quick Selector */}
+        {/* Clock Frequency Selector */}
         <div className="clock-quick-selector" title="Clock Frequency">
           <select
             className="clock-select-badge"
             value={clockHz}
             onChange={(e) => onClockHzChange(Number(e.target.value))}
+            aria-label="Clock Frequency"
           >
             <option value={0.5}>0.5 Hz</option>
             <option value={1}>1.0 Hz</option>
@@ -710,12 +785,13 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Zoom Controls */}
-        <div className="zoom-controls-group">
+        <div className="zoom-controls-group" role="group" aria-label="Zoom Controls">
           <button
             type="button"
             className="zoom-btn"
             onClick={onZoomOut}
             title="Zoom Out (-)"
+            aria-label="Zoom Out"
           >
             -
           </button>
@@ -723,7 +799,8 @@ export const TopBar: React.FC<TopBarProps> = ({
             type="button"
             className="zoom-btn zoom-level"
             onClick={onResetViewport}
-            title="Reset Zoom (100%)"
+            title="Reset Zoom to 100%"
+            aria-label="Reset Zoom"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -732,6 +809,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="zoom-btn"
             onClick={onZoomIn}
             title="Zoom In (+)"
+            aria-label="Zoom In"
           >
             +
           </button>
@@ -743,18 +821,20 @@ export const TopBar: React.FC<TopBarProps> = ({
           className="shell-btn icon-only"
           onClick={onSaveCircuit}
           title="Save Circuit (.deld)"
+          aria-label="Save Circuit"
         >
-          💾
+          <IconSave size={15} />
         </button>
 
-        {/* Sound Toggle */}
+        {/* Sound Effects Toggle */}
         <button
           type="button"
           className="shell-btn icon-only"
           onClick={onToggleSound}
           title={soundEnabled ? 'Audio Sound Effects: Enabled' : 'Audio Sound Effects: Muted'}
+          aria-label={soundEnabled ? 'Mute Sound Effects' : 'Enable Sound Effects'}
         >
-          {soundEnabled ? '🔊' : '🔇'}
+          {soundEnabled ? <IconVolume size={15} /> : <IconMute size={15} />}
         </button>
 
         {/* Theme Toggle */}
@@ -763,18 +843,23 @@ export const TopBar: React.FC<TopBarProps> = ({
           className="shell-btn icon-only"
           onClick={onToggleTheme}
           title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+          aria-label="Toggle Theme"
         >
-          {theme === 'dark' ? '☀️' : '🌙'}
+          {theme === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
         </button>
 
-        {/* User Account / Profile */}
+        {/* User Account Button */}
         <button
           type="button"
           className="shell-btn user-btn"
           onClick={onOpenAuth}
           title={currentUser ? `Signed in as @${currentUser.username}` : 'Sign In / Register'}
+          aria-label="User Account"
         >
-          <span>👤 {currentUser ? currentUser.displayName : 'Account'}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <IconUser size={14} />
+            <span>{currentUser ? currentUser.displayName : 'Account'}</span>
+          </span>
         </button>
       </div>
     </header>

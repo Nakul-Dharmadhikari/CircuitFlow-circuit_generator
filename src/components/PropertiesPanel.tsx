@@ -2,6 +2,19 @@ import React, { useState } from 'react';
 import type { Circuit, CircuitComponent, Wire } from '../types/circuit';
 import { getComponentDisplayName } from '../engine/simulator';
 import type { TrainerBoardModel, TrainerModuleConfig } from '../engine/trainer/trainerBoardModel';
+import {
+  IconGear,
+  IconChart,
+  IconWire,
+  IconBoard,
+  IconRotate,
+  IconTrash,
+  IconEject,
+  IconPlay,
+  IconPause,
+  IconStep,
+  IconReset,
+} from './icons/AppIcons';
 
 interface PropertiesPanelProps {
   circuit?: Circuit;
@@ -55,8 +68,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onDeleteWire,
   onAddModule,
   onRemoveModule,
-  onCopyBoard,
-  onDeleteBoard,
+  onCopyBoard: _onCopyBoard,
+  onDeleteBoard: _onDeleteBoard,
   onRemoveBoard,
   isTrainerMode = true,
   clockHz = 1,
@@ -83,7 +96,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const activeBoard: TrainerBoardModel | undefined =
     circuit?.trainerBoards?.find(
       (b) =>
-        b.id === (selectedBoardId || (selectedBoardIndex !== undefined && selectedBoardIndex !== null ? `board_${selectedBoardIndex + 1}` : 'board_1'))
+        b.id ===
+        (selectedBoardId ||
+          (selectedBoardIndex !== undefined && selectedBoardIndex !== null
+            ? `board_${selectedBoardIndex + 1}`
+            : 'board_1'))
     ) || circuit?.trainerBoards?.[0];
 
   const activeModule: TrainerModuleConfig | undefined = activeBoard?.modules.find(
@@ -97,10 +114,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         className="properties-panel collapsed"
         onClick={() => setIsCollapsed(false)}
         title="Expand Inspector Panel"
+        role="button"
+        tabIndex={0}
       >
-        <button type="button" className="panel-expand-btn">
-          <span>⚙️ INSPECTOR</span>
-          <span style={{ fontSize: '10px' }}>◀</span>
+        <button type="button" className="panel-expand-btn" aria-label="Expand Inspector">
+          <IconGear size={14} style={{ marginRight: 4 }} />
+          <span>INSPECTOR</span>
+          <span style={{ fontSize: '10px', marginLeft: 4 }}>◀</span>
         </button>
       </div>
     );
@@ -125,7 +145,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <aside className="properties-panel-dock properties-panel" aria-label="Component Inspector">
         <div className="panel-header">
           <div className="panel-header-title" title={typeName}>
-            <span className="panel-icon">⚙️</span>
+            <IconGear size={16} className="panel-icon" />
             <span>COMPONENT INSPECTOR</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -134,11 +154,18 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               className="panel-min-btn"
               onClick={() => setIsCollapsed(true)}
               title="Minimize panel"
+              aria-label="Minimize panel"
             >
               ─
             </button>
             {onClose && (
-              <button type="button" className="panel-close-btn" onClick={onClose} title="Close Inspector">
+              <button
+                type="button"
+                className="panel-close-btn"
+                onClick={onClose}
+                title="Close Inspector"
+                aria-label="Close Inspector"
+              >
                 ✕
               </button>
             )}
@@ -159,97 +186,31 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
           {/* Component Custom Label */}
           <div className="property-row">
-            <div className="property-label-row">
-              <label className="property-label">Custom Label</label>
-              {activeComp.isCustomLabel && activeComp.label ? (
-                <span className="property-hint active">● Active</span>
-              ) : (
-                <span className="property-hint">(Default)</span>
-              )}
-            </div>
+            <label className="property-label">Label</label>
             <input
               type="text"
               className="property-input"
-              value={activeComp.isCustomLabel ? activeComp.label : ''}
-              placeholder="e.g. U1, CLK_0, MUX_A..."
+              value={activeComp.label}
               onChange={(e) => onUpdateLabel(activeComp.id, e.target.value)}
+              placeholder="e.g. U1, AND1, CLK"
+              aria-label="Component Label"
             />
           </div>
 
-          {/* Position Coordinates in World Space */}
-          <div className="property-row">
-            <label className="property-label">Position (World Coordinates)</label>
-            <div className="property-coords-grid">
-              <div className="coord-box">
-                <span className="coord-label">X:</span>
-                <span className="coord-val">{Math.round(activeComp.x)}px</span>
-              </div>
-              <div className="coord-box">
-                <span className="coord-label">Y:</span>
-                <span className="coord-val">{Math.round(activeComp.y)}px</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Rotation Control */}
-          {onRotateComponent && (
-            <div className="property-row">
-              <label className="property-label">Orientation</label>
-              <button
-                type="button"
-                className="panel-action-btn rotate-btn"
-                disabled={activeComp.isTrainerFixed || isMountedIC}
-                style={
-                  activeComp.isTrainerFixed || isMountedIC
-                    ? { opacity: 0.5, cursor: 'not-allowed' }
-                    : undefined
-                }
-                onClick={() =>
-                  !activeComp.isTrainerFixed && !isMountedIC && onRotateComponent(activeComp.id)
-                }
-                title={
-                  isMountedIC
-                    ? 'Rotation is locked for socket-mounted ICs'
-                    : activeComp.isTrainerFixed
-                    ? 'Rotation is locked for trainer hardware'
-                    : 'Rotate component 90°'
-                }
-              >
-                🔄 Rotate 90° (Current: {activeComp.rotation || 0}°)
-              </button>
-            </div>
-          )}
-
-          {/* Mounted IC Socket Ownership Status */}
-          {isMountedIC && (
-            <div className="property-row">
-              <label className="property-label">Mount Status</label>
-              <div className="property-coords-grid" style={{ gridTemplateColumns: '1fr' }}>
-                <div className="coord-box" style={{ padding: '6px 8px', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                  <span className="socket-lock-indicator" style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}>
-                    🔒 Socket-Locked (Non-Draggable)
-                  </span>
-                  <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
-                    Mounted on {activeComp.customProps?.trainerMount?.slotLabel || 'IC Socket'} ({activeBoard?.name || 'Trainer Board'})
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Clock Frequency Selector if Clock */}
+          {/* Clock Frequency Setting (if clock component) */}
           {activeComp.type === 'clock' && (
             <div className="property-row">
               <label className="property-label">Clock Frequency</label>
               <select
-                className="select-input property-input"
-                value={activeComp.customProps?.frequency || 1}
+                className="property-select"
+                value={activeComp.customProps?.frequency ?? 1}
                 onChange={(e) =>
                   onUpdateProps(activeComp.id, {
                     ...activeComp.customProps,
                     frequency: Number(e.target.value),
                   })
                 }
+                aria-label="Clock Frequency"
               >
                 <option value={0.5}>0.5 Hz (Slow Pulse)</option>
                 <option value={1}>1 Hz (Standard 1 sec)</option>
@@ -293,42 +254,111 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </div>
           </div>
 
-          {/* Eject from Socket Button for Mounted ICs */}
-          {isMountedIC && onRequestEjectIC && (
-            <button
-              type="button"
-              className="panel-action-btn eject-panel-btn"
-              style={{
-                background: 'rgba(217, 119, 54, 0.15)',
-                borderColor: '#d97736',
-                color: '#f59e0b',
-                marginTop: '6px',
-                fontWeight: 600,
-              }}
-              onClick={() => {
-                const baseIdx = activeComp.customProps?.trainerMount?.baseIndex ?? 0;
-                onRequestEjectIC(baseIdx, activeComp.id);
-              }}
-            >
-              ⏏ Eject from Socket {activeComp.customProps?.trainerMount?.slotLabel || ''}
-            </button>
+          {/* Rotation Control */}
+          {onRotateComponent && (
+            <div className="property-row">
+              <label className="property-label">Orientation</label>
+              <button
+                type="button"
+                className="panel-action-btn rotate-btn"
+                disabled={activeComp.isTrainerFixed || isMountedIC}
+                style={
+                  activeComp.isTrainerFixed || isMountedIC
+                    ? { opacity: 0.5, cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
+                    : { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
+                }
+                onClick={() =>
+                  !activeComp.isTrainerFixed && !isMountedIC && onRotateComponent(activeComp.id)
+                }
+                title={
+                  isMountedIC
+                    ? 'Rotation is locked for socket-mounted ICs'
+                    : activeComp.isTrainerFixed
+                    ? 'Rotation is locked for trainer hardware'
+                    : 'Rotate component 90° (R)'
+                }
+              >
+                <IconRotate size={14} />
+                <span>Rotate 90° (R)</span>
+              </button>
+            </div>
           )}
 
-          {/* Delete Component Button */}
+          {/* Mounted IC Status Notice and Safe Eject Button */}
+          {isMountedIC && (
+            <div className="property-row" style={{ marginTop: 8 }}>
+              <div
+                className="property-coords-grid"
+                style={{ gridTemplateColumns: '1fr', marginBottom: 6 }}
+              >
+                <div
+                  className="coord-box"
+                  style={{
+                    padding: '6px 8px',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: '2px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                    borderRadius: '4px',
+                  }}
+                >
+                  <span
+                    className="socket-lock-indicator"
+                    style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}
+                  >
+                    🔒 Socket-Locked (Non-Draggable)
+                  </span>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                    Mounted on {activeComp.customProps?.trainerMount?.slotLabel || 'IC Socket'} ({activeBoard?.name || 'Trainer Board'})
+                  </span>
+                </div>
+              </div>
+
+              {onRequestEjectIC && (
+                <button
+                  type="button"
+                  className="panel-action-btn eject-panel-btn"
+                  style={{
+                    background: 'rgba(217, 119, 54, 0.15)',
+                    borderColor: '#d97736',
+                    color: '#f59e0b',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                  onClick={() => {
+                    const baseIdx = activeComp.customProps?.trainerMount?.baseIndex ?? 0;
+                    onRequestEjectIC(baseIdx, activeComp.id);
+                  }}
+                >
+                  <IconEject size={14} />
+                  <span>Eject from Socket {activeComp.customProps?.trainerMount?.slotLabel || ''}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Free Component Actions (Delete) */}
           {!activeComp.isTrainerFixed && !isMountedIC && (
-            <button
-              type="button"
-              className="panel-danger-btn"
-              onClick={() => {
-                if (onRequestDeleteComponent) {
-                  onRequestDeleteComponent(activeComp.id);
-                } else {
-                  onDeleteComponent(activeComp.id);
-                }
-              }}
-            >
-              🗑️ Delete Component
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+              <button
+                type="button"
+                className="panel-danger-btn"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                onClick={() => {
+                  if (onRequestDeleteComponent) {
+                    onRequestDeleteComponent(activeComp.id);
+                  } else {
+                    onDeleteComponent(activeComp.id);
+                  }
+                }}
+              >
+                <IconTrash size={14} />
+                <span>Delete Component</span>
+              </button>
+            </div>
           )}
         </div>
       </aside>
@@ -343,7 +373,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <aside className="properties-panel-dock properties-panel" aria-label="Wire Inspector">
         <div className="panel-header">
           <div className="panel-header-title">
-            <span className="panel-icon">⚡</span>
+            <IconWire size={16} className="panel-icon" />
             <span>WIRE INSPECTOR</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -352,11 +382,18 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               className="panel-min-btn"
               onClick={() => setIsCollapsed(true)}
               title="Minimize panel"
+              aria-label="Minimize panel"
             >
               ─
             </button>
             {onClose && (
-              <button type="button" className="panel-close-btn" onClick={onClose} title="Close Inspector">
+              <button
+                type="button"
+                className="panel-close-btn"
+                onClick={onClose}
+                title="Close Inspector"
+                aria-label="Close Inspector"
+              >
                 ✕
               </button>
             )}
@@ -401,9 +438,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <button
               type="button"
               className="panel-danger-btn"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 }}
               onClick={() => onDeleteWire(selectedWire.id)}
             >
-              🗑️ Delete Wire
+              <IconTrash size={14} />
+              <span>Delete Wire</span>
             </button>
           )}
         </div>
@@ -419,7 +458,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <aside className="properties-panel-dock properties-panel" aria-label="Trainer Module Inspector">
         <div className="panel-header">
           <div className="panel-header-title">
-            <span className="panel-icon">🧩</span>
+            <IconBoard size={16} className="panel-icon" />
             <span>MODULE INSPECTOR</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -428,11 +467,18 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               className="panel-min-btn"
               onClick={() => setIsCollapsed(true)}
               title="Minimize panel"
+              aria-label="Minimize panel"
             >
               ─
             </button>
             {onClose && (
-              <button type="button" className="panel-close-btn" onClick={onClose} title="Close Inspector">
+              <button
+                type="button"
+                className="panel-close-btn"
+                onClick={onClose}
+                title="Close Inspector"
+                aria-label="Close Inspector"
+              >
                 ✕
               </button>
             )}
@@ -449,26 +495,31 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
 
           <div className="property-row">
-            <label className="property-label">Module Specifications</label>
-            <div className="overview-stats-grid">
-              <div className="overview-stat-tile">
-                <span className="stat-label">IC Sockets</span>
-                <span className="stat-value">{activeModule.icCount}</span>
-              </div>
-              <div className="overview-stat-tile">
-                <span className="stat-label">Inputs</span>
-                <span className="stat-value">{activeModule.inputCount}</span>
-              </div>
+            <label className="property-label">Module Hardware Capacity</label>
+            <div className="property-badge-box">
+              <span>{activeModule.icCount} IC Sockets • {activeModule.inputCount} Toggle Switches</span>
             </div>
           </div>
 
-          {(onRequestRemoveModule || onRemoveModule) && activeModule.index > 0 && (
+          {onAddModule && (
+            <button
+              type="button"
+              className="panel-action-btn"
+              style={{ marginTop: '8px' }}
+              onClick={onAddModule}
+            >
+              ➕ Add Another Module
+            </button>
+          )}
+
+          {activeModule.index > 0 && (
             <button
               type="button"
               className="panel-danger-btn"
+              style={{ marginTop: '6px' }}
               onClick={() => {
-                if (onRequestRemoveModule) {
-                  onRequestRemoveModule(activeBoard?.id || 'board_1', activeModule.id);
+                if (onRequestRemoveModule && activeBoard) {
+                  onRequestRemoveModule(activeBoard.id, activeModule.id);
                 } else if (onRemoveModule) {
                   onRemoveModule(activeModule.id);
                 }
@@ -481,9 +532,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <button
             type="button"
             className="panel-action-btn"
-            onClick={() => onSelectModule?.(null)}
+            style={{ marginTop: '8px' }}
+            onClick={() => {
+              onSelectModule?.(null);
+            }}
           >
-            ← Back to Trainer Board
+            ← Back to Board
           </button>
         </div>
       </aside>
@@ -491,19 +545,15 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   }
 
   // ---------------------------------------------------------------------------
-  // 4. TRAINER BOARD INSPECTOR (When a board or board index is selected)
+  // 4. TRAINER BOARD INSPECTOR (When a trainer board is selected)
   // ---------------------------------------------------------------------------
-  if (selectedBoardId || selectedBoardIndex !== undefined && selectedBoardIndex !== null) {
-    const boardName = activeBoard?.name || `Digital Trainer Kit #${(selectedBoardIndex ?? 0) + 1}`;
-    const totalSlots = activeBoard?.icSlots.length || 4;
-    const totalInputs = activeBoard?.modules.reduce((acc, m) => acc + m.inputCount, 0) || 16;
-
+  if (selectedBoardIndex !== null && selectedBoardIndex !== undefined && activeBoard) {
     return (
       <aside className="properties-panel-dock properties-panel" aria-label="Trainer Board Inspector">
         <div className="panel-header">
           <div className="panel-header-title">
-            <span className="panel-icon">📟</span>
-            <span>TRAINER BOARD</span>
+            <IconBoard size={16} className="panel-icon" />
+            <span>TRAINER BOARD #{selectedBoardIndex + 1}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <button
@@ -511,11 +561,18 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               className="panel-min-btn"
               onClick={() => setIsCollapsed(true)}
               title="Minimize panel"
+              aria-label="Minimize panel"
             >
               ─
             </button>
             {onClose && (
-              <button type="button" className="panel-close-btn" onClick={onClose} title="Close Inspector">
+              <button
+                type="button"
+                className="panel-close-btn"
+                onClick={onClose}
+                title="Close Inspector"
+                aria-label="Close Inspector"
+              >
                 ✕
               </button>
             )}
@@ -524,83 +581,65 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         <div className="panel-body">
           <div className="property-row">
-            <label className="property-label">Board Unit</label>
+            <label className="property-label">Board Identifier</label>
             <div className="property-badge-box">
-              <span style={{ color: 'var(--signal-high)' }}>●</span>
-              <span>{boardName}</span>
+              <span>{activeBoard.name || `Trainer Board #${selectedBoardIndex + 1}`}</span>
+              <span className="property-tag-badge">DC 5V VCC</span>
             </div>
           </div>
 
           <div className="property-row">
-            <label className="property-label">Hardware Specifications</label>
-            <div className="overview-stats-grid">
-              <div className="overview-stat-tile">
-                <span className="stat-label">IC Sockets</span>
-                <span className="stat-value">{totalSlots}</span>
-              </div>
-              <div className="overview-stat-tile">
-                <span className="stat-label">Inputs</span>
-                <span className="stat-value">{totalInputs}</span>
-              </div>
-              <div className="overview-stat-tile">
-                <span className="stat-label">Outputs</span>
-                <span className="stat-value">16</span>
-              </div>
+            <label className="property-label">Total Installed Modules</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {activeBoard.modules.map((m) => (
+                <div
+                  key={m.id}
+                  className="property-badge-box"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => onSelectModule?.(m.id)}
+                  title="Click to inspect module"
+                >
+                  <span>{m.name}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    {m.icCount} Sockets, {m.inputCount} Inputs →
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Module Expansion Button */}
           {onAddModule && (
-            <div className="property-row">
-              <label className="property-label">Expand Chassis</label>
-              <button
-                type="button"
-                className="panel-action-btn"
-                onClick={onAddModule}
-              >
-                ➕ Extend Board (+ Module)
-              </button>
-            </div>
+            <button
+              type="button"
+              className="panel-action-btn"
+              style={{ marginTop: '8px' }}
+              onClick={onAddModule}
+            >
+              ➕ Extend Board (+ Module)
+            </button>
           )}
 
-          {/* Actions */}
-          <div className="property-row">
-            <label className="property-label">Board Actions</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {onCopyBoard && (
-                <button
-                  type="button"
-                  className="panel-action-btn"
-                  onClick={() => onCopyBoard(activeBoard?.id || selectedBoardIndex || 0)}
-                >
-                  📋 Duplicate Board
-                </button>
-              )}
-              {(onDeleteBoard || onRemoveBoard || onRequestDeleteBoard) && (circuit?.trainerBoards || []).length > 1 && (
-                <button
-                  type="button"
-                  className="panel-danger-btn"
-                  onClick={() => {
-                    const boardId = activeBoard?.id || `board_${(selectedBoardIndex || 0) + 1}`;
-                    if (onRequestDeleteBoard) {
-                      onRequestDeleteBoard(selectedBoardIndex || 0, boardId);
-                    } else if (onDeleteBoard) {
-                      onDeleteBoard(boardId);
-                    } else if (onRemoveBoard && selectedBoardIndex !== null && selectedBoardIndex !== undefined) {
-                      onRemoveBoard(selectedBoardIndex);
-                    }
-                  }}
-                >
-                  🗑️ Delete Board
-                </button>
-              )}
-            </div>
-          </div>
+          {selectedBoardIndex > 0 && (
+            <button
+              type="button"
+              className="panel-danger-btn"
+              style={{ marginTop: '8px' }}
+              onClick={() => {
+                if (onRequestDeleteBoard) {
+                  onRequestDeleteBoard(selectedBoardIndex, activeBoard.id);
+                } else if (onRemoveBoard) {
+                  onRemoveBoard(selectedBoardIndex);
+                }
+              }}
+            >
+              🗑️ Remove This Board
+            </button>
+          )}
 
           <button
             type="button"
             className="panel-action-btn"
-            style={{ marginTop: '4px' }}
+            style={{ marginTop: '8px' }}
             onClick={() => {
               onSelectBoard?.(null);
             }}
@@ -628,7 +667,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     <aside className="properties-panel-dock properties-panel" aria-label="Properties Inspector">
       <div className="panel-header">
         <div className="panel-header-title">
-          <span className="panel-icon">📊</span>
+          <IconChart size={16} className="panel-icon" />
           <span>CIRCUIT OVERVIEW</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -637,11 +676,17 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             className="panel-min-btn"
             onClick={() => setIsCollapsed(true)}
             title="Minimize panel"
+            aria-label="Minimize panel"
           >
             ─
           </button>
           {onClose && (
-            <button className="panel-close-btn" onClick={onClose} title="Collapse Properties Panel">
+            <button
+              className="panel-close-btn"
+              onClick={onClose}
+              title="Collapse Properties Panel"
+              aria-label="Collapse Properties Panel"
+            >
               ✕
             </button>
           )}
@@ -681,7 +726,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
         </div>
 
-        {/* Operating Mode */}
+        {/* Operating Environment */}
         <div className="property-row">
           <label className="property-label">Operating Environment</label>
           <div className="property-badge-box">
@@ -693,7 +738,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
         </div>
 
-        {/* Trainer Board Hardware Summary & Inspect button */}
+        {/* Trainer Board Hardware Card */}
         {activeBoard && isTrainerMode && (
           <div className="property-row">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -706,10 +751,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               className="trainer-board-card-button"
               onClick={() => onSelectBoard?.(activeBoard.id)}
               title="Click to inspect Trainer Board"
+              role="button"
+              tabIndex={0}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                  📟 {activeBoard.name || 'Trainer Board'}
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <IconBoard size={14} />
+                  <span>{activeBoard.name || 'Trainer Board'}</span>
                 </span>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Inspect →</span>
               </div>
@@ -740,8 +788,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 type="button"
                 className={`panel-action-btn ${isRunning ? 'active' : ''}`}
                 onClick={onToggleRun}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
               >
-                {isRunning ? '⏸ Pause' : '▶ Simulate'}
+                {isRunning ? <IconPause size={13} /> : <IconPlay size={13} />}
+                <span>{isRunning ? 'Pause' : 'Simulate'}</span>
               </button>
             )}
             {onStep && (
@@ -749,8 +799,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 type="button"
                 className="panel-action-btn"
                 onClick={onStep}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
               >
-                ⏭ Step
+                <IconStep size={13} />
+                <span>Step</span>
               </button>
             )}
             {onReset && (
@@ -758,8 +810,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 type="button"
                 className="panel-action-btn"
                 onClick={onReset}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
               >
-                🔄 Reset
+                <IconReset size={13} />
+                <span>Reset</span>
               </button>
             )}
             {onClearCanvas && (
@@ -767,8 +821,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 type="button"
                 className="panel-danger-btn"
                 onClick={onClearCanvas}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
               >
-                Clear
+                <IconTrash size={13} />
+                <span>Clear</span>
               </button>
             )}
           </div>

@@ -78,6 +78,8 @@ interface CanvasProps {
   onTogglePower?: () => void;
   onOpenCustomICStudio?: (comp: CircuitComponent) => void;
   onToggleLockComponent?: (compId: string) => void;
+  pendingPlacementType?: ComponentType | null;
+  onClearPendingPlacement?: () => void;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -142,6 +144,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   onTogglePower,
   onOpenCustomICStudio,
   onToggleLockComponent,
+  pendingPlacementType,
+  onClearPendingPlacement,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mouseWorldPosRef = useRef<Point>({ x: 300, y: 300 });
@@ -387,6 +391,19 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Compound Mouse Handlers
   const onMouseDown = (e: React.MouseEvent) => {
     if (activeContextMenu) setActiveContextMenu(null);
+
+    // If a component was selected from library for placement, click on canvas places it
+    if (pendingPlacementType && e.button === 0 && !isSpacePressed && toolMode !== 'pan') {
+      const world = screenToWorldCoord({ x: e.clientX, y: e.clientY });
+      const snappedPos = {
+        x: Math.round(world.x / 10) * 10,
+        y: Math.round(world.y / 10) * 10,
+      };
+      onDropComponent?.(pendingPlacementType, snappedPos);
+      onClearPendingPlacement?.();
+      return;
+    }
+
     handleCanvasMouseDown(e);
   };
 
@@ -466,13 +483,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         onToggleLibrary={() => {
           onToggleLibrary();
           soundFx.playButtonTap();
-        }}
-        selectedWireId={selectedWireId || null}
-        onDeleteSelectedWire={() => {
-          if (selectedWireId) {
-            onDeleteWire(selectedWireId);
-            soundFx.playButtonTap();
-          }
         }}
         onSelectAll={() => {
           onSelectAll?.();
@@ -1041,6 +1051,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             onModuleContextMenu={handleModuleContextMenu}
             selectedBoardId={selectedBoardId}
             selectedModuleId={selectedModuleId}
+            isDeleteMode={toolMode === 'delete'}
           />
         )}
 
@@ -1084,7 +1095,25 @@ export const Canvas: React.FC<CanvasProps> = ({
                 comp.id === selectedCompId ||
                 selectedCompIds.includes(comp.id)
             )}
-            onSelect={(id, e) => handleComponentDragStart(id, e)}
+            onSelect={(id, e) => {
+              if (toolMode === 'delete') {
+                e.stopPropagation();
+                const target = circuit.components.find((c) => c.id === id);
+                if (!target) return;
+                if (target.isTrainerFixed && !target.customProps?.trainerMount) {
+                  return;
+                }
+                if (target.customProps?.trainerMount) {
+                  onRequestEjectIC?.(target.customProps.trainerMount.baseIndex, target.id);
+                } else if (onRequestDeleteComponent) {
+                  onRequestDeleteComponent(id);
+                } else {
+                  onDeleteSelected?.();
+                }
+                return;
+              }
+              handleComponentDragStart(id, e);
+            }}
             onPinMouseDown={handlePinMouseDown}
             onPinMouseUp={handlePinMouseUp}
             onToggleSwitch={onToggleSwitch}
