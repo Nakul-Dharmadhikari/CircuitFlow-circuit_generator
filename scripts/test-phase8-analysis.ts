@@ -358,30 +358,87 @@ pass('6-variable K-map correctly creates 4-layer 4x4 structure with Gray codes')
 // =============================================================================
 // TEST 6: Quine-McCluskey / Petrick's Boolean Minimization
 // =============================================================================
-console.log('\n--- 6. Quine-McCluskey Boolean Minimization ---');
+console.log('\n--- 6. Quine-McCluskey Boolean Minimization & Analytical Equivalence ---');
+
+// Evaluator helper: Evaluates an SOP expression against an assignment of variables
+function evaluateSOP(expr: string, vars: string[], assignment: Record<string, number>): number {
+  const trimmed = expr.trim();
+  if (trimmed === '1') return 1;
+  if (trimmed === '0') return 0;
+  const terms = trimmed.split(/\s*\+\s*/);
+  for (const term of terms) {
+    const literals = term.split(/\s*·\s*/);
+    let termMatches = true;
+    for (const lit of literals) {
+      if (lit.endsWith("'")) {
+        const v = lit.slice(0, -1);
+        if (assignment[v] !== 0) {
+          termMatches = false;
+          break;
+        }
+      } else {
+        const v = lit;
+        if (assignment[v] !== 1) {
+          termMatches = false;
+          break;
+        }
+      }
+    }
+    if (termMatches) return 1;
+  }
+  return 0;
+}
+
+function verifyExpressionEquivalence(vars: string[], minterms: number[], simplifiedSOP: string) {
+  const mintermSet = new Set(minterms);
+  const totalCombos = Math.pow(2, vars.length);
+  for (let m = 0; m < totalCombos; m++) {
+    const bin = m.toString(2).padStart(vars.length, '0');
+    const assignment: Record<string, number> = {};
+    vars.forEach((v, idx) => {
+      assignment[v] = parseInt(bin[idx], 10);
+    });
+    const expectedVal = mintermSet.has(m) ? 1 : 0;
+    const evaluatedVal = evaluateSOP(simplifiedSOP, vars, assignment);
+    assert.strictEqual(
+      evaluatedVal,
+      expectedVal,
+      `Expression "${simplifiedSOP}" evaluated to ${evaluatedVal} for minterm ${m} (${bin}), expected ${expectedVal}`
+    );
+  }
+}
 
 // Test 1: F(A, B) = minterms 1, 3 => F = B
 const min1 = minimizeBooleanFunction(['A', 'B'], [1, 3]);
 assert.ok(min1.simplifiedSOP, 'Should produce simplified SOP');
 assert.strictEqual(min1.simplifiedSOP.replace(/\s+/g, ''), 'B', 'Minterms {1, 3} must simplify to B');
+verifyExpressionEquivalence(['A', 'B'], [1, 3], min1.simplifiedSOP);
 
 // Test 2: F(A, B, C) = minterms 0, 1, 2, 3 => F = A'
 const min2 = minimizeBooleanFunction(['A', 'B', 'C'], [0, 1, 2, 3]);
 assert.strictEqual(min2.simplifiedSOP.replace(/\s+/g, ''), "A'", 'Minterms {0, 1, 2, 3} must simplify to A\'');
+verifyExpressionEquivalence(['A', 'B', 'C'], [0, 1, 2, 3], min2.simplifiedSOP);
 
-// Test 3: 4-variable corners: F(A, B, C, D) = minterms 0, 2, 8, 10 => F = B'D'
+// Test 3: 4-variable corners: F(A, B, C, D) = minterms 0, 2, 8, 10 => F = B'·D'
 const min3 = minimizeBooleanFunction(['A', 'B', 'C', 'D'], [0, 2, 8, 10]);
 assert.strictEqual(min3.simplifiedSOP.replace(/\s+/g, ''), "B'·D'", 'Four corners must simplify to B\'·D\'');
+verifyExpressionEquivalence(['A', 'B', 'C', 'D'], [0, 2, 8, 10], min3.simplifiedSOP);
 
-// Test 4: All 1s => F = 1
+// Test 4: Majority voter: F(A, B, C) = minterms 3, 5, 6, 7
+const minMaj = minimizeBooleanFunction(['A', 'B', 'C'], [3, 5, 6, 7]);
+verifyExpressionEquivalence(['A', 'B', 'C'], [3, 5, 6, 7], minMaj.simplifiedSOP);
+
+// Test 5: All 1s => F = 1
 const minAll = minimizeBooleanFunction(['A', 'B'], [0, 1, 2, 3]);
 assert.strictEqual(minAll.simplifiedSOP, '1', 'All minterms must simplify to 1');
+verifyExpressionEquivalence(['A', 'B'], [0, 1, 2, 3], minAll.simplifiedSOP);
 
-// Test 5: All 0s => F = 0
+// Test 6: All 0s => F = 0
 const minNone = minimizeBooleanFunction(['A', 'B'], []);
 assert.strictEqual(minNone.simplifiedSOP, '0', 'Zero minterms must simplify to 0');
+verifyExpressionEquivalence(['A', 'B'], [], minNone.simplifiedSOP);
 
-pass('Quine-McCluskey engine reliably minimizes Boolean expressions without decorative claims');
+pass('Quine-McCluskey engine expressions evaluate identically to analyzed functions for all 2^N input combinations');
 
 // =============================================================================
 // TEST 7: Discrete Timing and Waveform Progression
@@ -504,31 +561,221 @@ assert.strictEqual(failBench.results[0].mismatches[0].observed, '1');
 pass('Test bench accurately reports passes, fails, and detailed mismatch discrepancies');
 
 // =============================================================================
-// TEST 10: Circuit Diagnostics Engine
+// TEST 10: Diagnostics — Broken Wire Endpoints and Invalid Pin References
 // =============================================================================
-console.log('\n--- 10. Circuit Diagnostics Engine ---');
+console.log('\n--- 10. Diagnostics: Broken Wire Endpoints & Invalid Pin References ---');
 
-// Circuit with problems:
-// 1. Broken wire (points to nonexistent component)
-// 2. AND gate with floating inputs
 const badGate = createComponent('and', 200, 200);
 badGate.id = 'bad_and';
 
-const badWire = makeWire('broken_wire', 'nonexistent_comp', 'nonexistent_pin', 'bad_and', badGate.inputs[0].id);
+// Broken endpoint (nonexistent source component)
+const brokenWire1 = makeWire('broken_wire_src', 'nonexistent_comp', 'nonexistent_pin', 'bad_and', badGate.inputs[0].id);
 
-const brokenCircuit = createCircuit([badGate], [badWire]);
-const diag = runCircuitDiagnostics(brokenCircuit);
+// Broken pin reference (existent component, but invalid pin id)
+const validGate = createComponent('not', 50, 200);
+validGate.id = 'valid_not';
+const brokenWire2 = makeWire('broken_wire_pin', 'valid_not', 'bogus_pin_99', 'bad_and', badGate.inputs[1].id);
 
-assert.strictEqual(diag.hasErrors, true, 'Diagnostics must identify errors');
-const brokenWireIssue = diag.issues.find((i) => i.id.includes('broken_wire') || i.title.includes('Broken Wire'));
-assert.ok(brokenWireIssue, 'Must flag Broken Wire for nonexistent component');
-assert.strictEqual(brokenWireIssue!.severity, 'error');
+const brokenCircuit = createCircuit([validGate, badGate], [brokenWire1, brokenWire2]);
+const diag10 = runCircuitDiagnostics(brokenCircuit);
 
-const floatingInputIssue = diag.issues.find((i) => i.title.includes('Floating Input'));
-assert.ok(floatingInputIssue, 'Must flag Floating Input for unconnected gate pin');
-assert.strictEqual(floatingInputIssue!.severity, 'warning');
+assert.strictEqual(diag10.hasErrors, true, 'Diagnostics must flag fatal errors');
+const brokenEndpointIssue = diag10.issues.find((i) => i.code === 'INVALID_WIRE_ENDPOINT');
+assert.ok(brokenEndpointIssue, 'Must flag INVALID_WIRE_ENDPOINT');
+assert.strictEqual(brokenEndpointIssue!.severity, 'error');
 
-pass('Diagnostics engine flags broken wire endpoints, floating gate inputs, and severity levels');
+const invalidPinIssue = diag10.issues.find((i) => i.code === 'INVALID_PIN_REFERENCE');
+assert.ok(invalidPinIssue, 'Must flag INVALID_PIN_REFERENCE');
+assert.strictEqual(invalidPinIssue!.severity, 'error');
+
+pass('Diagnostics flags broken endpoints and invalid pin references as fatal errors');
+
+// =============================================================================
+// TEST 11: Diagnostics — Floating Required Inputs vs Unconnected Outputs
+// =============================================================================
+console.log('\n--- 11. Diagnostics: Floating Required Inputs vs Unconnected Outputs ---');
+
+// Unconnected gate: has 2 floating inputs, and 1 unconnected output
+const isolatedAnd = createComponent('and', 100, 100);
+isolatedAnd.id = 'iso_and';
+isolatedAnd.label = 'ISO_AND';
+
+const isoCircuit = createCircuit([isolatedAnd], []);
+const diag11 = runCircuitDiagnostics(isoCircuit);
+
+// Floating gate inputs are warnings
+const floatingInputs = diag11.issues.filter((i) => i.code === 'FLOATING_REQUIRED_INPUT');
+assert.strictEqual(floatingInputs.length, 2, 'Must flag both floating inputs on AND gate');
+assert.strictEqual(floatingInputs[0].severity, 'warning', 'Floating inputs are non-fatal warnings');
+
+// Unconnected output is info (optional)
+const unconnectedOut = diag11.issues.find((i) => i.code === 'UNCONNECTED_OUTPUT');
+assert.ok(unconnectedOut, 'Must flag unconnected output');
+assert.strictEqual(unconnectedOut!.severity, 'info', 'Unconnected outputs are informational, not fatal errors');
+
+pass('Diagnostics distinguishes floating input warnings from optional unconnected output infos');
+
+// =============================================================================
+// TEST 12: Diagnostics — Multi-Driver Contention & Signal Values 'X' / 'Z'
+// =============================================================================
+console.log('\n--- 12. Diagnostics: Multi-Driver Contention & Signal Values X and Z ---');
+
+const srcToggle1 = createComponent('toggle', 50, 50);
+srcToggle1.id = 't1';
+const srcToggle2 = createComponent('toggle', 50, 150);
+srcToggle2.id = 't2';
+const targetLed = createComponent('led', 250, 100);
+targetLed.id = 'target_led';
+
+// Two distinct source outputs driving the SAME target input pin
+const contentionWire1 = makeWire('cw1', 't1', srcToggle1.outputs[0].id, 'target_led', targetLed.inputs[0].id);
+const contentionWire2 = makeWire('cw2', 't2', srcToggle2.outputs[0].id, 'target_led', targetLed.inputs[0].id);
+
+const contentionCircuit = createCircuit([srcToggle1, srcToggle2, targetLed], [contentionWire1, contentionWire2]);
+const diag12 = runCircuitDiagnostics(contentionCircuit);
+
+const contentionIssue = diag12.issues.find((i) => i.code === 'MULTI_DRIVER_CONTENTION');
+assert.ok(contentionIssue, 'Must flag MULTI_DRIVER_CONTENTION');
+assert.strictEqual(contentionIssue!.severity, 'error', 'Contention must be fatal error');
+
+// Test wire signal values 'X' (contention) and 'Z' (high-impedance)
+const testWireX: Wire = { ...contentionWire1, id: 'wire_x', value: 'X' };
+const testWireZ: Wire = { ...contentionWire2, id: 'wire_z', value: 'Z' };
+const wireValuesCircuit = createCircuit([srcToggle1, targetLed], [testWireX, testWireZ]);
+const diagWireVals = runCircuitDiagnostics(wireValuesCircuit);
+
+const issueX = diagWireVals.issues.find((i) => i.code === 'UNRESOLVED_CONTENTION_X');
+assert.ok(issueX, 'Must detect unresolved X signal value');
+assert.strictEqual(issueX!.severity, 'error');
+
+const issueZ = diagWireVals.issues.find((i) => i.code === 'FLOATING_HIGH_Z');
+assert.ok(issueZ, 'Must detect High-Z signal value');
+assert.strictEqual(issueZ!.severity, 'info');
+
+pass('Diagnostics flags multi-driver contention and unresolved signal values X and Z');
+
+// =============================================================================
+// TEST 13: Diagnostics — Unsupported Component Types
+// =============================================================================
+console.log('\n--- 13. Diagnostics: Unsupported Components ---');
+
+// NE555 analog timer
+const timerComp = createComponent('ic_555', 100, 100);
+timerComp.id = 'timer_1';
+
+// Completely unrecognized component type
+const unknownComp = {
+  id: 'weird_1',
+  type: 'quantum_gate' as any,
+  label: 'Q-Gate',
+  x: 200,
+  y: 200,
+  width: 60,
+  height: 60,
+  inputs: [],
+  outputs: [],
+};
+
+const unsupportedCircuit = createCircuit([timerComp, unknownComp]);
+const diag13 = runCircuitDiagnostics(unsupportedCircuit);
+
+const timerIssue = diag13.issues.find((i) => i.code === 'UNSUPPORTED_COMPONENT' && i.affectedComponentId === 'timer_1');
+assert.ok(timerIssue, 'Must flag NE555 analog timer limitation');
+assert.strictEqual(timerIssue!.severity, 'warning');
+
+const unknownIssue = diag13.issues.find((i) => i.code === 'UNSUPPORTED_COMPONENT' && i.affectedComponentId === 'weird_1');
+assert.ok(unknownIssue, 'Must flag unrecognized component type');
+assert.strictEqual(unknownIssue!.severity, 'warning');
+
+pass('Diagnostics flags analog components and unrecognized component types with helpful explanations');
+
+// =============================================================================
+// TEST 14: Diagnostics — Custom IC Definitions and Broken Pin Mappings
+// =============================================================================
+console.log('\n--- 14. Diagnostics: Custom IC Validity & Pin Mappings ---');
+
+// 1. Custom IC with missing customIC definition
+const blankCustomIc = createComponent('custom_ic', 100, 100);
+blankCustomIc.id = 'blank_ic';
+delete (blankCustomIc as any).customIC;
+
+const missingDefCircuit = createCircuit([blankCustomIc]);
+const diag14a = runCircuitDiagnostics(missingDefCircuit);
+const missingDefIssue = diag14a.issues.find((i) => i.code === 'INVALID_CUSTOM_IC_DEFINITION');
+assert.ok(missingDefIssue, 'Must flag INVALID_CUSTOM_IC_DEFINITION');
+assert.strictEqual(missingDefIssue!.severity, 'error');
+
+// 2. Custom IC with broken pin mapping (external pin maps to nonexistent internal component)
+const brokenMapIc = createComponent('custom_ic', 200, 100);
+brokenMapIc.id = 'broken_map_ic';
+brokenMapIc.customIC = {
+  id: 'bad_map_def',
+  name: 'BadMapIC',
+  partNumber: 'CUSTOM-BAD',
+  package: 'DIP14',
+  pinCount: 14,
+  internalCircuit: {
+    components: [
+      { id: 'internal_gate_1', type: 'and', label: 'AND', x: 0, y: 0, width: 40, height: 40, inputs: [], outputs: [] },
+    ],
+    wires: [],
+  },
+  pins: [
+    { pin: 1, name: 'A', type: 'input', internalComponentId: 'ghost_internal_comp', internalPinId: 'in_0' },
+  ],
+};
+
+const brokenMapCircuit = createCircuit([brokenMapIc]);
+const diag14b = runCircuitDiagnostics(brokenMapCircuit);
+const brokenPinIssue = diag14b.issues.find((i) => i.code === 'INVALID_CUSTOM_IC_PIN_MAPPING');
+assert.ok(brokenPinIssue, 'Must flag INVALID_CUSTOM_IC_PIN_MAPPING');
+assert.strictEqual(brokenPinIssue!.severity, 'error');
+assert.ok(brokenPinIssue!.message.includes('ghost_internal_comp'));
+
+pass('Diagnostics validates Custom IC definitions and catches invalid external-to-internal pin mappings');
+
+// =============================================================================
+// TEST 15: Diagnostics — Analysis Limitations (Sequential, Feedback, Large Table)
+// =============================================================================
+console.log('\n--- 15. Diagnostics: Analysis Limitations & Feasibility ---');
+
+// 1. Sequential circuit advisory
+const dffOnly = createComponent('d_flip_flop', 100, 100);
+dffOnly.id = 'dff_limit';
+const seqDiagCircuit = createCircuit([dffOnly]);
+const diag15Seq = runCircuitDiagnostics(seqDiagCircuit);
+const seqAdvisory = diag15Seq.issues.find((i) => i.code === 'SEQUENTIAL_LIMITATION');
+assert.ok(seqAdvisory, 'Must produce SEQUENTIAL_LIMITATION advisory');
+assert.strictEqual(seqAdvisory!.severity, 'info');
+
+// 2. Feedback loop detection
+const gate1 = createComponent('not', 100, 100);
+gate1.id = 'ring_1';
+const gate2 = createComponent('not', 200, 100);
+gate2.id = 'ring_2';
+// ring oscillator: gate1 -> gate2 -> gate1
+const wireFwd = makeWire('wf', 'ring_1', gate1.outputs[0].id, 'ring_2', gate2.inputs[0].id);
+const wireBack = makeWire('wb', 'ring_2', gate2.outputs[0].id, 'ring_1', gate1.inputs[0].id);
+const feedbackCircuit = createCircuit([gate1, gate2], [wireFwd, wireBack]);
+const diag15Feed = runCircuitDiagnostics(feedbackCircuit);
+const feedbackIssue = diag15Feed.issues.find((i) => i.code === 'FEEDBACK_LIMITATION');
+assert.ok(feedbackIssue, 'Must produce FEEDBACK_LIMITATION warning');
+assert.strictEqual(feedbackIssue!.severity, 'warning');
+
+// 3. Large truth table warning (>6 inputs)
+const sevenSwitches = Array.from({ length: 7 }, (_, i) => {
+  const t = createComponent('toggle', 50, i * 30);
+  t.id = `sw_large_${i}`;
+  t.label = `In${i}`;
+  return t;
+});
+const largeTableCircuit = createCircuit(sevenSwitches);
+const diag15Large = runCircuitDiagnostics(largeTableCircuit);
+const largeTableIssue = diag15Large.issues.find((i) => i.code === 'LARGE_TRUTH_TABLE_SIZE');
+assert.ok(largeTableIssue, 'Must produce LARGE_TRUTH_TABLE_SIZE warning');
+assert.strictEqual(largeTableIssue!.severity, 'warning');
+
+pass('Diagnostics accurately reports sequential, feedback, and large truth table feasibility limitations');
 
 console.log('\n================================================================');
 console.log(`ALL PHASE 8 TESTS PASSED: ${passCount} tests executed successfully.`);

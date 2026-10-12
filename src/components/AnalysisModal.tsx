@@ -49,10 +49,44 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
   }, [isOpen, initialTab]);
 
   // Default test bench vectors state
-  const [customVectors] = useState<TestCaseVector[]>([
-    { id: 'v1', name: 'Vector 1 (All Zeros)', inputs: {}, expectedOutputs: {} },
-    { id: 'v2', name: 'Vector 2 (Input 1 High)', inputs: {}, expectedOutputs: {} },
+  const [customVectors, setCustomVectors] = useState<TestCaseVector[]>([
+    { id: 'v1', name: 'Vector 1: All Inputs Low', inputs: {}, expectedOutputs: {} },
+    { id: 'v2', name: 'Vector 2: Active Stimulus', inputs: {}, expectedOutputs: {} },
   ]);
+
+  const handleAddBenchVector = () => {
+    const nextNum = customVectors.length + 1;
+    setCustomVectors((prev) => [
+      ...prev,
+      {
+        id: `v_${Date.now()}`,
+        name: `Vector ${nextNum}`,
+        inputs: {},
+        expectedOutputs: {},
+      },
+    ]);
+  };
+
+  const handleAddFailingVector = () => {
+    const nextNum = customVectors.length + 1;
+    const outName = truthTable?.outputNames?.[0] || 'Out';
+    setCustomVectors((prev) => [
+      ...prev,
+      {
+        id: `v_fail_${Date.now()}`,
+        name: `Vector ${nextNum} (Deliberate Mismatch)`,
+        inputs: {},
+        expectedOutputs: { [outName]: '1' },
+      },
+    ]);
+  };
+
+  const handleResetBenchVectors = () => {
+    setCustomVectors([
+      { id: 'v1', name: 'Vector 1: All Inputs Low', inputs: {}, expectedOutputs: {} },
+      { id: 'v2', name: 'Vector 2: Active Stimulus', inputs: {}, expectedOutputs: {} },
+    ]);
+  };
 
   // Determine current target to analyze
   const targetDefinition = useMemo(() => {
@@ -152,6 +186,8 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
   return (
     <div className="custom-ic-modal-overlay" onClick={onClose}>
       <div
+        id="analysis-center-modal"
+        data-testid="analysis-modal"
         className="custom-ic-modal-dialog"
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: '960px', width: '95vw', height: '88vh', display: 'flex', flexDirection: 'column' }}
@@ -175,6 +211,7 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: 'var(--bg-elevated)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
               <span style={{ color: 'var(--text-muted)' }}>Target:</span>
               <select
+                id="analysis-target-selector"
                 value={targetType}
                 onChange={(e) => setTargetType(e.target.value as any)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--copper-accent)', fontWeight: 600, fontSize: '12px', outline: 'none', cursor: 'pointer' }}
@@ -203,7 +240,7 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
               )}
             </div>
 
-            <button className="panel-close-btn" onClick={onClose} aria-label="Close Analysis Center">
+            <button id="btn-close-analysis" className="panel-close-btn" onClick={onClose} aria-label="Close Analysis Center">
               ✕
             </button>
           </div>
@@ -225,6 +262,8 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
           ].map((tab) => (
             <button
               key={tab.id}
+              id={`analysis-tab-${tab.id}`}
+              data-tab={tab.id}
               onClick={() => setActiveTab(tab.id as AnalysisTab)}
               style={{
                 padding: '10px 14px',
@@ -450,6 +489,7 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Select Output:</span>
                       <select
+                        id="kmap-output-select"
                         value={selectedKMapOutput || kmapData.selectedOutput}
                         onChange={(e) => setSelectedKMapOutput(e.target.value)}
                         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--copper-accent)', fontWeight: 700, borderRadius: '4px', padding: '4px 8px' }}
@@ -548,6 +588,7 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                   <span>Steps:</span>
                   <select
+                    id="timing-step-select"
                     value={timingStepCount}
                     onChange={(e) => setTimingStepCount(Number(e.target.value))}
                     style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: '4px', padding: '4px 8px' }}
@@ -664,12 +705,38 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
           {/* TAB 6: TEST BENCH */}
           {activeTab === 'testbench' && testBenchResults && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--text-primary)' }}>Automated Test Vector Suite</h4>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  <span id="testbench-stats" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                     {testBenchResults.passedTests} / {testBenchResults.totalTests} Passed ({testBenchResults.passRate}%) in {testBenchResults.executionTimeMs}ms
                   </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    id="btn-add-test-vector"
+                    className="header-btn"
+                    style={{ fontSize: '11px' }}
+                    onClick={handleAddBenchVector}
+                  >
+                    ➕ Add Vector
+                  </button>
+                  <button
+                    id="btn-add-failing-vector"
+                    className="header-btn"
+                    style={{ fontSize: '11px', color: 'var(--signal-warning)' }}
+                    onClick={handleAddFailingVector}
+                  >
+                    🧪 Add Mismatch Test
+                  </button>
+                  <button
+                    id="btn-reset-vectors"
+                    className="header-btn"
+                    style={{ fontSize: '11px' }}
+                    onClick={handleResetBenchVectors}
+                  >
+                    🔄 Reset
+                  </button>
                 </div>
               </div>
 
@@ -680,24 +747,46 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
                       <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-muted)' }}>Test #</th>
                       <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-primary)' }}>Vector Name</th>
                       <th style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>Inputs</th>
-                      <th style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>Observed</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--copper-accent)' }}>Expected</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--signal-high)' }}>Observed</th>
                       <th style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {testBenchResults.results.map((r) => (
-                      <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)', background: r.passed ? 'transparent' : 'rgba(239, 68, 68, 0.1)' }}>
-                        <td style={{ padding: '8px 12px' }}>{r.stepNumber}</td>
-                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>{r.name}</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>{JSON.stringify(r.inputs).replace(/[{}"]/g, '') || 'Default'}</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>{JSON.stringify(r.observedOutputs).replace(/[{}"]/g, '')}</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: r.passed ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)', color: r.passed ? 'var(--signal-high)' : 'var(--signal-error)' }}>
-                            {r.passed ? '✔ PASS' : '✖ FAIL'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {testBenchResults.results.map((r) => {
+                      const inputStr = Object.entries(r.inputs).length > 0
+                        ? Object.entries(r.inputs).map(([k, v]) => `${k}=${v}`).join(', ')
+                        : 'Default';
+                      const expStr = Object.entries(r.expectedOutputs).length > 0
+                        ? Object.entries(r.expectedOutputs).map(([k, v]) => `${k}=${v}`).join(', ')
+                        : '—';
+                      const obsStr = Object.entries(r.observedOutputs).length > 0
+                        ? Object.entries(r.observedOutputs).map(([k, v]) => `${k}=${v}`).join(', ')
+                        : 'None';
+                      return (
+                        <React.Fragment key={r.id}>
+                          <tr className={`testbench-row ${r.passed ? 'testbench-pass' : 'testbench-fail'}`} style={{ borderBottom: '1px solid var(--border-subtle)', background: r.passed ? 'transparent' : 'rgba(239, 68, 68, 0.08)' }}>
+                            <td style={{ padding: '8px 12px' }}>{r.stepNumber}</td>
+                            <td style={{ padding: '8px 12px', fontWeight: 600 }}>{r.name}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>{inputStr}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--copper-accent)', fontWeight: 600 }}>{expStr}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', color: r.passed ? 'var(--signal-high)' : 'var(--signal-error)', fontWeight: 600 }}>{obsStr}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: r.passed ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)', color: r.passed ? 'var(--signal-high)' : 'var(--signal-error)' }}>
+                                {r.passed ? '✔ PASS' : '✖ FAIL'}
+                              </span>
+                            </td>
+                          </tr>
+                          {r.mismatches && r.mismatches.length > 0 && (
+                            <tr className="testbench-mismatch-row" style={{ background: 'rgba(239, 68, 68, 0.12)', borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td colSpan={6} style={{ padding: '6px 14px', fontSize: '11px', color: 'var(--signal-error)' }}>
+                                ⚠️ Mismatch: {r.mismatches.map((m) => `${m.outputName} expected '${m.expected}', got '${m.observed}'`).join('; ')}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
