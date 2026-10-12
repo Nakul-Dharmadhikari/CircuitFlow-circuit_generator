@@ -8,6 +8,7 @@ export interface Box {
   y: number;
   width: number;
   height: number;
+  compId?: string;
 }
 
 export interface Vector2D {
@@ -62,9 +63,11 @@ export function boxesIntersect(b1: Box, b2: Box): boolean {
 }
 
 /**
- * Checks if an orthogonal line segment between p1 and p2 intersects a bounding box
+ * Checks if an orthogonal line segment between p1 and p2 intersects the interior of a bounding box.
+ * Uses a small tolerance (0.5px) so that paths running cleanly along boundary bypass channels
+ * do not falsely report an intersection, but any segment penetrating the box is strictly caught.
  */
-export function segmentIntersectsBox(p1: Point, p2: Point, box: Box): boolean {
+export function segmentIntersectsBox(p1: Point, p2: Point, box: Box, tolerance: number = 0.5): boolean {
   const minX = Math.min(p1.x, p2.x);
   const maxX = Math.max(p1.x, p2.x);
   const minY = Math.min(p1.y, p2.y);
@@ -75,22 +78,55 @@ export function segmentIntersectsBox(p1: Point, p2: Point, box: Box): boolean {
   const boxMinY = box.y;
   const boxMaxY = box.y + box.height;
 
-  // No bounding box overlap
-  if (maxX < boxMinX || minX > boxMaxX || maxY < boxMinY || minY > boxMaxY) {
+  // Bounding box disjoint check
+  if (
+    maxX <= boxMinX + tolerance ||
+    minX >= boxMaxX - tolerance ||
+    maxY <= boxMinY + tolerance ||
+    minY >= boxMaxY - tolerance
+  ) {
     return false;
   }
 
   // Horizontal segment
-  if (p1.y === p2.y) {
-    return p1.y >= boxMinY && p1.y <= boxMaxY && !(maxX < boxMinX || minX > boxMaxX);
+  if (Math.abs(p1.y - p2.y) < tolerance) {
+    const y = p1.y;
+    return (
+      y > boxMinY + tolerance &&
+      y < boxMaxY - tolerance &&
+      maxX > boxMinX + tolerance &&
+      minX < boxMaxX - tolerance
+    );
   }
 
   // Vertical segment
-  if (p1.x === p2.x) {
-    return p1.x >= boxMinX && p1.x <= boxMaxX && !(maxY < boxMinY || minY > boxMaxY);
+  if (Math.abs(p1.x - p2.x) < tolerance) {
+    const x = p1.x;
+    return (
+      x > boxMinX + tolerance &&
+      x < boxMaxX - tolerance &&
+      maxY > boxMinY + tolerance &&
+      minY < boxMaxY - tolerance
+    );
   }
 
-  // Diagonal segment (bounding box overlap check)
+  // Slanted/diagonal segment (fallback)
+  return true;
+}
+
+/**
+ * Checks if any segment of an orthogonal path intersects any obstacle in a list
+ */
+export function isPathClear(points: Point[], obstacles: Box[], tolerance: number = 0.5): boolean {
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    for (const obs of obstacles) {
+      if (segmentIntersectsBox(p1, p2, obs, tolerance)) {
+        return false;
+      }
+    }
+  }
   return true;
 }
 

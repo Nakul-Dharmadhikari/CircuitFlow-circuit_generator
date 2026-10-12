@@ -1,7 +1,8 @@
 import type { Wire } from '../../types/circuit';
+import { ROUTING_CONFIG } from './routingConfig';
 
-export const DEFAULT_LANE_SPACING = 10;
-export const MAX_LANES = 9;
+export const DEFAULT_LANE_SPACING = ROUTING_CONFIG.LANE_SPACING;
+export const MAX_LANES = ROUTING_CONFIG.MAX_LANES;
 
 /**
  * Computes a symmetric lane offset around the corridor center
@@ -27,8 +28,7 @@ export function getLaneOffset(
   maxLanes: number = MAX_LANES,
   spacing: number = DEFAULT_LANE_SPACING
 ): number {
-  const laneIndex = wireIndex % maxLanes;
-  return ((laneIndex % maxLanes) - Math.floor(maxLanes / 2)) * spacing;
+  return (wireIndex % maxLanes) * spacing;
 }
 
 /**

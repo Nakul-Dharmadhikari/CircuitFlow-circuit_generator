@@ -5,6 +5,7 @@ import {
   getComponentObstacles,
   getPinEndpoint,
   pointsToSvgPath,
+  ROUTING_CONFIG,
 } from '../engine/wiring';
 
 interface WireRendererProps {
@@ -76,8 +77,8 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
       const endEp = getPinEndpoint(wire.toCompId, wire.toPinId, components);
       if (!startEp || !endEp) return null;
 
-      const points = calculateOrthogonalWireRoute(startEp, endEp, wireIdx, obstacles);
-      const pathData = pointsToSvgPath(points, 4);
+      const points = calculateOrthogonalWireRoute(startEp, endEp, wireIdx, obstacles, components);
+      const pathData = pointsToSvgPath(points, ROUTING_CONFIG.CORNER_RADIUS);
       return { wire, startEp, endEp, points, pathData };
     });
   }, [wires, components, obstacles]);
@@ -105,12 +106,12 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
             onMouseEnter={() => setHoveredWireId(wire.id)}
             onMouseLeave={() => setHoveredWireId(null)}
           >
-            {/* 1. Large 14px Invisible Interaction Hit Area */}
+            {/* 1. Large Invisible Interaction Hit Area */}
             <path
               d={pathData}
               fill="none"
               stroke="transparent"
-              strokeWidth="14"
+              strokeWidth={ROUTING_CONFIG.HIT_STROKE_WIDTH}
               style={{
                 pointerEvents: 'stroke',
                 cursor: isDeleteMode ? 'not-allowed' : inProgressWire ? 'crosshair' : 'pointer',
@@ -139,12 +140,18 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
               <title>{`Wire: ${startEp.pinId} ➔ ${endEp.pinId} [${wire.value}]`}</title>
             </path>
 
-            {/* 2. Crisp 2px/3.5px Orthogonal Wire Line */}
+            {/* 2. Crisp Orthogonal Wire Line */}
             <path
               d={pathData}
               fill="none"
               stroke={color.stroke}
-              strokeWidth={isSelected ? 3.5 : isHovered ? 3 : 2}
+              strokeWidth={
+                isSelected
+                  ? ROUTING_CONFIG.WIRE_SELECTED_STROKE_WIDTH
+                  : isHovered
+                  ? ROUTING_CONFIG.WIRE_HOVER_STROKE_WIDTH
+                  : ROUTING_CONFIG.WIRE_STROKE_WIDTH
+              }
               strokeLinecap="round"
               strokeLinejoin="round"
               style={{
@@ -277,8 +284,8 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
           pinId: 'cursor',
         };
 
-        const points = calculateOrthogonalWireRoute(startEp, endEp, 0, obstacles);
-        const pathData = pointsToSvgPath(points, 4);
+        const points = calculateOrthogonalWireRoute(startEp, endEp, 0, obstacles, components);
+        const pathData = pointsToSvgPath(points, ROUTING_CONFIG.CORNER_RADIUS);
 
         return (
           <g style={{ pointerEvents: 'none' }}>

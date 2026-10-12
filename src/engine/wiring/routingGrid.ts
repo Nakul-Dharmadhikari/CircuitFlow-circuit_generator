@@ -1,6 +1,7 @@
 import type { Box, Point } from './geometry';
+import { ROUTING_CONFIG } from './routingConfig';
 
-export const DEFAULT_SNAP_GRID_SIZE = 10;
+export const DEFAULT_SNAP_GRID_SIZE = ROUTING_CONFIG.GRID_SIZE;
 export const DEFAULT_MAJOR_GRID_SIZE = 40;
 
 /**

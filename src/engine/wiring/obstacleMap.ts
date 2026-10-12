@@ -1,8 +1,9 @@
 import type { CircuitComponent } from '../../types/circuit';
 import type { Box, Point } from './geometry';
 import { pointInBox } from './geometry';
+import { ROUTING_CONFIG } from './routingConfig';
 
-export const COMPONENT_ROUTING_MARGIN = 6;
+export const COMPONENT_ROUTING_MARGIN = ROUTING_CONFIG.COMPONENT_KEEP_OUT_MARGIN;
 
 /**
  * Returns the exact bounding box in world coordinates for a circuit component
@@ -13,6 +14,7 @@ export function getComponentBounds(comp: CircuitComponent, margin: number = 0): 
     y: comp.y - margin,
     width: comp.width + margin * 2,
     height: comp.height + margin * 2,
+    compId: comp.id,
   };
 }
 
@@ -59,23 +61,17 @@ export function getBoardBounds(
  * Note: Dynamic check that works for any logic gate, standard IC (74xx), custom IC, or breadboard
  */
 export function isRoutingObstacle(comp: CircuitComponent): boolean {
-  // Fixed trainer I/O pins (switches, output probes, clocks, VCC, GND) allow wires to depart from their pins directly
-  if (
-    comp.customProps?.isTrainerOutput ||
-    comp.customProps?.isTrainerInput ||
-    comp.customProps?.isTrainerClock ||
-    comp.customProps?.isTrainerVcc ||
-    comp.customProps?.isTrainerGnd
-  ) {
+  // Junction dots on wires are zero-size connection nodes, never obstacles
+  if (comp.type === 'junction') {
     return false;
   }
 
-  // Any IC (built-in 74-series, custom user IC, 555 timer, etc.)
+  // Any IC (built-in 74-series DIP, custom user IC, 555 timer, etc.)
   if (comp.type.startsWith('ic_') || comp.type === 'custom_ic') {
     return true;
   }
 
-  // Any logic gate or MSI combinational/sequential block
+  // Any logic gate, arithmetic block, flip-flop, display, indicator, or breadboard
   const obstacleTypes = new Set([
     'and',
     'and_3',
@@ -111,9 +107,18 @@ export function isRoutingObstacle(comp: CircuitComponent): boolean {
     'hex_display',
     'buzzer',
     'led_bar_4',
+    'led',
+    'rgb_led',
+    'probe',
+    'breadboard',
   ]);
 
-  return obstacleTypes.has(comp.type);
+  if (obstacleTypes.has(comp.type)) {
+    return true;
+  }
+
+  // Fixed trainer I/O pins allow direct wire departure, but wires between other chips must not cut across them
+  return false;
 }
 
 /**
