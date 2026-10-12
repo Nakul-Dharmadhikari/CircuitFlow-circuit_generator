@@ -392,6 +392,21 @@ async function runPhase3BrowserVerification() {
           console.log('✔ Wire context menu opened with title:', wireMenuInfo.title);
           console.log('  Items:', wireMenuInfo.items);
 
+          // Verify primary label and shortcut are cleanly formatted and separated
+          const wireActionDetails = await page.evaluate(() => {
+            const menu = document.querySelector('.canvas-context-menu.wire-context-menu');
+            if (!menu) return null;
+            const removeItem = menu.querySelector('.remove-wire-item');
+            const primaryLabel = removeItem?.querySelector('.context-menu-label')?.textContent?.trim() || removeItem?.querySelector('span:first-of-type')?.textContent?.trim();
+            const shortcut = removeItem?.querySelector('.context-menu-shortcut')?.textContent?.trim();
+            return { primaryLabel, shortcut };
+          });
+
+          if (!wireActionDetails || !wireActionDetails.primaryLabel?.includes('Remove Wire') || wireActionDetails.shortcut !== 'Del') {
+            throw new Error(`Wire Remove action label/shortcut not cleanly separated: ${JSON.stringify(wireActionDetails)}`);
+          }
+          console.log(`✔ Wire Remove action cleanly readable: label="${wireActionDetails.primaryLabel}", shortcut="${wireActionDetails.shortcut}"`);
+
           // Verify Invert Signal does NOT exist in wire context menu
           const hasInvert = wireMenuInfo.items.some((it) => it?.toLowerCase().includes('invert'));
           if (hasInvert) {

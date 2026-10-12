@@ -9,6 +9,7 @@ import { soundFx } from '../audio/soundEffects';
 import { calculateZoomAtPoint, screenToWorld, type Point } from '../hooks/useViewport';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
 import { useWireInteraction } from '../hooks/useWireInteraction';
+import { WorkspaceScrollbars } from './WorkspaceScrollbars';
 
 interface CanvasProps {
   circuit: Circuit;
@@ -239,6 +240,36 @@ export const Canvas: React.FC<CanvasProps> = ({
       el.removeEventListener('wheel', handleWheelNative);
     };
   }, [zoom, pan, onPanChange, onZoomChange]);
+
+  // Viewport Container Size Measurement for Phase 4 Workspace Scrollbars
+  const [viewportSize, setViewportSize] = React.useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1600,
+    height: typeof window !== 'undefined' ? window.innerHeight : 900,
+  });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setViewportSize({
+        width: Math.max(100, rect.width || window.innerWidth),
+        height: Math.max(100, rect.height || window.innerHeight),
+      });
+    };
+
+    measure();
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    window.addEventListener('resize', measure);
+
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
 
   // Unified Right-Click Context Menu State (Phase 3)
   type ActiveContextMenu =
@@ -822,7 +853,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               setActiveContextMenu(null);
             }}
           >
-            <span>🗑️ Remove Wire</span>
+            <span className="context-menu-label">🗑️ Remove Wire</span>
             <span className="context-menu-shortcut">Del</span>
           </button>
         </div>
@@ -1075,6 +1106,18 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
       </div>
+
+      {/* Workspace Navigation Scrollbars (Phase 4) */}
+      <WorkspaceScrollbars
+        circuit={circuit}
+        pan={pan}
+        zoom={zoom}
+        viewportWidth={viewportSize.width}
+        viewportHeight={viewportSize.height}
+        onPanChange={onPanChange}
+        workbenchMode={workbenchMode}
+        isSchematicMode={isSchematicMode}
+      />
     </div>
   );
 };
