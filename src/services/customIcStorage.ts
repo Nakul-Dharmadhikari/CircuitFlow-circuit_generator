@@ -60,3 +60,35 @@ export function deleteUserCustomIC(id: string): boolean {
     return false;
   }
 }
+
+/**
+ * Export a custom IC definition as a downloadable JSON file
+ */
+export function downloadCustomICJSON(ic: CustomICDefinition): void {
+  const jsonStr = JSON.stringify(ic, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${ic.partNumber || ic.code || 'custom_ic'}_definition.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Load and validate a custom IC definition from a JSON string
+ */
+export function loadCustomICFromJSON(jsonStr: string): {
+  success: boolean;
+  ic?: CustomICDefinition;
+  error?: string;
+} {
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return { success: true, ic: parsed as CustomICDefinition };
+  } catch (err: any) {
+    return { success: false, error: `Invalid JSON syntax: ${err.message}` };
+  }
+}

@@ -11,6 +11,7 @@ interface SidebarProps {
   onOpenCreateIC?: () => void;
   onAddCustomIC?: (ic: CustomICDefinition) => void;
   onDeleteCustomIC?: (id: string) => void;
+  onEditCustomIC?: (ic: CustomICDefinition) => void;
 }
 
 export type MasterCategoryId =
@@ -132,6 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenCreateIC,
   onAddCustomIC,
   onDeleteCustomIC,
+  onEditCustomIC,
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MasterCategoryId | 'all'>('all');
@@ -320,6 +322,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     <span className="card-label">{ic.partNumber || ic.code}</span>
                     <span className="card-code">{ic.pinCount}-PIN</span>
+                    {onEditCustomIC && (
+                      <button
+                        className="card-edit-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditCustomIC(ic);
+                        }}
+                        title="Edit internal logic in Custom IC Studio"
+                        aria-label={`Edit custom IC ${ic.name}`}
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: onDeleteCustomIC ? '22px' : '4px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          padding: '2px',
+                        }}
+                      >
+                        ✏
+                      </button>
+                    )}
                     {onDeleteCustomIC && (
                       <button
                         className="card-delete-btn"

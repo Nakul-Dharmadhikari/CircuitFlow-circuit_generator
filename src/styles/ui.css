@@ -3121,6 +3121,118 @@
   gap: 10px;
 }
 
+/* Studio Stage Tab Navigation */
+.studio-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-canvas);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+.studio-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.studio-nav-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-subtle);
+}
+
+.studio-nav-tab.active {
+  background: var(--accent-copper-subtle);
+  border-color: var(--accent-copper);
+  color: var(--accent-copper);
+  font-weight: 800;
+}
+
+.studio-nav-tab-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+}
+
+.studio-nav-tab.active .studio-nav-tab-badge {
+  background: var(--accent-copper);
+  color: #fff;
+}
+
+/* Validation Diagnostics Panel */
+.studio-validation-report {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.studio-validation-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.studio-validation-card.error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.studio-validation-card.warning {
+  background: rgba(217, 119, 6, 0.08);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  color: var(--signal-warning);
+}
+
+.studio-validation-card.success {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: var(--signal-high);
+}
+
+/* Internal Inventory Table */
+.studio-inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.studio-inventory-table th {
+  padding: 6px 10px;
+  text-align: left;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-weight: 800;
+}
+
+.studio-inventory-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.studio-inventory-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 /* ==========================================================================
    IC PICKER & SOCKET SWAPPER MODAL
    ========================================================================== */

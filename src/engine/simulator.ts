@@ -1444,6 +1444,9 @@ export function createComponent(
   };
 }
 
+// Active Custom IC evaluation set for recursion cycle prevention
+const activeCustomIcCycleCheck = new Set<string>();
+
 // Map a component's inputs and evaluate new outputs
 function evaluateSingleComponent(comp: CircuitComponent): {
   outputs: Record<string, LogicValue>;
@@ -2192,8 +2195,131 @@ function evaluateSingleComponent(comp: CircuitComponent): {
         break;
       }
 
-      // 2. Evaluate Modular Gate Units (if defined)
-      if (customDef.gateUnits && customDef.gateUnits.length > 0) {
+      // 2. Evaluate Internal Circuit (Source of truth for Phase 7 Custom ICs)
+      const internalCircuitDef: Circuit | undefined = customDef.internalCircuit || customDef.circuit;
+      if (internalCircuitDef && internalCircuitDef.components && internalCircuitDef.components.length > 0) {
+        // Circular recursion prevention check
+        if (customDef.id && activeCustomIcCycleCheck.has(customDef.id)) {
+          comp.outputs.forEach((outPin) => {
+            outputs[outPin.id] = 'X';
+            newState.pinValues[outPin.id] = 'X';
+          });
+          break;
+        }
+
+        if (customDef.id) {
+          activeCustomIcCycleCheck.add(customDef.id);
+        }
+
+        try {
+          const internalCircuit: Circuit = comp.state?.internalCircuitState
+            ? JSON.parse(JSON.stringify(comp.state.internalCircuitState))
+            : JSON.parse(JSON.stringify(internalCircuitDef));
+
+          const pinMappings = customDef.pins || customDef.pinMappings || [];
+
+          // Inject custom IC inputs into internal components via explicit pin mapping (externalPin -> internalComponentId -> internalPinId)
+          for (const pinMap of pinMappings) {
+            const pNum = pinMap.pinNumber ?? pinMap.pin;
+            const targetCompId = pinMap.internalComponentId || pinMap.internalCompId;
+            if (pinMap.type === 'input' && targetCompId) {
+              const intComp = internalCircuit.components.find((c) => c.id === targetCompId);
+              if (intComp) {
+                const rawVal = getIn(String(pNum), '0');
+                const finalInVal: LogicValue = pinMap.inverted
+                  ? (rawVal === '1' ? '0' : rawVal === '0' ? '1' : rawVal)
+                  : rawVal;
+
+                // Explicit internal pin binding if specified
+                if (pinMap.internalPinId) {
+                  const targetInP = intComp.inputs?.find(
+                    (p) => p.id === pinMap.internalPinId || p.name === pinMap.internalPinId
+                  );
+                  if (targetInP) targetInP.value = finalInVal;
+
+                  const targetOutP = intComp.outputs?.find(
+                    (p) => p.id === pinMap.internalPinId || p.name === pinMap.internalPinId
+                  );
+                  if (targetOutP) targetOutP.value = finalInVal;
+                }
+
+                // If target is an interactive source (toggle, input_pin, clock, push_button)
+                if (
+                  intComp.type === 'input_pin' ||
+                  intComp.type === 'toggle' ||
+                  intComp.type === 'push_button' ||
+                  intComp.type === 'clock'
+                ) {
+                  if (intComp.state) {
+                    intComp.state.toggleState = finalInVal === '1';
+                    intComp.state.buttonPressed = finalInVal === '1';
+                  }
+                  if (intComp.outputs) {
+                    intComp.outputs.forEach((op) => {
+                      if (!pinMap.internalPinId || op.id === pinMap.internalPinId || op.name === pinMap.internalPinId) {
+                        op.value = finalInVal;
+                      }
+                    });
+                  }
+                } else if (!pinMap.internalPinId && intComp.inputs && intComp.inputs.length > 0) {
+                  // Fallback for legacy mappings without explicit internalPinId
+                  intComp.inputs[0].value = finalInVal;
+                }
+              }
+            }
+          }
+
+          // Simulate internal circuit with CircuitFlow solver
+          const simResult = simulateCircuit(internalCircuit);
+          newState.internalCircuitState = simResult.circuit;
+
+          // Map internal outputs back to external output pins via explicit pin mapping (externalPin -> internalComponentId -> internalPinId)
+          for (const pinMap of pinMappings) {
+            const pNum = pinMap.pinNumber ?? pinMap.pin;
+            const sourceCompId = pinMap.internalComponentId || pinMap.internalCompId;
+            if (pinMap.type === 'output' && sourceCompId) {
+              const intComp = simResult.circuit.components.find((c) => c.id === sourceCompId);
+              let outVal: LogicValue = '0';
+              if (intComp) {
+                if (pinMap.internalPinId) {
+                  const targetOutP = intComp.outputs?.find(
+                    (p) => p.id === pinMap.internalPinId || p.name === pinMap.internalPinId
+                  );
+                  if (targetOutP) {
+                    outVal = targetOutP.value;
+                  } else {
+                    const targetInP = intComp.inputs?.find(
+                      (p) => p.id === pinMap.internalPinId || p.name === pinMap.internalPinId
+                    );
+                    if (targetInP) outVal = targetInP.value;
+                  }
+                } else {
+                  if (intComp.outputs && intComp.outputs.length > 0) {
+                    outVal = intComp.outputs[0].value;
+                  } else if (intComp.inputs && intComp.inputs.length > 0) {
+                    outVal = intComp.inputs[0].value;
+                  }
+                }
+              }
+
+              const finalOut: LogicValue = pinMap.inverted
+                ? (outVal === '1' ? '0' : outVal === '0' ? '1' : outVal)
+                : outVal;
+
+              outputs[String(pNum)] = finalOut;
+              outputs[`pin${pNum}`] = finalOut;
+              newState.pinValues[String(pNum)] = finalOut;
+              newState.pinValues[`pin${pNum}`] = finalOut;
+            }
+          }
+        } finally {
+          if (customDef.id) {
+            activeCustomIcCycleCheck.delete(customDef.id);
+          }
+        }
+      }
+      // 3. Fallback to Legacy Modular Gate Units (if gateUnits defined and no internalCircuit)
+      else if (customDef.gateUnits && customDef.gateUnits.length > 0) {
         for (const unit of customDef.gateUnits) {
           const inVals: LogicValue[] = (unit.inputPins || []).map((pinNum: number) => {
             return getIn(String(pinNum), '0');
@@ -2284,56 +2410,6 @@ function evaluateSingleComponent(comp: CircuitComponent): {
               outputs[`pin${outPin}`] = unitOutput;
               newState.pinValues[String(outPin)] = unitOutput;
               newState.pinValues[`pin${outPin}`] = unitOutput;
-            }
-          }
-        }
-      }
-
-      // 3. Evaluate Internal Circuit (if defined)
-      if (customDef.internalCircuit && customDef.internalCircuit.components.length > 0) {
-        const internalCircuit: Circuit =
-          comp.state?.internalCircuitState ||
-          JSON.parse(JSON.stringify(customDef.internalCircuit));
-
-        // Inject custom IC input pins to internal components
-        for (const pinMap of customDef.pins || []) {
-          const pNum = pinMap.pinNumber ?? pinMap.pin;
-          if (pinMap.type === 'input' && pinMap.internalComponentId) {
-            const intComp = internalCircuit.components.find((c) => c.id === pinMap.internalComponentId);
-            if (intComp) {
-              const val = getIn(String(pNum));
-              if (intComp.state) {
-                intComp.state.toggleState = val === '1';
-                intComp.state.buttonPressed = val === '1';
-              }
-              if (intComp.outputs && intComp.outputs.length > 0) {
-                intComp.outputs[0].value = val;
-              }
-            }
-          }
-        }
-
-        // Simulate internal circuit
-        const simResult = simulateCircuit(internalCircuit);
-        newState.internalCircuitState = simResult.circuit;
-
-        // Map internal outputs back to custom IC output pins
-        for (const pinMap of customDef.pins || []) {
-          const pNum = pinMap.pinNumber ?? pinMap.pin;
-          if (pinMap.type === 'output' && pinMap.internalComponentId) {
-            const intComp = simResult.circuit.components.find((c) => c.id === pinMap.internalComponentId);
-            if (intComp) {
-              let outVal: LogicValue = '0';
-              if (intComp.outputs && intComp.outputs.length > 0) {
-                outVal = intComp.outputs[0].value;
-              } else if (intComp.inputs && intComp.inputs.length > 0) {
-                outVal = intComp.inputs[0].value;
-              }
-              const finalOut = pinMap.inverted ? (outVal === '1' ? '0' : '1') : outVal;
-              outputs[String(pNum)] = finalOut;
-              outputs[`pin${pNum}`] = finalOut;
-              newState.pinValues[String(pNum)] = finalOut;
-              newState.pinValues[`pin${pNum}`] = finalOut;
             }
           }
         }
@@ -2450,11 +2526,28 @@ export function simulateCircuit(circuit: Circuit): {
       }
       return netA;
     };
+    // Helper to resolve pin ID with or without 'pin' prefix
+    const resolveCompPinId = (c: CircuitComponent | undefined, pid: string): string => {
+      if (!c) return pid;
+      if (c.inputs.some((p) => p.id === pid) || c.outputs.some((p) => p.id === pid)) return pid;
+      const pref = `pin${pid}`;
+      if (c.inputs.some((p) => p.id === pref) || c.outputs.some((p) => p.id === pref)) return pref;
+      if (pid.startsWith('pin')) {
+        const unpref = pid.substring(3);
+        if (c.inputs.some((p) => p.id === unpref) || c.outputs.some((p) => p.id === unpref)) return unpref;
+      }
+      return pid;
+    };
 
     // Group pins connected by wires into nets
     for (const wire of wires) {
-      const fromKey = `${wire.fromCompId}:${wire.fromPinId}`;
-      const toKey = `${wire.toCompId}:${wire.toPinId}`;
+      const fromComp = components.find((c) => c.id === wire.fromCompId);
+      const toComp = components.find((c) => c.id === wire.toCompId);
+      const fromPinActual = resolveCompPinId(fromComp, wire.fromPinId);
+      const toPinActual = resolveCompPinId(toComp, wire.toPinId);
+
+      const fromKey = `${wire.fromCompId}:${fromPinActual}`;
+      const toKey = `${wire.toCompId}:${toPinActual}`;
 
       const net1 = getOrAssignNet(fromKey);
       const net2 = getOrAssignNet(toKey);

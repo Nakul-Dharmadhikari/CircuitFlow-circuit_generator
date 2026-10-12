@@ -136,6 +136,7 @@ export function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isSavedCircuitsOpen, setIsSavedCircuitsOpen] = useState(false);
   const [isCustomICModalOpen, setIsCustomICModalOpen] = useState(false);
+  const [editingCustomIC, setEditingCustomIC] = useState<CustomICDefinition | null>(null);
   const [isComponentLibraryOpen, setIsComponentLibraryOpen] = useState(false);
   const [pendingPlacementType, setPendingPlacementType] = useState<ComponentType | null>(null);
   const [showGrid, setShowGrid] = useState(true);
@@ -1844,7 +1845,10 @@ export function App() {
       onOpenWaveform={() => setIsWaveformOpen((v) => !v)}
       onOpenLabPresets={() => setIsLabPresetsOpen(true)}
       onOpenShortcuts={() => setIsShortcutsOpen(true)}
-      onOpenCustomIC={() => setIsCustomICModalOpen(true)}
+      onOpenCustomIC={() => {
+        setEditingCustomIC(null);
+        setIsCustomICModalOpen(true);
+      }}
       onNewCircuit={handleNewCircuit}
       onClearCanvas={handleClearCanvas}
       onSelectAll={handleSelectAll}
@@ -1915,9 +1919,16 @@ export function App() {
         onClose={() => setIsComponentLibraryOpen(false)}
         onAddComponent={handleAddComponent}
         customICs={customICs}
-        onOpenCreateIC={() => setIsCustomICModalOpen(true)}
+        onOpenCreateIC={() => {
+          setEditingCustomIC(null);
+          setIsCustomICModalOpen(true);
+        }}
         onAddCustomIC={handleAddCustomIC}
         onDeleteCustomIC={handleDeleteCustomIC}
+        onEditCustomIC={(ic) => {
+          setEditingCustomIC(ic);
+          setIsCustomICModalOpen(true);
+        }}
       />
 
       {/* Center Interactive Circuit Canvas */}
@@ -2033,6 +2044,7 @@ export function App() {
         }}
         onOpenCustomICStudio={(comp) => {
           setSelectedCompId(comp.id);
+          setEditingCustomIC(comp.customProps?.customIC || null);
           setIsCustomICModalOpen(true);
         }}
         onToggleLockComponent={(compId) => {
@@ -2125,10 +2137,18 @@ export function App() {
       {/* Modals */}
       <CustomICModal
         isOpen={isCustomICModalOpen}
-        onClose={() => setIsCustomICModalOpen(false)}
+        onClose={() => {
+          setIsCustomICModalOpen(false);
+          setEditingCustomIC(null);
+        }}
         activeCircuit={circuit}
         userId={currentUser?.id || 'guest'}
+        editingIC={editingCustomIC}
         onSaveIC={handleSaveCustomIC}
+        onMountIC={(savedIC) => {
+          handleSaveCustomIC(savedIC, false);
+          handleSelectICFromPicker(0, 'custom_ic', savedIC);
+        }}
       />
 
       <TruthTableModal

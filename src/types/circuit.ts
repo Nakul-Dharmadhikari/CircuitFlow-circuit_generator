@@ -124,31 +124,36 @@ export interface InternalGateUnit {
 }
 
 export interface CustomICPinMapping {
-  pin: number; // 1..pinCount
-  pinNumber?: number;
-  name: string;
+  pin: number; // External pin number: 1..pinCount (standard DIP clockwise/counter-clockwise pinout)
+  pinNumber?: number; // Backward-compatible alias for pin
+  name: string; // Symbolic label, e.g. "A", "B", "CLK", "Y", "VCC", "GND", "NC"
   type: 'input' | 'output' | 'power' | 'nc';
-  internalCompId?: string;
-  internalComponentId?: string;
-  internalPinId?: string;
-  inverted?: boolean;
+  internalComponentId?: string; // ID of the internal circuit component this pin binds to
+  internalCompId?: string; // Backward-compatible alias for internalComponentId
+  internalPinId?: string; // Exact pin ID on that internal component (e.g. "in_0", "A", "out", "clk")
+  inverted?: boolean; // Inverted bubble symbol / logic inversion
 }
 
 export interface CustomICDefinition {
-  id: string;
+  id: string; // Unique stable component identifier (e.g. "custom_ic_...")
   userId: string;
-  name: string;
-  code: string;
-  partNumber?: string;
+  name: string; // Descriptive human-readable name, e.g. "Full Adder 4-Bit"
+  code: string; // Short part code, e.g. "74MY01"
+  partNumber?: string; // Standardized part number, e.g. "74MY01"
   description?: string;
+  packageType?: 'DIP-14' | 'DIP-16' | 'DIP-20';
   pinCount: 14 | 16 | 20;
   vccPin?: number;
   gndPin?: number;
-  gateUnits?: InternalGateUnit[];
-  circuit?: Circuit;
+  circuitType?: 'combinational' | 'sequential';
+  version?: number;
+  // Source of truth for Phase 7 Custom ICs
   internalCircuit?: Circuit;
-  pins: CustomICPinMapping[];
-  pinMappings?: CustomICPinMapping[];
+  // Legacy backward-compatibility structures
+  gateUnits?: InternalGateUnit[];
+  circuit?: Circuit; // Legacy alias for internalCircuit
+  pins: CustomICPinMapping[]; // Configured external pin interface
+  pinMappings?: CustomICPinMapping[]; // Alias for pins
   createdAt: number;
   updatedAt: number;
 }
