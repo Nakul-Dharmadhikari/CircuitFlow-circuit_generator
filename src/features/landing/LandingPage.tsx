@@ -9,7 +9,6 @@ import { HeroSection } from './HeroSection';
 import { FeatureSection } from './FeatureSection';
 import { DifferentiationSection } from './DifferentiationSection';
 import { WorkspaceSection } from './WorkspaceSection';
-import { PresetLabSection } from './PresetLabSection';
 import './landing.css';
 
 export interface LandingPageProps {
@@ -28,7 +27,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onUserLoggedIn,
   onUserLoggedOut,
   onEnterSimulator,
-  onLoadExperimentAndEnter,
   onOpenShortcuts,
 }) => {
   const scrollToSection = (sectionId: string) => {
@@ -81,9 +79,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         onUserLoggedOut={onUserLoggedOut}
         onEnterSimulator={() => handleEnterView('circuit')}
       />
-
-      {/* Courseware & Verified Laboratory Experiments */}
-      <PresetLabSection onLoadExperimentAndEnter={onLoadExperimentAndEnter} />
 
       {/* Engineering Footer */}
       <footer className="landing-footer">
