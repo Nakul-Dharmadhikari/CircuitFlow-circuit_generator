@@ -162,6 +162,10 @@ export function simplifyOrthogonalPoints(points: Point[]): Point[] {
     result.push(curr);
   }
 
+  if ((points as any).isBlocked) {
+    (result as any).isBlocked = true;
+  }
+
   return result;
 }
 

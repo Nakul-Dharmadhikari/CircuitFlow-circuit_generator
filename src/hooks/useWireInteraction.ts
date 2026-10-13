@@ -232,7 +232,8 @@ export function useWireInteraction({
         return;
       }
 
-      // 2. Power rails (VCC / GND) must NOT accidentally branch onto arbitrary signal wires!
+      // 2. Power rails (VCC / GND) must NOT accidentally branch onto arbitrary signal wires,
+      // and signal wires must NOT branch onto power rails!
       const fromComp = components.find((c) => c.id === inProgressWire.fromCompId);
       const isPowerSource =
         fromComp?.type === 'vcc' ||
@@ -240,7 +241,20 @@ export function useWireInteraction({
         Boolean(fromComp?.customProps?.isTrainerVcc) ||
         Boolean(fromComp?.customProps?.isTrainerGnd);
 
-      if (isPowerSource) {
+      const targetWire = wires.find((w) => w.id === wireId);
+      const isTargetPowerWire =
+        Boolean(targetWire) &&
+        components.some((c) => {
+          if (c.id !== targetWire?.fromCompId && c.id !== targetWire?.toCompId) return false;
+          return (
+            c.type === 'vcc' ||
+            c.type === 'gnd' ||
+            Boolean(c.customProps?.isTrainerVcc) ||
+            Boolean(c.customProps?.isTrainerGnd)
+          );
+        });
+
+      if (isPowerSource || isTargetPowerWire) {
         setInProgressWire(null);
         return;
       }
@@ -257,7 +271,7 @@ export function useWireInteraction({
       setInProgressWire(null);
       soundFx.playSwitchClick(true);
     },
-    [inProgressWire, screenToWorld, components, handlePinMouseUp, onBranchWire]
+    [inProgressWire, screenToWorld, components, wires, handlePinMouseUp, onBranchWire]
   );
 
   return {

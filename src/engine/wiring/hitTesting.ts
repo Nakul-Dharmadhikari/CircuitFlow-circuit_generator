@@ -79,7 +79,7 @@ export function findNearestPin(
       const pinWorldY = comp.y + pin.y;
       const d = Math.hypot(worldPos.x - pinWorldX, worldPos.y - pinWorldY);
 
-      if (d < maxDist && (!nearest || d < nearest.dist)) {
+      if (d <= maxDist && (!nearest || d < nearest.dist)) {
         nearest = { compId: comp.id, pin, x: pinWorldX, y: pinWorldY, dist: d };
       }
     }
