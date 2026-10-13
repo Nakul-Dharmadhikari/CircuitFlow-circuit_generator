@@ -2,7 +2,7 @@ import assert from 'assert';
 import { simulateCircuit, createComponent } from '../src/engine/simulator';
 import { validateAndSanitizeCircuit, validateCircuit } from '../src/engine/circuitValidator';
 import type { Circuit, CircuitComponent, Wire, CustomICDefinition, LogicValue } from '../src/types/circuit';
-import { saveUserCircuit, getUserCircuits, deleteUserCircuit } from '../src/services/storage';
+import { saveUserCircuit, getUserCircuits, deleteUserCircuit, downloadCircuitToFile } from '../src/services/storage';
 import { saveUserCustomIC, getUserCustomICs, deleteUserCustomIC } from '../src/services/customIcStorage';
 import { validateCustomIC } from '../src/utils/customIcValidator';
 import { simulateCustomICInputs } from '../src/utils/customIcSimulator';
@@ -22,7 +22,7 @@ import {
 } from '../src/engine/trainerKit';
 import { hasCompletedOnboarding, setOnboardingCompleted } from '../src/components/OnboardingTour';
 
-// Mock localStorage for Node environment if unavailable
+// Mock localStorage and DOM APIs for Node environment if unavailable
 if (typeof globalThis.localStorage === 'undefined' || !globalThis.localStorage) {
   const store: Record<string, string> = {};
   (globalThis as any).localStorage = {
@@ -36,6 +36,20 @@ if (typeof globalThis.localStorage === 'undefined' || !globalThis.localStorage) 
     clear: () => {
       for (const k of Object.keys(store)) delete store[k];
     },
+  };
+}
+
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    createElement: () => ({ click: () => {}, href: '', download: '' }),
+    body: { appendChild: () => {}, removeChild: () => {} },
+  };
+  (globalThis as any).Blob = class {
+    constructor(public content: any[], public options?: any) {}
+  };
+  (globalThis as any).URL = {
+    createObjectURL: () => 'blob:mock-url',
+    revokeObjectURL: () => {},
   };
 }
 
@@ -259,38 +273,175 @@ async function runPhase10Audit() {
   console.log('✔ PASS: Scenario 6 verified cleanly.');
 
   // ---------------------------------------------------------------------------
-  // SCENARIO 7: Malformed File Import, Orphaned Wire Pruning & Storage Resilience
+  // SCENARIO 7: Circuit Import Sanitization, Preservation & Storage Resilience
   // ---------------------------------------------------------------------------
-  console.log('\n--- Scenario 7: Malformed Import, Orphaned Pruning & Storage Resilience ---');
-  // Corrupt: Non-object input
+  console.log('\n--- Scenario 7: Import Sanitization, Preservation & Storage Resilience ---');
+  // 1. Corrupt: Non-object input
   const valNull = validateAndSanitizeCircuit(null);
   assert.strictEqual(valNull.isValid, false, 'Null input must fail validation');
 
-  // Corrupt: Missing components array
+  // 2. Corrupt: Missing components array
   const valNoComps = validateAndSanitizeCircuit({ wires: [] });
   assert.strictEqual(valNoComps.isValid, false, 'Missing components must fail validation');
 
-  // Recoverable: Duplicate IDs, NaN coordinates, and orphaned wires
-  const malformedInput = {
+  // 3. Ambiguous duplicate component IDs with connected wires MUST be rejected
+  const ambiguousDuplicateInput = {
     components: [
-      { id: 'dup1', type: 'and', x: NaN, y: 100 },
-      { id: 'dup1', type: 'or', x: 200, y: undefined },
+      { id: 'gate_dup', type: 'and', x: 100, y: 100 },
+      { id: 'gate_dup', type: 'or', x: 200, y: 100 },
+      { id: 'lamp1', type: 'probe', x: 300, y: 100 },
     ],
     wires: [
-      { id: 'w_orphan', fromCompId: 'non_existent_1', fromPinId: 'out', toCompId: 'dup1', toPinId: 'a', value: '0' },
-      { id: 'w_self', fromCompId: 'dup1', fromPinId: 'a', toCompId: 'dup1', toPinId: 'a', value: '0' },
+      { id: 'w1', fromCompId: 'gate_dup', fromPinId: 'out', toCompId: 'lamp1', toPinId: 'in', value: '0' },
     ],
   };
+  const ambiguousRes = validateAndSanitizeCircuit(ambiguousDuplicateInput);
+  assert.strictEqual(ambiguousRes.isValid, false, 'Ambiguous duplicate component with connected wires must be rejected');
+  assert.ok(
+    ambiguousRes.errors.some((e) => e.includes('gate_dup') && e.includes('connected wire')),
+    'Actionable diagnostic explains ambiguous duplicate component ID with connected wire count'
+  );
 
-  const sanitizedRes = validateAndSanitizeCircuit(malformedInput);
-  assert.strictEqual(sanitizedRes.isValid, true, 'Malformed circuit repaired and sanitized successfully');
-  assert.strictEqual(sanitizedRes.repaired, true, 'Marked as repaired');
-  assert.strictEqual(sanitizedRes.circuit.components.length, 2);
-  assert.notStrictEqual(sanitizedRes.circuit.components[0].id, sanitizedRes.circuit.components[1].id, 'Duplicate IDs deduplicated');
-  assert.ok(Number.isFinite(sanitizedRes.circuit.components[0].x), 'Coordinates repaired to finite numbers');
-  assert.strictEqual(sanitizedRes.circuit.wires.length, 0, 'Orphaned and self-loop wires pruned safely');
+  // 4. Unambiguous / unwired duplicate component IDs are safely deduplicated
+  const unwiredDuplicateInput = {
+    components: [
+      { id: 'lamp_dup', type: 'probe', x: 100, y: 100 },
+      { id: 'lamp_dup', type: 'probe', x: 200, y: 200 },
+    ],
+    wires: [],
+  };
+  const unwiredRes = validateAndSanitizeCircuit(unwiredDuplicateInput);
+  assert.strictEqual(unwiredRes.isValid, true, 'Unwired duplicate component IDs safely sanitized');
+  assert.strictEqual(unwiredRes.repaired, true, 'Marked as repaired');
+  assert.strictEqual(unwiredRes.circuit.components.length, 2);
+  assert.notStrictEqual(unwiredRes.circuit.components[0].id, unwiredRes.circuit.components[1].id, 'Component IDs deduplicated');
+  assert.ok(unwiredRes.warnings.some((w) => w.includes('lamp_dup')), 'Warning explains component ID deduplication');
 
-  // Storage failure resilience
+  // 5. Duplicate wire IDs: Identical endpoints pruned, distinct endpoints safely re-keyed
+  const wireDupInput = {
+    components: [
+      { id: 'sw1', type: 'switch', x: 50, y: 100 },
+      { id: 'sw2', type: 'switch', x: 50, y: 160 },
+      { id: 'and1', type: 'and', x: 200, y: 130 },
+      { id: 'probe1', type: 'probe', x: 350, y: 130 },
+    ],
+    wires: [
+      // Wire 1
+      { id: 'wire_dup', fromCompId: 'sw1', fromPinId: 'out', toCompId: 'and1', toPinId: 'a', value: '0' },
+      // Exact redundant duplicate of Wire 1 (identical endpoints, shared ID) -> pruned
+      { id: 'wire_dup', fromCompId: 'sw1', fromPinId: 'out', toCompId: 'and1', toPinId: 'a', value: '0' },
+      // Distinct connection sharing wire ID 'wire_dup' -> re-keyed
+      { id: 'wire_dup', fromCompId: 'sw2', fromPinId: 'out', toCompId: 'and1', toPinId: 'b', value: '0' },
+      // Valid unique wire to probe
+      { id: 'w_out', fromCompId: 'and1', fromPinId: 'out', toCompId: 'probe1', toPinId: 'in', value: '0' },
+    ],
+  };
+  const wireDupRes = validateAndSanitizeCircuit(wireDupInput);
+  assert.strictEqual(wireDupRes.isValid, true, 'Duplicate wire IDs sanitized cleanly');
+  assert.strictEqual(wireDupRes.repaired, true);
+  assert.strictEqual(wireDupRes.circuit.wires.length, 3, 'Redundant duplicate wire pruned, distinct wires preserved');
+  const wireIds = wireDupRes.circuit.wires.map((w: Wire) => w.id);
+  assert.strictEqual(new Set(wireIds).size, 3, 'All retained wires have unique IDs');
+  assert.ok(wireDupRes.warnings.some((w) => w.includes('identical endpoints')), 'Warns about identical duplicate wire pruning');
+  assert.ok(wireDupRes.warnings.some((w) => w.includes('remapped')), 'Warns about wire ID re-keying');
+
+  // 6. Malformed wire pruning: non-existent components, invalid pins, self-loops
+  const malformedWiresInput = {
+    components: [
+      { id: 'gate_and', type: 'and', x: 100, y: 100 },
+    ],
+    wires: [
+      // Self-loop
+      { id: 'w_self', fromCompId: 'gate_and', fromPinId: 'out', toCompId: 'gate_and', toPinId: 'a', value: '0' },
+      // Non-existent component
+      { id: 'w_ghost', fromCompId: 'gate_and', fromPinId: 'out', toCompId: 'non_existent_comp', toPinId: 'in', value: '0' },
+      // Non-existent pin on valid component
+      { id: 'w_bad_pin', fromCompId: 'gate_and', fromPinId: 'non_existent_pin_xyz', toCompId: 'gate_and', toPinId: 'a', value: '0' },
+    ],
+  };
+  const malformedWiresRes = validateAndSanitizeCircuit(malformedWiresInput);
+  assert.strictEqual(malformedWiresRes.isValid, true, 'Malformed wires sanitized');
+  assert.strictEqual(malformedWiresRes.circuit.wires.length, 0, 'All invalid/self-loop wires safely pruned');
+  assert.ok(malformedWiresRes.warnings.some((w) => w.includes('self-loop')), 'Warns about self-loop wire');
+  assert.ok(malformedWiresRes.warnings.some((w) => w.includes('non-existent component')), 'Warns about missing component');
+  assert.ok(malformedWiresRes.warnings.some((w) => w.includes('non-existent pin')), 'Warns about invalid pin');
+
+  // 7. Coordinate repair (non-finite coordinates repaired to finite numbers)
+  const nonFiniteCoordsInput = {
+    components: [
+      { id: 'c1', type: 'and', x: NaN, y: Infinity },
+      { id: 'c2', type: 'probe', x: -Infinity, y: undefined },
+    ],
+    wires: [],
+  };
+  const coordsRes = validateAndSanitizeCircuit(nonFiniteCoordsInput);
+  assert.strictEqual(coordsRes.isValid, true);
+  assert.strictEqual(coordsRes.repaired, true);
+  assert.ok(Number.isFinite(coordsRes.circuit.components[0].x) && Number.isFinite(coordsRes.circuit.components[0].y));
+  assert.ok(Number.isFinite(coordsRes.circuit.components[1].x) && Number.isFinite(coordsRes.circuit.components[1].y));
+  assert.ok(coordsRes.warnings.some((w) => w.includes('non-finite coordinates')));
+
+  // 8. Normal valid circuit round-trip: 100% preservation & simulation invariance
+  const sw_a = createComponent('toggle', 40, 80, 'SW_A');
+  sw_a.id = 'sw_a';
+  sw_a.state.toggleState = true;
+  sw_a.outputs[0].value = '1';
+
+  const sw_b = createComponent('toggle', 40, 160, 'SW_B');
+  sw_b.id = 'sw_b';
+  sw_b.state.toggleState = false;
+  sw_b.outputs[0].value = '0';
+
+  const xor_gate = createComponent('xor', 180, 120, 'XOR1');
+  xor_gate.id = 'xor_gate';
+
+  const sum_probe = createComponent('probe', 300, 120, 'SUM_PROBE');
+  sum_probe.id = 'sum_probe';
+
+  const validTestCircuit: Circuit = {
+    components: [sw_a, sw_b, xor_gate, sum_probe],
+    wires: [
+      { id: 'w_a_xor', fromCompId: 'sw_a', fromPinId: 'out', toCompId: 'xor_gate', toPinId: 'a', value: '1' },
+      { id: 'w_b_xor', fromCompId: 'sw_b', fromPinId: 'out', toCompId: 'xor_gate', toPinId: 'b', value: '0' },
+      { id: 'w_xor_sum', fromCompId: 'xor_gate', fromPinId: 'out', toCompId: 'sum_probe', toPinId: 'in', value: '1' },
+    ],
+  };
+  const preSnapshot = JSON.parse(JSON.stringify(validTestCircuit));
+  const simOriginal = simulateCircuit(validTestCircuit);
+  const probeOrig = simOriginal.circuit.components.find((c) => c.id === 'sum_probe')!;
+  assert.strictEqual(probeOrig.inputs[0].value, '1', 'Original circuit simulates 1 XOR 0 = 1');
+
+  const roundTripRes = validateAndSanitizeCircuit(validTestCircuit);
+  assert.strictEqual(roundTripRes.isValid, true, 'Valid circuit is valid');
+  assert.strictEqual(roundTripRes.repaired, false, 'No repairs needed for pristine circuit');
+  assert.strictEqual(roundTripRes.warnings.length, 0, 'Zero warnings for valid circuit');
+  assert.strictEqual(roundTripRes.errors.length, 0, 'Zero errors for valid circuit');
+  assert.deepStrictEqual(validTestCircuit, preSnapshot, 'Input circuit was not mutated during validation');
+  assert.deepStrictEqual(roundTripRes.circuit, validTestCircuit, 'Topology, IDs, coordinates 100% preserved');
+
+  const simSanitized = simulateCircuit(roundTripRes.circuit);
+  const probeSan = simSanitized.circuit.components.find((c) => c.id === 'sum_probe')!;
+  assert.strictEqual(probeSan.inputs[0].value, '1', 'Sanitized circuit simulation output matches perfectly');
+
+  // 9. Immutability during export & download
+  const frozenCirc: Circuit = JSON.parse(JSON.stringify(validTestCircuit));
+  downloadCircuitToFile(frozenCirc, 'ReleaseExportTest');
+  assert.deepStrictEqual(frozenCirc, preSnapshot, 'downloadCircuitToFile does not alter or mutate the active circuit object');
+
+  // 10. Existing saved circuits are never overwritten by malformed imports
+  saveUserCircuit('test_user_phase10', 'Pristine Saved Circuit', 'Important project', validTestCircuit);
+  const beforeCount = getUserCircuits('test_user_phase10').length;
+  const pristineBefore = getUserCircuits('test_user_phase10').find((c) => c.name === 'Pristine Saved Circuit')!;
+
+  const badImportPayload = { invalid: true };
+  const badValidation = validateAndSanitizeCircuit(badImportPayload);
+  assert.strictEqual(badValidation.isValid, false, 'Bad payload rejected');
+
+  const pristineAfter = getUserCircuits('test_user_phase10').find((c) => c.name === 'Pristine Saved Circuit')!;
+  assert.deepStrictEqual(pristineAfter.circuit.components.map((c) => c.id), pristineBefore.circuit.components.map((c) => c.id));
+  assert.strictEqual(getUserCircuits('test_user_phase10').length, beforeCount, 'Saved circuit collection untouched by malformed payload');
+
+  // 11. Storage failure resilience
   const mockStorageFail = () => {
     throw new Error('QuotaExceededError: LocalStorage quota exceeded');
   };

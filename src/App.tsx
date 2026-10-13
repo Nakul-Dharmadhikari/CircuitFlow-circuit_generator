@@ -23,6 +23,7 @@ import {
 } from './engine/trainerKit';
 import { getUserCustomICs, deleteUserCustomIC } from './services/customIcStorage';
 import { downloadCircuitToFile } from './services/storage';
+import { validateAndSanitizeCircuit } from './engine/circuitValidator';
 
 import { LandingPage } from './components/LandingPage';
 import { Sidebar } from './components/Sidebar';
@@ -341,23 +342,36 @@ export function App() {
   const handleImportJson = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,application/json';
+    input.accept = '.json,application/json,.deld';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
         const text = await file.text();
-        const parsed = JSON.parse(text);
-        if (parsed && Array.isArray(parsed.components) && Array.isArray(parsed.wires)) {
-          const res = simulateCircuit(parsed);
-          pushState(res.circuit);
-          soundFx.playButtonTap();
-          showToast('Circuit imported successfully');
-        } else {
-          showToast('Invalid circuit file structure');
+        let parsed: any;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          showToast('Failed to parse circuit JSON: Invalid JSON syntax');
+          return;
         }
-      } catch {
-        showToast('Failed to parse circuit JSON file');
+
+        const validation = validateAndSanitizeCircuit(parsed);
+        if (!validation.isValid) {
+          showToast(`Import rejected: ${validation.errors.join('; ')}`);
+          return;
+        }
+
+        const res = simulateCircuit(validation.circuit);
+        pushState(res.circuit);
+        soundFx.playButtonTap();
+        if (validation.repaired && validation.warnings.length > 0) {
+          showToast(`Circuit imported with ${validation.warnings.length} sanitization repairs applied`);
+        } else {
+          showToast('Circuit imported successfully');
+        }
+      } catch (err: any) {
+        showToast(`Import failed: ${err?.message || 'Corrupt file structure'}`);
       }
     };
     input.click();

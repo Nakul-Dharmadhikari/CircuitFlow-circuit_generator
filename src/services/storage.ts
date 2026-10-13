@@ -173,7 +173,9 @@ export function saveUserCircuit(
   description: string,
   circuit: Circuit
 ): SavedCircuit {
-  const sanitized = validateAndSanitizeCircuit(circuit).circuit;
+  const clone: Circuit = JSON.parse(JSON.stringify(circuit));
+  const validation = validateAndSanitizeCircuit(clone);
+  const sanitized = validation.isValid ? validation.circuit : clone;
   const list = getUserCircuits(userId);
   const newEntry: SavedCircuit = {
     id: `circ_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -210,13 +212,15 @@ export function deleteUserCircuit(userId: string, circuitId: string): void {
 // --- Desktop File Save / Load (.deld / .json) ---
 
 export function downloadCircuitToFile(circuit: Circuit, circuitName: string = 'circuit'): void {
-  const sanitized = validateAndSanitizeCircuit(circuit).circuit;
+  const clone: Circuit = JSON.parse(JSON.stringify(circuit));
+  const validation = validateAndSanitizeCircuit(clone);
+  const targetCircuit = validation.isValid ? validation.circuit : clone;
   const exportData = {
     format: 'circuitflow',
     version: '2.0',
     name: circuitName,
     exportedAt: new Date().toISOString(),
-    circuit: sanitized,
+    circuit: targetCircuit,
   };
 
   const jsonStr = JSON.stringify(exportData, null, 2);
