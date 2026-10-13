@@ -22,32 +22,52 @@ export interface LabExperiment {
 
 export function getLabExperiments(): LabExperiment[] {
   // =========================================================================
-  // 1. Boolean Fundamentals: Basic Gates & De Morgan's Law Verification
+  // 1. Boolean Fundamentals: Basic Gates (AND, OR, NOT, NAND) & De Morgan
   // =========================================================================
   const demA = createComponent('toggle', 80, 80, 'A');
-  const demB = createComponent('toggle', 80, 200, 'B');
-  const nandGate = createComponent('nand', 260, 80, 'NAND Gate');
-  const notA = createComponent('not', 260, 200, 'NOT A');
-  const notB = createComponent('not', 260, 280, 'NOT B');
-  const orDeM = createComponent('or', 420, 230, "OR (A' + B')");
-  const ledNand = createComponent('led', 420, 80, 'Y_NAND');
-  const ledDem = createComponent('led', 560, 230, 'Y_DEMORGAN');
+  const demB = createComponent('toggle', 80, 240, 'B');
+  const andGate = createComponent('and', 260, 60, 'AND Gate');
+  const orGate = createComponent('or', 260, 160, 'OR Gate');
+  const notA = createComponent('not', 260, 260, 'NOT A');
+  const nandGate = createComponent('nand', 260, 360, 'NAND Gate');
+  const notB = createComponent('not', 260, 460, 'NOT B');
+  const orDeM = createComponent('or', 440, 460, "OR (A' + B')");
+
+  const ledAnd = createComponent('led', 440, 60, 'Y_AND');
+  const ledOr = createComponent('led', 440, 160, 'Y_OR');
+  const ledNot = createComponent('led', 440, 260, 'Y_NOT_A');
+  const ledNand = createComponent('led', 440, 360, 'Y_NAND');
+  const ledDem = createComponent('led', 600, 460, 'Y_DEMORGAN');
+  ledAnd.customProps = { color: 'green' };
+  ledOr.customProps = { color: 'green' };
+  ledNot.customProps = { color: 'green' };
   ledNand.customProps = { color: 'green' };
   ledDem.customProps = { color: 'green' };
 
   const demWires = [
-    { id: 'w_dm_a_nand', fromCompId: demA.id, fromPinId: 'out', toCompId: nandGate.id, toPinId: 'a', value: '0' as const },
-    { id: 'w_dm_b_nand', fromCompId: demB.id, fromPinId: 'out', toCompId: nandGate.id, toPinId: 'b', value: '0' as const },
-    { id: 'w_dm_a_not', fromCompId: demA.id, fromPinId: 'out', toCompId: notA.id, toPinId: 'in', value: '0' as const },
-    { id: 'w_dm_b_not', fromCompId: demB.id, fromPinId: 'out', toCompId: notB.id, toPinId: 'in', value: '0' as const },
-    { id: 'w_dm_not_or_a', fromCompId: notA.id, fromPinId: 'out', toCompId: orDeM.id, toPinId: 'a', value: '1' as const },
-    { id: 'w_dm_not_or_b', fromCompId: notB.id, fromPinId: 'out', toCompId: orDeM.id, toPinId: 'b', value: '1' as const },
-    { id: 'w_dm_nand_led', fromCompId: nandGate.id, fromPinId: 'out', toCompId: ledNand.id, toPinId: 'in', value: '1' as const },
-    { id: 'w_dm_or_led', fromCompId: orDeM.id, fromPinId: 'out', toCompId: ledDem.id, toPinId: 'in', value: '1' as const },
+    { id: 'w_bf_a_and', fromCompId: demA.id, fromPinId: 'out', toCompId: andGate.id, toPinId: 'a', value: '0' as const },
+    { id: 'w_bf_b_and', fromCompId: demB.id, fromPinId: 'out', toCompId: andGate.id, toPinId: 'b', value: '0' as const },
+    { id: 'w_bf_and_led', fromCompId: andGate.id, fromPinId: 'out', toCompId: ledAnd.id, toPinId: 'in', value: '0' as const },
+
+    { id: 'w_bf_a_or', fromCompId: demA.id, fromPinId: 'out', toCompId: orGate.id, toPinId: 'a', value: '0' as const },
+    { id: 'w_bf_b_or', fromCompId: demB.id, fromPinId: 'out', toCompId: orGate.id, toPinId: 'b', value: '0' as const },
+    { id: 'w_bf_or_led', fromCompId: orGate.id, fromPinId: 'out', toCompId: ledOr.id, toPinId: 'in', value: '0' as const },
+
+    { id: 'w_bf_a_not', fromCompId: demA.id, fromPinId: 'out', toCompId: notA.id, toPinId: 'in', value: '0' as const },
+    { id: 'w_bf_not_led', fromCompId: notA.id, fromPinId: 'out', toCompId: ledNot.id, toPinId: 'in', value: '1' as const },
+
+    { id: 'w_bf_a_nand', fromCompId: demA.id, fromPinId: 'out', toCompId: nandGate.id, toPinId: 'a', value: '0' as const },
+    { id: 'w_bf_b_nand', fromCompId: demB.id, fromPinId: 'out', toCompId: nandGate.id, toPinId: 'b', value: '0' as const },
+    { id: 'w_bf_nand_led', fromCompId: nandGate.id, fromPinId: 'out', toCompId: ledNand.id, toPinId: 'in', value: '1' as const },
+
+    { id: 'w_bf_b_not', fromCompId: demB.id, fromPinId: 'out', toCompId: notB.id, toPinId: 'in', value: '0' as const },
+    { id: 'w_bf_nota_or', fromCompId: notA.id, fromPinId: 'out', toCompId: orDeM.id, toPinId: 'a', value: '1' as const },
+    { id: 'w_bf_notb_or', fromCompId: notB.id, fromPinId: 'out', toCompId: orDeM.id, toPinId: 'b', value: '1' as const },
+    { id: 'w_bf_dem_led', fromCompId: orDeM.id, fromPinId: 'out', toCompId: ledDem.id, toPinId: 'in', value: '1' as const },
   ];
 
   const demCircuit = simulateCircuit({
-    components: [demA, demB, nandGate, notA, notB, orDeM, ledNand, ledDem],
+    components: [demA, demB, andGate, orGate, notA, nandGate, notB, orDeM, ledAnd, ledOr, ledNot, ledNand, ledDem],
     wires: demWires,
   }).circuit;
 
@@ -373,20 +393,21 @@ export function getLabExperiments(): LabExperiment[] {
   return [
     {
       id: 'boolean_fundamentals',
-      title: 'Basic Logic Gates & De Morgan Verification',
+      title: 'Basic Logic Gates (AND, OR, NOT, NAND) & De Morgan',
       category: 'Boolean Fundamentals',
       difficulty: 'Beginner',
-      description: "Compare NAND gate logic with inverted inputs (De Morgan's theorem) to prove equivalence across all 4 input states.",
-      theory: "(A·B)' = A' + B'. De Morgan's theorem proves that NAND and inverted-input OR networks produce identical digital outputs.",
+      description: "Verify basic gates (AND, OR, NOT, NAND) in parallel alongside De Morgan's theorem equivalence (A·B)' = A' + B' across all input combinations.",
+      theory: "AND: Y = A·B; OR: Y = A+B; NOT: Y = A'; NAND: Y = (A·B)'. De Morgan's theorem proves NAND equals inverted-input OR: (A·B)' = A' + B'.",
       learningObjectives: [
-        'Verify truth tables for universal NAND gates',
-        "Demonstrate De Morgan's theorem by wiring dual complementary networks",
-        'Inspect identical signal propagation across multiple gate branches',
+        'Verify independent truth tables for fundamental AND, OR, and NOT gates',
+        'Verify universal NAND gate logic across all input assignments',
+        "Demonstrate De Morgan's theorem by comparing NAND with inverted-input OR",
       ],
       tasks: [
-        { id: 't1', text: 'Toggle inputs A and B through all 4 combinations (00, 01, 10, 11).', hint: 'Notice that both output LEDs illuminate under identical input states.' },
-        { id: 't2', text: 'Set A=1 and B=1 to observe both outputs switch to LOW (0).', hint: 'In a NAND gate, output is 0 only when both inputs are 1.' },
-        { id: 't3', text: 'Open the Circuit Analysis Center to inspect the complete Truth Table.', hint: 'Click Analyze -> Truth Table in the top menu.' },
+        { id: 't1', text: 'Set A=0, B=0: observe AND=0, OR=0, NOT=1, NAND=1, and DeMorgan=1.', hint: 'Inversion outputs are active when inputs are low.' },
+        { id: 't2', text: 'Set A=1, B=0: observe AND=0, OR=1, NOT=0, NAND=1, and DeMorgan=1.', hint: 'OR gate illuminates whenever at least one input is 1.' },
+        { id: 't3', text: 'Set A=1, B=1: observe AND=1, OR=1, NOT=0, NAND=0, and DeMorgan=0.', hint: 'AND is 1 only when both are 1; NAND is 0 only when both are 1.' },
+        { id: 't4', text: 'Open the Truth Table tab in Analysis Center to inspect the complete matrix.', hint: 'Click Analyze -> Truth Table in the top menu.' },
       ],
       analysisTargetTab: 'truth_table',
       circuit: demCircuit,

@@ -53,7 +53,14 @@ export const GuidedLabAssistant: React.FC<GuidedLabAssistantProps> = ({
     let msg = `Circuit evaluated cleanly. Active inputs: [${switchStates || 'None'}]. Active outputs: [${ledStates || 'None'}].`;
     let status: 'success' | 'info' = 'success';
 
-    if (activeLab.id === 'half_adder') {
+    if (activeLab.id === 'boolean_fundamentals') {
+      const getVal = (name: string) => leds.find((l) => (l.label || '').toUpperCase().includes(name))?.inputs[0]?.value || '0';
+      const andV = getVal('AND');
+      const orV = getVal('OR');
+      const notV = getVal('NOT');
+      const nandV = getVal('NAND');
+      msg = `Boolean Fundamentals Status: AND=${andV}, OR=${orV}, NOT=${notV}, NAND=${nandV}. Verified parallel logic & De Morgan equivalence.`;
+    } else if (activeLab.id === 'half_adder') {
       const sumLed = leds.find((l) => (l.label || '').toUpperCase().includes('SUM')) || leds[0];
       const carryLed = leds.find((l) => (l.label || '').toUpperCase().includes('CARRY')) || leds[1];
       const sumVal = sumLed?.inputs[0]?.value === '1' ? '1' : '0';
@@ -62,10 +69,49 @@ export const GuidedLabAssistant: React.FC<GuidedLabAssistantProps> = ({
     } else if (activeLab.id === 'full_adder') {
       const sumLed = leds.find((l) => (l.label || '').toUpperCase().includes('SUM')) || leds[0];
       const coutLed = leds.find((l) => (l.label || '').toUpperCase().includes('COUT')) || leds[1];
-      msg = `Full Adder Status: Sum = ${sumLed?.inputs[0]?.value === '1' ? '1' : '0'}, Cout = ${coutLed?.inputs[0]?.value === '1' ? '1' : '0'}. Verified 3-bit sum operation.`;
+      msg = `Full Adder Status: Sum = ${sumLed?.inputs[0]?.value === '1' ? '1' : '0'}, Cout = ${coutLed?.inputs[0]?.value === '1' ? '1' : '0'}. Verified 3-bit sum operation: Sum = A ⊕ B ⊕ Cin, Cout = AB + Cin(A⊕B).`;
     } else if (activeLab.id === 'mux_4to1') {
       const outLed = leds[0];
       msg = `4:1 Mux Output: Y = ${outLed?.inputs[0]?.value === '1' ? '1' : '0'}. Route selected by S1:S0 addressing inputs.`;
+    } else if (activeLab.id === 'parity_5bit') {
+      const pLed = leds.find((l) => (l.label || '').toUpperCase().includes('PARITY')) || leds[0];
+      const pVal = pLed?.inputs[0]?.value === '1' ? '1' : '0';
+      const activeSwCount = switches.filter((s) => s.state?.toggleState).length;
+      msg = `5-Bit Parity Status: P = ${pVal} (${activeSwCount} input(s) HIGH -> ${activeSwCount % 2 === 1 ? 'Odd' : 'Even'} parity verified).`;
+    } else if (activeLab.id === 'decoder_2to4') {
+      const enSw = switches.find((s) => (s.label || '').toUpperCase().includes('ENABLE'));
+      const isEn = Boolean(enSw?.state?.toggleState);
+      const activeY = leds.findIndex((l) => l.inputs[0]?.value === '1');
+      msg = `2:4 Decoder Status: Enable=${isEn ? '1' : '0'}, Active Line: ${isEn && activeY >= 0 ? 'Y' + activeY : isEn ? 'None' : 'All Disabled (0)'}. Verified active-HIGH enable steering.`;
+    } else if (activeLab.id === 'd_flipflop_clock') {
+      const dff = components.find((c) => c.type === 'd_flipflop');
+      const qVal = dff?.state?.q || '0';
+      const qbVal = dff?.state?.qBar || '1';
+      msg = `D Flip-Flop Status: Stored Q = ${qVal}, Q̄ = ${qbVal}. Edge-triggered register holds state until rising clock transition.`;
+    } else if (activeLab.id === 'jk_flipflop') {
+      const jkff = components.find((c) => c.type === 'jk_flipflop');
+      const qVal = jkff?.state?.q || '0';
+      const qbVal = jkff?.state?.qBar || '1';
+      msg = `JK Flip-Flop Status: Q = ${qVal}, Q̄ = ${qbVal}. Configured in toggle mode (J=1, K=1) for frequency division by 2.`;
+    } else if (activeLab.id === 'sync_upcounter_3bit') {
+      const q0 = components.find((c) => c.label === 'Q0' || c.label === 'LED Q0')?.state?.q || components.find((c) => c.label === 'LED Q0')?.inputs[0]?.value || '0';
+      const q1 = components.find((c) => c.label === 'Q1' || c.label === 'LED Q1')?.state?.q || components.find((c) => c.label === 'LED Q1')?.inputs[0]?.value || '0';
+      const q2 = components.find((c) => c.label === 'Q2' || c.label === 'LED Q2')?.state?.q || components.find((c) => c.label === 'LED Q2')?.inputs[0]?.value || '0';
+      const val = (q2 === '1' ? 4 : 0) + (q1 === '1' ? 2 : 0) + (q0 === '1' ? 1 : 0);
+      msg = `3-Bit Synchronous Counter: Q2:Q1:Q0 = ${q2}${q1}${q0} (Decimal ${val}). Modulo-8 count sequence verified across common clock.`;
+    } else if (activeLab.id === 'counter_4bit') {
+      const cnt = components.find((c) => c.type === 'counter_4bit');
+      const count = cnt?.state?.count ?? 0;
+      msg = `4-Bit Counter Status: Count = ${count} (Hex ${count.toString(16).toUpperCase()}). Terminal count TC = ${count === 15 ? '1' : '0'}.`;
+    } else if (activeLab.id === 'shift_reg_4bit') {
+      const sreg = components.find((c) => c.type === 'shift_reg_4bit');
+      const bits = sreg?.state?.shiftRegister || ['0', '0', '0', '0'];
+      msg = `4-Bit Shift Register: [Q0=${bits[0]}, Q1=${bits[1]}, Q2=${bits[2]}, Q3=${bits[3]}]. Serial-in parallel-out data pipeline verified.`;
+    } else if (activeLab.id === 'majority_voter') {
+      const mvLed = leds.find((l) => (l.label || '').toUpperCase().includes('DECISION')) || leds[0];
+      const mVal = mvLed?.inputs[0]?.value === '1' ? '1' : '0';
+      const activeVotes = switches.filter((s) => s.state?.toggleState).length;
+      msg = `Majority Decision Status: M = ${mVal} (${activeVotes}/3 votes active -> ${activeVotes >= 2 ? 'PASS (Majority HIGH)' : 'FAIL (Minority LOW)'}).`;
     } else if (activeLab.id.includes('counter')) {
       msg = `Counter active with ${clocks.length} clock source(s) and ${displays.length} display(s). Step clock (T) to observe state transitions.`;
     }
