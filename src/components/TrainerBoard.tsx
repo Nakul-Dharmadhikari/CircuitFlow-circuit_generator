@@ -389,12 +389,21 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
                   >
                     {/* Top Pin Sockets (20 down to 11 from left to right) */}
                     <div className="base-pins-row top-row">
-                      {[20, 19, 18, 17, 16, 15, 14, 13, 12, 11].map((pin) => (
-                        <div key={pin} className="base-pin-slot" title={`Socket Pin ${pin}`}>
-                          <span className="slot-index">{pin}</span>
-                          <div className="slot-socket-hole" />
-                        </div>
-                      ))}
+                      {[20, 19, 18, 17, 16, 15, 14, 13, 12, 11].map((pin) => {
+                        const col = 20 - pin + 1;
+                        const pinX = Math.round(col * (slot.width / 11));
+                        return (
+                          <div
+                            key={pin}
+                            className="base-pin-slot"
+                            style={{ position: 'absolute', left: `${pinX}px`, transform: 'translateX(-50%)' }}
+                            title={`Socket Pin ${pin}`}
+                          >
+                            <span className="slot-index">{pin}</span>
+                            <div className="slot-socket-hole" />
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Socket Body Center Area */}
@@ -460,12 +469,20 @@ export const TrainerBoard: React.FC<TrainerBoardProps> = ({
 
                     {/* Bottom Pin Sockets (1 to 10 from left to right) */}
                     <div className="base-pins-row bottom-row">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pin) => (
-                        <div key={pin} className="base-pin-slot" title={`Socket Pin ${pin}`}>
-                          <div className="slot-socket-hole" />
-                          <span className="slot-index">{pin}</span>
-                        </div>
-                      ))}
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pin) => {
+                        const pinX = Math.round(pin * (slot.width / 11));
+                        return (
+                          <div
+                            key={pin}
+                            className="base-pin-slot"
+                            style={{ position: 'absolute', left: `${pinX}px`, transform: 'translateX(-50%)' }}
+                            title={`Socket Pin ${pin}`}
+                          >
+                            <div className="slot-socket-hole" />
+                            <span className="slot-index">{pin}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

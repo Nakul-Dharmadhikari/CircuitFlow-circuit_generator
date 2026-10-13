@@ -574,7 +574,7 @@
 
 .circuit-node.dip-ic-package.selected {
   border-color: var(--border-focus) !important;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45), 0 8px 20px rgba(0, 0, 0, 0.7) !important;
+  box-shadow: 0 0 0 2px var(--accent-copper-glow), 0 8px 20px rgba(0, 0, 0, 0.7) !important;
 }
 
 /* Physical Left Notch for Horizontal DIP Orientation */
@@ -602,8 +602,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #10b981;
-  box-shadow: 0 0 6px #10b981;
+  background-color: var(--accent-copper);
+  box-shadow: 0 0 6px var(--accent-copper-glow);
   z-index: 12;
   pointer-events: none;
 }
@@ -824,8 +824,8 @@
 }
 
 .trainer-section-title.top-title {
-  top: 6px;
-  left: 198px;
+  position: static;
+  margin-left: 8px;
 }
 
 .trainer-output-num-row {
@@ -999,10 +999,9 @@
 
 /* Pin Rows (Top: 20..11, Bottom: 1..10) */
 .base-pins-row {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
   width: 100%;
-  padding: 0 4px;
+  height: 18px;
   box-sizing: border-box;
 }
 

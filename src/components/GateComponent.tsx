@@ -82,13 +82,13 @@ export const GateComponent: React.FC<GateComponentProps> = ({
 
   return (
     <div
-      className={`circuit-node ${!isBasicGate && type !== 'toggle' && type !== 'push_button' && type !== 'led' && type !== 'probe' && !isTrainerSpecial ? 'ic-chip' : ''} ${isDipIC ? 'dip-ic-package' : ''} ${isTrainerSpecial ? 'trainer-node' : ''} ${component.isTrainerFixed ? 'fixed-trainer-node' : ''} ${isSelected ? 'selected' : ''}`}
+      className={`circuit-node ${!isBasicGate && type !== 'toggle' && type !== 'push_button' && type !== 'led' && type !== 'probe' && !isTrainerSpecial ? 'ic-chip' : ''} ${isDipIC ? 'dip-ic-package' : ''} ${component.customProps?.trainerMount ? 'mounted-in-socket' : ''} ${isTrainerSpecial ? 'trainer-node' : ''} ${component.isTrainerFixed ? 'fixed-trainer-node' : ''} ${isSelected ? 'selected' : ''}`}
       style={{
         left: `${x}px`,
         top: `${y}px`,
         width: `${width}px`,
         height: `${height}px`,
-        cursor: component.isTrainerFixed ? 'default' : 'move',
+        cursor: component.customProps?.trainerMount ? 'pointer' : (component.isTrainerFixed ? 'default' : 'move'),
         transform: component.rotation ? `rotate(${component.rotation}deg)` : undefined,
         transformOrigin: 'center center',
       }}
