@@ -472,7 +472,6 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
     <div className="custom-ic-modal-overlay" onClick={onClose}>
       <div
         className="custom-ic-modal-studio"
-        style={{ width: '96vw', maxWidth: '1360px', height: '94vh', maxHeight: '94vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Studio Top Header */}
@@ -797,9 +796,9 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                         <tr key={w.id}>
                           <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{w.id}</td>
                           <td>{w.fromCompId}</td>
-                          <td style={{ fontWeight: 700, color: '#38bdf8' }}>{w.fromPinId}</td>
+                          <td style={{ fontWeight: 700, color: 'var(--accent-copper)' }}>{w.fromPinId}</td>
                           <td>{w.toCompId}</td>
-                          <td style={{ fontWeight: 700, color: '#38bdf8' }}>{w.toPinId}</td>
+                          <td style={{ fontWeight: 700, color: 'var(--accent-copper)' }}>{w.toPinId}</td>
                         </tr>
                       ))}
                       {(!internalCircuit.wires || internalCircuit.wires.length === 0) && (
@@ -1204,7 +1203,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                         width: '6px',
                         height: '6px',
                         borderRadius: '50%',
-                        background: '#10b981',
+                        background: 'var(--accent-copper)',
                       }}
                     />
                     <div style={{ textAlign: 'center' }}>
@@ -1496,7 +1495,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
                             </th>
                           ))}
                           {testResult.circuitType === 'sequential' && (
-                            <th style={{ background: '#3b82f6', color: '#fff' }}>CLK Step</th>
+                            <th style={{ background: 'var(--bg-panel-elevated)', color: 'var(--accent-copper)', borderBottom: '2px solid var(--accent-copper)' }}>CLK Step</th>
                           )}
                           {testResult.outputPinNumbers.map((pNum: number) => (
                             <th key={`out_${pNum}`} className="out-col">

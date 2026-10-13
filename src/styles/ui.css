@@ -198,15 +198,15 @@
 }
 
 .header-btn.primary {
-  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  background: linear-gradient(180deg, var(--accent-copper) 0%, var(--accent-copper-active) 100%);
   color: #ffffff;
-  border-color: #15803d;
-  box-shadow: 0 1px 4px rgba(22, 163, 74, 0.3);
+  border-color: var(--accent-copper-dark);
+  box-shadow: 0 1px 4px var(--accent-copper-glow);
 }
 
 .header-btn.primary:hover {
-  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+  background: linear-gradient(180deg, var(--accent-copper-hover) 0%, var(--accent-copper) 100%);
+  box-shadow: 0 2px 8px var(--accent-copper-glow);
 }
 
 .header-btn.highlight-btn {
@@ -1687,7 +1687,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 2000;
 }
 
 .modal-dialog {
@@ -2391,28 +2391,44 @@
 /* ==========================================================================
    CUSTOM IC STUDIO & PACKAGING MODAL (FULL-SCREEN RESPONSIVE STUDIO)
    ========================================================================== */
-.custom-ic-modal-studio {
-  width: 96vw;
-  max-width: 1320px;
-  height: 92vh;
-  max-height: 92vh;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-focus);
-  border-radius: 14px;
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75);
+.custom-ic-modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-app);
+  z-index: 2500;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modalPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-ic-modal-studio {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  background: var(--bg-panel);
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  animation: modalPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .custom-ic-studio-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 22px;
+  padding: 12px 20px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .studio-title-block {
@@ -2422,11 +2438,12 @@
 }
 
 .studio-icon-badge {
-  font-size: 22px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  padding: 6px 10px;
-  border-radius: 8px;
+  font-size: 20px;
+  background: var(--accent-copper-subtle);
+  border: 1px solid var(--accent-copper);
+  color: var(--accent-copper);
+  padding: 5px 9px;
+  border-radius: 7px;
 }
 
 .studio-title-row {
@@ -2437,7 +2454,7 @@
 
 .studio-heading {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: 0.3px;
@@ -2447,8 +2464,8 @@
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 800;
-  background: #10b981;
-  color: #0f172a;
+  background: var(--accent-copper);
+  color: #ffffff;
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -2596,8 +2613,8 @@
 }
 
 .pkg-toggle-btn.active {
-  background: #10b981;
-  color: #0f172a;
+  background: var(--accent-copper);
+  color: #ffffff;
   font-weight: 800;
 }
 
@@ -2687,7 +2704,28 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #10b981;
+  background: var(--accent-copper);
+}
+
+.custom-ic-close-btn {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.custom-ic-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 .studio-dip-label {
@@ -4230,7 +4268,7 @@
   border-top: 3px solid var(--accent-copper);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg), 0 0 16px rgba(0, 0, 0, 0.45);
-  z-index: 1000;
+  z-index: 90;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -4829,6 +4867,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 140px;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .tour-quick-btn {
