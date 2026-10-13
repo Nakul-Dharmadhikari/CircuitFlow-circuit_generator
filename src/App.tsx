@@ -37,6 +37,8 @@ import { AuthModal } from './components/AuthModal';
 import { SavedCircuitsModal } from './components/SavedCircuitsModal';
 import { CustomICModal } from './components/CustomICModal';
 import { ICPickerModal } from './components/ICPickerModal';
+import { GuidedLabAssistant } from './components/GuidedLabAssistant';
+import { OnboardingTour } from './components/OnboardingTour';
 import { AppShell } from './app/AppShell';
 import type { WorkbenchView } from './hooks/useUIState';
 import { simulationEngine } from './core/simulation-engine';
@@ -150,6 +152,11 @@ export function App() {
   const [showGrid, setShowGrid] = useState(true);
   const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
   const [pickerBaseIndex, setPickerBaseIndex] = useState<number | null>(null);
+
+  // Phase 9: Guided Lab & Onboarding Tour State
+  const [activeLab, setActiveLab] = useState<LabExperiment | null>(null);
+  const [isGuidedAssistantOpen, setIsGuidedAssistantOpen] = useState<boolean>(true);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
 
   // Waveform History Buffer
   const [waveformHistory, setWaveformHistory] = useState<
@@ -1469,7 +1476,7 @@ export function App() {
   }, [circuit, pushState, workbenchMode]);
 
   // Load Pre-Built Lab Experiment
-  const handleLoadExperiment = (exp: LabExperiment) => {
+  const handleLoadExperiment = (exp: LabExperiment, startGuided = true) => {
     setIsRunning(false);
     resetHistory(exp.circuit);
     setSelectedCompId(null);
@@ -1477,14 +1484,49 @@ export function App() {
     setWaveformHistory([]);
     setPan({ x: 40, y: 40 });
     setZoom(1);
+
+    // Switch workbench mode to trainer if experiment uses trainer kit, else freeform
+    const hasTrainer = exp.circuit.components.some(
+      (c) => c.isTrainerFixed || (typeof c.id === 'string' && c.id.startsWith('trainer_'))
+    );
+    if (hasTrainer) {
+      setWorkbenchMode('trainer');
+    } else {
+      setWorkbenchMode('freeform');
+    }
+
+    if (startGuided) {
+      setActiveLab(exp);
+      setIsGuidedAssistantOpen(true);
+    } else {
+      setActiveLab(null);
+    }
+
     soundFx.playButtonTap();
-    showToast(`Loaded: ${exp.title}`);
+    showToast(`Loaded ${startGuided ? 'guided lab' : 'schematic'}: ${exp.title}`);
+  };
+
+  // Reset Active Lab Circuit without touching unrelated saved circuits
+  const handleResetActiveLab = () => {
+    if (!activeLab) return;
+    setIsRunning(false);
+    resetHistory(activeLab.circuit);
+    setSelectedCompId(null);
+    setSelectedWireId(null);
+    setWaveformHistory([]);
+    setPan({ x: 40, y: 40 });
+    setZoom(1);
+    soundFx.playButtonTap();
+    showToast(`Reset lab to initial state: ${activeLab.title}`);
   };
 
   // Load experiment from landing page
   const handleLoadExperimentAndEnter = (exp: LabExperiment) => {
-    handleLoadExperiment(exp);
-    setCurrentView('hardware');
+    handleLoadExperiment(exp, true);
+    const hasTrainer = exp.circuit.components.some(
+      (c) => c.isTrainerFixed || (typeof c.id === 'string' && c.id.startsWith('trainer_'))
+    );
+    setCurrentView(hasTrainer ? 'hardware' : 'circuit');
   };
 
   // Load Saved Circuit
@@ -1899,6 +1941,9 @@ export function App() {
       activeICCount={circuit.components.filter((c) => c.type.startsWith('ic_') || c.type === 'custom_ic').length}
       activeModuleCount={circuit.trainerBoards?.[0]?.modules.length || 1}
       circuit={circuit}
+      onOpenOnboarding={() => setIsOnboardingOpen(true)}
+      activeLab={activeLab}
+      onOpenGuidedAssistant={() => setIsGuidedAssistantOpen(true)}
     >
       {/* Toast Notification */}
       {toastMessage && (
@@ -2085,7 +2130,27 @@ export function App() {
         selectedModuleId={selectedModuleId}
         pendingPlacementType={pendingPlacementType}
         onClearPendingPlacement={() => setPendingPlacementType(null)}
+        onOpenLabs={() => setIsLabPresetsOpen(true)}
+        onSwitchToTrainer={() => {
+          setWorkbenchMode('trainer');
+          setCurrentView('hardware');
+        }}
+        onStartTour={() => setIsOnboardingOpen(true)}
       />
+
+      {/* Guided Lab Assistant Overlay / Dock */}
+      {activeLab && isGuidedAssistantOpen && (
+        <GuidedLabAssistant
+          activeLab={activeLab}
+          currentCircuit={circuit}
+          onResetLab={handleResetActiveLab}
+          onExitLab={() => {
+            setActiveLab(null);
+            setIsGuidedAssistantOpen(false);
+          }}
+          onOpenAnalysisTab={(tab) => handleOpenAnalysisModal(tab)}
+        />
+      )}
 
       {/* Contextual Properties & Hardware Inspector */}
       <PropertiesPanel
@@ -2182,6 +2247,16 @@ export function App() {
         isOpen={isLabPresetsOpen}
         onClose={() => setIsLabPresetsOpen(false)}
         onLoadExperiment={handleLoadExperiment}
+      />
+
+      <OnboardingTour
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onOpenLabPresets={() => {
+          setIsOnboardingOpen(false);
+          setIsLabPresetsOpen(true);
+        }}
+        onOpenComponentLibrary={() => setIsComponentLibraryOpen(true)}
       />
 
       <ShortcutsModal

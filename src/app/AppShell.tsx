@@ -3,6 +3,7 @@ import { TopBar } from './layout/TopBar';
 import { MainWorkspace } from './layout/MainWorkspace';
 import { StatusBar } from './layout/StatusBar';
 import type { Circuit, User } from '../types/circuit';
+import type { LabExperiment } from '../presets/labExperiments';
 import type { InteractionTool, WorkbenchView } from '../hooks/useUIState';
 
 interface AppShellProps {
@@ -60,6 +61,9 @@ interface AppShellProps {
   activeModuleCount?: number;
   circuit?: Circuit;
   onOpenAnalysisModal?: (tab?: 'overview' | 'truth_table' | 'kmap' | 'timing' | 'sequential' | 'testbench' | 'diagnostics') => void;
+  onOpenOnboarding?: () => void;
+  activeLab?: LabExperiment | null;
+  onOpenGuidedAssistant?: () => void;
   children: React.ReactNode;
 }
 
@@ -118,6 +122,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   activeModuleCount = 1,
   circuit,
   onOpenAnalysisModal,
+  onOpenOnboarding,
+  activeLab,
+  onOpenGuidedAssistant,
   children,
 }) => {
   return (
@@ -171,6 +178,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         clockHz={clockHz}
         onClockHzChange={onClockHzChange}
         onOpenAnalysisModal={onOpenAnalysisModal}
+        onOpenOnboarding={onOpenOnboarding}
+        activeLab={activeLab}
+        onOpenGuidedAssistant={onOpenGuidedAssistant}
       />
 
       {/* Main Workspace (occupies 100% of remaining area, flex: 1, overflow: hidden) */}

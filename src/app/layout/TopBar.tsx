@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User } from '../../types/circuit';
+import type { LabExperiment } from '../../presets/labExperiments';
 import type { WorkbenchView } from '../../hooks/useUIState';
 import {
   IconLightning,
@@ -76,6 +77,9 @@ interface TopBarProps {
   clockHz: number;
   onClockHzChange: (hz: number) => void;
   onOpenAnalysisModal?: (tab?: 'overview' | 'truth_table' | 'kmap' | 'timing' | 'sequential' | 'testbench' | 'diagnostics') => void;
+  onOpenOnboarding?: () => void;
+  activeLab?: LabExperiment | null;
+  onOpenGuidedAssistant?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -126,6 +130,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleInspector,
   clockHz,
   onClockHzChange,
+  onOpenOnboarding,
+  activeLab,
+  onOpenGuidedAssistant,
 }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const menuBarRef = useRef<HTMLDivElement>(null);
@@ -791,6 +798,82 @@ export const TopBar: React.FC<TopBarProps> = ({
               </div>
             )}
           </div>
+
+          {/* 5. HELP & COURSEWARE MENU */}
+          <div className="menu-item-wrapper">
+            <button
+              type="button"
+              className={`menu-item-btn ${activeMenu === 'help' ? 'active' : ''}`}
+              onClick={() => handleMenuClick('help')}
+              aria-haspopup="true"
+              aria-expanded={activeMenu === 'help'}
+              title="Student Tour, Curriculum Labs & Keyboard Shortcuts"
+            >
+              Help ▾
+            </button>
+            {activeMenu === 'help' && (
+              <div className="menu-dropdown" role="menu">
+                {onOpenOnboarding && (
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      onOpenOnboarding();
+                      closeMenu();
+                    }}
+                    role="menuitem"
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      🎓 Interactive Student Tour...
+                    </span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    onOpenLabPresets();
+                    closeMenu();
+                  }}
+                  role="menuitem"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    🔬 Verified Curriculum Labs...
+                  </span>
+                </button>
+                {activeLab && onOpenGuidedAssistant && (
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      onOpenGuidedAssistant();
+                      closeMenu();
+                    }}
+                    role="menuitem"
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      📋 Active Lab: {activeLab.title}
+                    </span>
+                  </button>
+                )}
+                <div className="dropdown-divider" />
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    onOpenShortcuts();
+                    closeMenu();
+                  }}
+                  role="menuitem"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <IconHelp size={14} /> Keyboard Shortcuts Reference
+                  </span>
+                  <span className="dropdown-shortcut">?</span>
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Project Name Editable Input */}
@@ -812,6 +895,22 @@ export const TopBar: React.FC<TopBarProps> = ({
           RIGHT: Primary Controls (Run, Step, Reset, Clock, Zoom, Save, Theme, User)
           ------------------------------------------------------------------- */}
       <div className="topbar-right">
+        {/* Active Guided Lab Pill */}
+        {activeLab && (
+          <button
+            type="button"
+            className="shell-btn highlight-btn active-lab-btn"
+            onClick={onOpenGuidedAssistant}
+            title={`Active Lab: ${activeLab.title}. Click to view objectives & checkpoints.`}
+            aria-label="Active Guided Lab Assistant"
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span>🔬</span>
+              <span className="active-lab-name-truncate">{activeLab.title}</span>
+            </span>
+          </button>
+        )}
+
         {/* Run / Pause Primary Simulation Button */}
         <button
           type="button"
@@ -927,6 +1026,22 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           {theme === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
         </button>
+
+        {/* Interactive Tour Quick Button */}
+        {onOpenOnboarding && (
+          <button
+            type="button"
+            className="shell-btn tour-quick-btn"
+            onClick={onOpenOnboarding}
+            title="Start Interactive Student Tour"
+            aria-label="Student Tour"
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span>🎓</span>
+              <span>Tour</span>
+            </span>
+          </button>
+        )}
 
         {/* User Account Button */}
         <button

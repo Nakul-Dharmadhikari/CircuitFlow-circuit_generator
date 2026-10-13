@@ -10,6 +10,7 @@ import { calculateZoomAtPoint, screenToWorld, type Point } from '../hooks/useVie
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
 import { useWireInteraction } from '../hooks/useWireInteraction';
 import { WorkspaceScrollbars } from './WorkspaceScrollbars';
+import { CanvasEmptyState } from './CanvasEmptyState';
 
 interface CanvasProps {
   circuit: Circuit;
@@ -80,6 +81,9 @@ interface CanvasProps {
   onToggleLockComponent?: (compId: string) => void;
   pendingPlacementType?: ComponentType | null;
   onClearPendingPlacement?: () => void;
+  onOpenLabs?: () => void;
+  onSwitchToTrainer?: () => void;
+  onStartTour?: () => void;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -146,6 +150,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   onToggleLockComponent,
   pendingPlacementType,
   onClearPendingPlacement,
+  onOpenLabs,
+  onSwitchToTrainer,
+  onStartTour,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mouseWorldPosRef = useRef<Point>({ x: 300, y: 300 });
@@ -1147,6 +1154,17 @@ export const Canvas: React.FC<CanvasProps> = ({
         workbenchMode={workbenchMode}
         isSchematicMode={isSchematicMode}
       />
+
+      {/* Empty State Overlay for Schematic / Freeform Workbench (Plan 13.1) */}
+      {(workbenchMode === 'freeform' || isSchematicMode) &&
+        circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_')).length === 0 && (
+          <CanvasEmptyState
+            onOpenLibrary={onToggleLibrary}
+            onOpenLabs={onOpenLabs || (() => {})}
+            onSwitchToTrainer={onSwitchToTrainer}
+            onStartTour={onStartTour}
+          />
+        )}
     </div>
   );
 };
