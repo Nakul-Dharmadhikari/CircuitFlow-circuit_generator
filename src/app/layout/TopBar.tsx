@@ -876,6 +876,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </nav>
 
+        {/* Project Name Editable Input or Active Lab Chip */}
         {/* Project Name Editable Input */}
         <div className="project-title-container">
           <input

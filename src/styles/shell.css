@@ -198,6 +198,48 @@
   box-shadow: 0 0 6px var(--signal-warning);
 }
 
+.topbar-lab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-copper-subtle);
+  border: 1px solid var(--accent-copper);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topbar-lab-chip:hover {
+  background: var(--accent-copper-glow);
+  border-color: var(--accent-copper-active);
+}
+
+.chip-lab-icon {
+  font-size: 13px;
+}
+
+.chip-lab-title {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-lab-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: var(--accent-copper);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
 /* Right Section: Simulator Controls */
 .topbar-right {
   display: flex;

@@ -1065,15 +1065,15 @@ export const Canvas: React.FC<CanvasProps> = ({
         {/* Orthogonal Manhattan Wire Paths */}
         <WireRenderer
           wires={
-            workbenchMode === 'freeform'
+            (isSchematicMode || workbenchMode === 'freeform')
               ? circuit.wires.filter(
                   (w) => !w.fromCompId.startsWith('trainer_') && !w.toCompId.startsWith('trainer_')
                 )
               : circuit.wires
           }
           components={
-            workbenchMode === 'freeform'
-              ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_'))
+            (isSchematicMode || workbenchMode === 'freeform')
+              ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_') && !c.customProps?.isTrainerSpecial)
               : circuit.components
           }
           selectedWireId={selectedWireId}
@@ -1090,8 +1090,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         />
 
         {/* Circuit Component Nodes */}
-        {(workbenchMode === 'freeform'
-          ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_'))
+        {((isSchematicMode || workbenchMode === 'freeform')
+          ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_') && !c.customProps?.isTrainerSpecial)
           : circuit.components
         ).map((comp) => (
           <GateComponent

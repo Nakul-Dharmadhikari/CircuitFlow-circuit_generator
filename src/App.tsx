@@ -1885,7 +1885,14 @@ export function App() {
       isDirty={isDirty}
       onProjectNameChange={setProjectName}
       currentView={currentView}
-      onViewChange={setCurrentView}
+      onViewChange={(view) => {
+        setCurrentView(view);
+        if (view === 'circuit') {
+          setWorkbenchMode('freeform');
+        } else if (view === 'hardware') {
+          setWorkbenchMode('trainer');
+        }
+      }}
       isRunning={isRunning}
       onToggleRun={() => setIsRunning((r) => !r)}
       onStep={runSimulationStep}
