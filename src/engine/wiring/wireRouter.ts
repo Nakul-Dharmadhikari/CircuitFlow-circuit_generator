@@ -182,6 +182,37 @@ function routeDetourWithAStar(
     rawYs.push(obs.y + obs.height + clearance + Math.abs(laneOffset));
   }
 
+  // Add inter-obstacle gap channels (corridors between adjacent chips)
+  for (let i = 0; i < corridorObstacles.length; i++) {
+    for (let j = i + 1; j < corridorObstacles.length; j++) {
+      const o1 = corridorObstacles[i];
+      const o2 = corridorObstacles[j];
+      const left = o1.x < o2.x ? o1 : o2;
+      const right = o1.x < o2.x ? o2 : o1;
+      if (right.x > left.x + left.width) {
+        rawXs.push(Math.round((left.x + left.width + right.x) / 2));
+      }
+      const top = o1.y < o2.y ? o1 : o2;
+      const bottom = o1.y < o2.y ? o2 : o1;
+      if (bottom.y > top.y + top.height) {
+        rawYs.push(Math.round((top.y + top.height + bottom.y) / 2));
+      }
+    }
+  }
+
+  // Add guaranteed clear global bypass highways above/below and left/right of all corridor obstacles
+  if (corridorObstacles.length > 0) {
+    const minObsY = Math.min(...corridorObstacles.map((o) => o.y));
+    const maxObsY = Math.max(...corridorObstacles.map((o) => o.y + o.height));
+    rawYs.push(minObsY - clearance - 14 - Math.abs(laneOffset));
+    rawYs.push(maxObsY + clearance + 14 + Math.abs(laneOffset));
+
+    const minObsX = Math.min(...corridorObstacles.map((o) => o.x));
+    const maxObsX = Math.max(...corridorObstacles.map((o) => o.x + o.width));
+    rawXs.push(minObsX - clearance - 14 - Math.abs(laneOffset));
+    rawXs.push(maxObsX + clearance + 14 + Math.abs(laneOffset));
+  }
+
   const xs = deduplicateCoordinates(rawXs);
   const ys = deduplicateCoordinates(rawYs);
 
@@ -367,7 +398,7 @@ export function calculateOrthogonalWireRoute(
   }
 
   // Also prevent wires from cutting through the body of start and end components
-  if (components) {
+  if (components && Array.isArray(components)) {
     const startComp = components.find((c) => c.id === start.compId);
     const endComp = components.find((c) => c.id === end.compId);
     if (startComp && startComp.type !== 'junction') {
@@ -392,21 +423,23 @@ export function calculateOrthogonalWireRoute(
 
   // 2. Outward Pin Stubs (strictly departing and arriving normal to component bodies)
   const p0: Point = { x: start.x, y: start.y };
-  const pStubStart = computeSafeStub(p0, start.dir, leadLength, activeObstacles);
+  const startDir: Vector2D = start.dir || { dx: 1, dy: 0 };
+  const pStubStart = computeSafeStub(p0, startDir, leadLength, activeObstacles);
 
   const pN: Point = { x: end.x, y: end.y };
-  const pStubEnd = computeSafeStub(pN, end.dir, leadLength, activeObstacles);
+  const endDir: Vector2D = end.dir || { dx: -1, dy: 0 };
+  const pStubEnd = computeSafeStub(pN, endDir, leadLength, activeObstacles);
 
   // 3. Fast-Path / Direct Orthogonal Candidate Routes
   let candidateMiddle: Point[] = [];
 
   // Case 1: Both pins vertical (e.g. IC top/bottom pins, trainer switches/outputs)
-  if (start.dir.dy !== 0 && end.dir.dy !== 0) {
+  if (startDir.dy !== 0 && endDir.dy !== 0) {
     let channelY: number;
-    if (start.dir.dy > 0 && end.dir.dy > 0) {
+    if (startDir.dy > 0 && endDir.dy > 0) {
       // Both exit DOWN -> corridor below both pins
       channelY = Math.max(pStubStart.y, pStubEnd.y) + ROUTING_CONFIG.MIN_CLEARANCE + Math.abs(laneOffset);
-    } else if (start.dir.dy < 0 && end.dir.dy < 0) {
+    } else if (startDir.dy < 0 && endDir.dy < 0) {
       // Both exit UP -> corridor above both pins
       channelY = Math.min(pStubStart.y, pStubEnd.y) - ROUTING_CONFIG.MIN_CLEARANCE - Math.abs(laneOffset);
     } else {
@@ -422,9 +455,9 @@ export function calculateOrthogonalWireRoute(
     ];
   }
   // Case 2: Both pins horizontal (e.g. logic gates left-to-right)
-  else if (start.dir.dx !== 0 && end.dir.dx !== 0) {
+  else if (startDir.dx !== 0 && endDir.dx !== 0) {
     let channelX: number;
-    if (start.dir.dx > 0 && end.dir.dx < 0 && pStubStart.x <= pStubEnd.x) {
+    if (startDir.dx > 0 && endDir.dx < 0 && pStubStart.x <= pStubEnd.x) {
       // Standard forward left-to-right corridor
       channelX = Math.round((pStubStart.x + pStubEnd.x) / (2 * ROUTING_CONFIG.GRID_SIZE)) * ROUTING_CONFIG.GRID_SIZE + laneOffset;
       candidateMiddle = [
@@ -433,7 +466,7 @@ export function calculateOrthogonalWireRoute(
         { x: channelX, y: pStubEnd.y },
         pStubEnd,
       ];
-    } else if (start.dir.dx > 0 && end.dir.dx > 0) {
+    } else if (startDir.dx > 0 && endDir.dx > 0) {
       channelX = Math.max(pStubStart.x, pStubEnd.x) + ROUTING_CONFIG.MIN_CLEARANCE + Math.abs(laneOffset);
       candidateMiddle = [
         pStubStart,
@@ -441,7 +474,7 @@ export function calculateOrthogonalWireRoute(
         { x: channelX, y: pStubEnd.y },
         pStubEnd,
       ];
-    } else if (start.dir.dx < 0 && end.dir.dx < 0) {
+    } else if (startDir.dx < 0 && endDir.dx < 0) {
       channelX = Math.min(pStubStart.x, pStubEnd.x) - ROUTING_CONFIG.MIN_CLEARANCE - Math.abs(laneOffset);
       candidateMiddle = [
         pStubStart,
@@ -464,14 +497,14 @@ export function calculateOrthogonalWireRoute(
     }
   }
   // Case 3: Mixed orientations (Horizontal + Vertical, e.g. Gate output to IC pin)
-  else if (start.dir.dx !== 0 && end.dir.dy !== 0) {
+  else if (startDir.dx !== 0 && endDir.dy !== 0) {
     // Departure is horizontal, arrival is vertical
     candidateMiddle = [
       pStubStart,
       { x: pStubEnd.x, y: pStubStart.y },
       pStubEnd,
     ];
-  } else if (start.dir.dy !== 0 && end.dir.dx !== 0) {
+  } else if (startDir.dy !== 0 && endDir.dx !== 0) {
     // Departure is vertical, arrival is horizontal
     candidateMiddle = [
       pStubStart,
@@ -515,38 +548,58 @@ export function calculateOrthogonalWireRoute(
   }
 
   // Guaranteed clean perimeter loop fallback if obstacles completely block the interior
-  let fallbackDetour: Point[];
-  if (start.dir.dy > 0 && end.dir.dy > 0) {
-    const detourBottomY = Math.max(
-      ...activeObstacles.map((o) => o.y + o.height + ROUTING_CONFIG.MIN_CLEARANCE + 10),
-      pStubStart.y + 30,
-      pStubEnd.y + 30
-    );
-    fallbackDetour = [
-      p0,
-      pStubStart,
-      { x: pStubStart.x, y: detourBottomY },
-      { x: pStubEnd.x, y: detourBottomY },
-      pStubEnd,
-      pN,
-    ];
-  } else {
-    const detourTopY = Math.min(
-      ...activeObstacles.map((o) => o.y - ROUTING_CONFIG.MIN_CLEARANCE - 10),
-      pStubStart.y - 30,
-      pStubEnd.y - 30
-    );
-    fallbackDetour = [
-      p0,
-      pStubStart,
-      { x: pStubStart.x, y: detourTopY },
-      { x: pStubEnd.x, y: detourTopY },
-      pStubEnd,
-      pN,
-    ];
+  const buildSafePerimeterRoute = (goAbove: boolean): Point[] => {
+    const clearance = ROUTING_CONFIG.MIN_CLEARANCE + 14;
+    const bypassY = goAbove
+      ? Math.min(...activeObstacles.map((o) => o.y), pStubStart.y, pStubEnd.y) - clearance - Math.abs(laneOffset)
+      : Math.max(...activeObstacles.map((o) => o.y + o.height), pStubStart.y, pStubEnd.y) + clearance + Math.abs(laneOffset);
+
+    // If straight segment from startStub to bypassY is blocked by an obstacle, shift X first
+    let startEscX = pStubStart.x;
+    for (const obs of activeObstacles) {
+      if (segmentIntersectsBox(pStubStart, { x: startEscX, y: bypassY }, obs)) {
+        startEscX = pStubStart.x < obs.x + obs.width / 2
+          ? obs.x - clearance - Math.abs(laneOffset)
+          : obs.x + obs.width + clearance + Math.abs(laneOffset);
+      }
+    }
+
+    let endEscX = pStubEnd.x;
+    for (const obs of activeObstacles) {
+      if (segmentIntersectsBox({ x: endEscX, y: bypassY }, pStubEnd, obs)) {
+        endEscX = pStubEnd.x < obs.x + obs.width / 2
+          ? obs.x - clearance - Math.abs(laneOffset)
+          : obs.x + obs.width + clearance + Math.abs(laneOffset);
+      }
+    }
+
+    const route: Point[] = [p0, pStubStart];
+    if (startEscX !== pStubStart.x) {
+      route.push({ x: startEscX, y: pStubStart.y });
+    }
+    route.push({ x: startEscX, y: bypassY });
+    route.push({ x: endEscX, y: bypassY });
+    if (endEscX !== pStubEnd.x) {
+      route.push({ x: endEscX, y: pStubEnd.y });
+    }
+    route.push(pStubEnd, pN);
+
+    return route;
+  };
+
+  // Try the preferred bypass direction based on pin departure, then try the other
+  const preferAbove = startDir.dy <= 0 || endDir.dy <= 0;
+  const primaryRoute = buildSafePerimeterRoute(preferAbove);
+  if (isPathClear(primaryRoute, activeObstacles)) {
+    return simplifyOrthogonalPoints(primaryRoute);
   }
 
-  return simplifyOrthogonalPoints(fallbackDetour);
+  const secondaryRoute = buildSafePerimeterRoute(!preferAbove);
+  if (isPathClear(secondaryRoute, activeObstacles)) {
+    return simplifyOrthogonalPoints(secondaryRoute);
+  }
+
+  return simplifyOrthogonalPoints(primaryRoute);
 }
 
 /**

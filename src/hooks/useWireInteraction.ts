@@ -170,6 +170,11 @@ export function useWireInteraction({
     (clientX: number, clientY: number) => {
       if (!inProgressWire) return;
 
+      if (inProgressWire.snappedPin) {
+        handlePinMouseUp(inProgressWire.snappedPin.pin, inProgressWire.snappedPin.compId);
+        return;
+      }
+
       const world = screenToWorld({ x: clientX, y: clientY });
       const nearest = findNearestPin(
         world,
@@ -201,13 +206,45 @@ export function useWireInteraction({
     [screenToWorld, onBranchWire]
   );
 
-  // Dropping wire onto existing wire -> creates branch junction
+  // Dropping wire onto existing wire -> creates branch junction ONLY if no pin is nearby
   const handleWireMouseUp = useCallback(
     (wireId: string, clientX: number, clientY: number, e?: React.MouseEvent) => {
       if (!inProgressWire) return;
       e?.stopPropagation();
 
       const world = screenToWorld({ x: clientX, y: clientY });
+
+      // 1. PIN PRIORITY: If in-progress wire was snapped to a pin, or a pin is within snap radius, PIN ALWAYS WINS!
+      if (inProgressWire.snappedPin) {
+        handlePinMouseUp(inProgressWire.snappedPin.pin, inProgressWire.snappedPin.compId, e);
+        return;
+      }
+
+      const nearest = findNearestPin(
+        world,
+        components,
+        24,
+        inProgressWire.fromCompId,
+        inProgressWire.fromPinId
+      );
+      if (nearest) {
+        handlePinMouseUp(nearest.pin, nearest.compId, e);
+        return;
+      }
+
+      // 2. Power rails (VCC / GND) must NOT accidentally branch onto arbitrary signal wires!
+      const fromComp = components.find((c) => c.id === inProgressWire.fromCompId);
+      const isPowerSource =
+        fromComp?.type === 'vcc' ||
+        fromComp?.type === 'gnd' ||
+        Boolean(fromComp?.customProps?.isTrainerVcc) ||
+        Boolean(fromComp?.customProps?.isTrainerGnd);
+
+      if (isPowerSource) {
+        setInProgressWire(null);
+        return;
+      }
+
       const snappedX = snapToGrid(world.x, 10);
       const snappedY = snapToGrid(world.y, 10);
 
@@ -220,7 +257,7 @@ export function useWireInteraction({
       setInProgressWire(null);
       soundFx.playSwitchClick(true);
     },
-    [inProgressWire, screenToWorld, onBranchWire]
+    [inProgressWire, screenToWorld, components, handlePinMouseUp, onBranchWire]
   );
 
   return {
