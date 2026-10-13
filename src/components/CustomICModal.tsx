@@ -80,6 +80,16 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Handle Escape key dismissal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Initialize or re-populate when opened or editingIC changes
   useEffect(() => {
     if (!isOpen) return;

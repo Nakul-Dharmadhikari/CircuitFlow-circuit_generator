@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { getLabExperiments, type LabExperiment } from '../presets/labExperiments';
 
 interface LabExperimentsModalProps {
@@ -12,6 +12,15 @@ export const LabExperimentsModal: React.FC<LabExperimentsModalProps> = ({
   onClose,
   onLoadExperiment,
 }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const experiments = useMemo(() => getLabExperiments(), []);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('All');

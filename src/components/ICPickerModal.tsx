@@ -190,6 +190,15 @@ export const ICPickerModal: React.FC<ICPickerModalProps> = ({
   onSelectIC,
   onRemoveIC,
 }) => {
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'gates' | 'combinational' | 'sequential' | 'custom'>('all');
 

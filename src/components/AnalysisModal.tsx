@@ -48,6 +48,15 @@ export const AnalysisModal: React.FC<AnalysisModalProps> = ({
     }
   }, [isOpen, initialTab]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Default test bench vectors state
   const [customVectors, setCustomVectors] = useState<TestCaseVector[]>([
     { id: 'v1', name: 'Vector 1: All Inputs Low', inputs: {}, expectedOutputs: {} },

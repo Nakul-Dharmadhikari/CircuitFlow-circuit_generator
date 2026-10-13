@@ -1,4 +1,5 @@
 import type { Circuit, SavedCircuit, User } from '../types/circuit';
+import { validateAndSanitizeCircuit } from '../engine/circuitValidator';
 
 const USERS_KEY = 'circuitflow_users';
 const ACTIVE_USER_KEY = 'circuitflow_active_user_id';
@@ -172,39 +173,50 @@ export function saveUserCircuit(
   description: string,
   circuit: Circuit
 ): SavedCircuit {
+  const sanitized = validateAndSanitizeCircuit(circuit).circuit;
   const list = getUserCircuits(userId);
   const newEntry: SavedCircuit = {
     id: `circ_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     userId,
     name: name.trim() || 'Untitled Circuit',
     description: description.trim(),
-    circuit,
+    circuit: sanitized,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    componentCount: circuit.components.length,
-    wireCount: circuit.wires.length,
+    componentCount: sanitized.components.length,
+    wireCount: sanitized.wires.length,
   };
 
   const updated = [newEntry, ...list];
-  localStorage.setItem(`${CIRCUITS_KEY_PREFIX}${userId}`, JSON.stringify(updated));
+  try {
+    localStorage.setItem(`${CIRCUITS_KEY_PREFIX}${userId}`, JSON.stringify(updated));
+  } catch (err: any) {
+    console.error('Failed to save circuit to localStorage:', err);
+    throw new Error(`Failed to save circuit to local storage: ${err?.message || 'Storage quota exceeded or storage restricted.'}`);
+  }
   return newEntry;
 }
 
 export function deleteUserCircuit(userId: string, circuitId: string): void {
   const list = getUserCircuits(userId);
   const updated = list.filter((c) => c.id !== circuitId);
-  localStorage.setItem(`${CIRCUITS_KEY_PREFIX}${userId}`, JSON.stringify(updated));
+  try {
+    localStorage.setItem(`${CIRCUITS_KEY_PREFIX}${userId}`, JSON.stringify(updated));
+  } catch (err: any) {
+    console.error('Failed to update localStorage after circuit deletion:', err);
+  }
 }
 
 // --- Desktop File Save / Load (.deld / .json) ---
 
 export function downloadCircuitToFile(circuit: Circuit, circuitName: string = 'circuit'): void {
+  const sanitized = validateAndSanitizeCircuit(circuit).circuit;
   const exportData = {
     format: 'circuitflow',
     version: '2.0',
     name: circuitName,
     exportedAt: new Date().toISOString(),
-    circuit,
+    circuit: sanitized,
   };
 
   const jsonStr = JSON.stringify(exportData, null, 2);
@@ -227,17 +239,23 @@ export function importCircuitFromFile(file: File): Promise<Circuit> {
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
-        const parsed = JSON.parse(text);
-
-        const circuit = parsed.circuit || parsed;
-
-        if (Array.isArray(circuit.components) && Array.isArray(circuit.wires)) {
-          resolve(circuit);
-        } else {
-          reject(new Error('Invalid CircuitFlow schematic file format: missing components or wires array.'));
+        let parsed: any;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          reject(new Error('Failed to parse circuit file: File contains invalid JSON syntax.'));
+          return;
         }
-      } catch {
-        reject(new Error('Failed to parse circuit file as valid JSON.'));
+
+        const validation = validateAndSanitizeCircuit(parsed);
+        if (!validation.isValid) {
+          reject(new Error(`Invalid CircuitFlow schematic file format: ${validation.errors.join('; ')}`));
+          return;
+        }
+
+        resolve(validation.circuit);
+      } catch (err: any) {
+        reject(new Error(`Failed to import schematic: ${err?.message || 'Corrupt file structure'}`));
       }
     };
     reader.onerror = () => reject(new Error('Failed to read file from disk.'));

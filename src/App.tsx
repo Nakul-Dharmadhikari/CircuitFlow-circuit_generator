@@ -53,12 +53,20 @@ const CLIPBOARD_STORAGE_KEY = 'circuitflow_clipboard';
 export function App() {
   // Theme State
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    return (localStorage.getItem('circuitflow_theme') as 'dark' | 'light') || 'dark';
+    try {
+      return (localStorage.getItem('circuitflow_theme') as 'dark' | 'light') || 'dark';
+    } catch {
+      return 'dark';
+    }
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('circuitflow_theme', theme);
+    try {
+      localStorage.setItem('circuitflow_theme', theme);
+    } catch {
+      // Storage restricted; ignore error safely
+    }
   }, [theme]);
 
   // Current User Account State (starts null if no authenticated session exists)
@@ -1774,6 +1782,9 @@ export function App() {
         setIsShortcutsOpen(false);
         setIsAuthOpen(false);
         setIsSavedCircuitsOpen(false);
+        setIsAnalysisModalOpen(false);
+        setIsCustomICModalOpen(false);
+        setPickerBaseIndex(null);
       }
     };
 
