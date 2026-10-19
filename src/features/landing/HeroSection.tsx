@@ -1,5 +1,6 @@
 import React from 'react';
 import { CircuitPreview } from './CircuitPreview';
+import { CircuitFlowLogo } from '../../components/common/CircuitFlowLogo';
 
 interface HeroSectionProps {
   onEnterSimulator: () => void;
@@ -16,7 +17,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Left Column: Headlines & CTAs */}
         <div className="hero-copy-col">
           <div className="hero-eyebrow">
-            <span className="pulse-dot" />
+            <CircuitFlowLogo variant="emblem" size="xs" />
             <span>Digital Logic Workbench & Laboratory</span>
           </div>
 

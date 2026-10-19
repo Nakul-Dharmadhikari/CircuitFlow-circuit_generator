@@ -26,6 +26,7 @@ import {
   type CustomICTestResult,
 } from '../utils/customIcSimulator';
 import { CUSTOM_IC_TEMPLATES } from '../utils/customIcTemplates';
+import { CircuitFlowLogo } from './common/CircuitFlowLogo';
 
 interface CustomICModalProps {
   isOpen: boolean;
@@ -477,7 +478,7 @@ export const CustomICModal: React.FC<CustomICModalProps> = ({
         {/* Studio Top Header */}
         <div className="custom-ic-studio-header">
           <div className="studio-title-block">
-            <div className="studio-icon-badge">📐</div>
+            <CircuitFlowLogo variant="emblem" size="sm" />
             <div>
               <div className="studio-title-row">
                 <h2 className="studio-heading">CUSTOM IC STUDIO</h2>

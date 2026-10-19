@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User } from '../types/circuit';
+import { CircuitFlowLogo } from './common/CircuitFlowLogo';
 
 interface HeaderProps {
   isRunning: boolean;
@@ -131,13 +132,12 @@ export const Header: React.FC<HeaderProps> = ({
           1. BRAND LOGO & MODE SWITCHER
           ===================================================================== */}
       <div className="brand-section">
-        <div className="brand-logo" title="CircuitFlow Digital Design Workstation">
-          <div className="brand-icon">CF</div>
-          <div className="brand-title">
-            <span className="brand-name">CircuitFlow</span>
-            <span className="brand-badge">PRO</span>
-          </div>
-        </div>
+        <CircuitFlowLogo
+          variant="horizontal"
+          size="sm"
+          showBadge={true}
+          badgeText="PRO"
+        />
 
         {/* Mode Switcher: Trainer Board Kit vs Freeform Schematic */}
         {onToggleWorkbenchMode && (

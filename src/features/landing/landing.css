@@ -4,25 +4,25 @@
    ========================================================================== */
 
 .landing-page {
-  /* Homepage Design Tokens */
-  --lp-bg: #F5FAFD;
-  --lp-bg-secondary: #EAF7FA;
+  /* Homepage Design Tokens — Copper Lab Identity */
+  --lp-bg: #FAF8F5;
+  --lp-bg-secondary: #F3EFEA;
   --lp-card: #FFFFFF;
-  --lp-primary: #06B6D4;
-  --lp-secondary: #14B8A6;
-  --lp-sky: #38BDF8;
+  --lp-primary: #d97736;
+  --lp-secondary: #ea580c;
+  --lp-sky: #f59e0b;
   --lp-high: #22C55E;
   --lp-warning: #F59E0B;
   --lp-error: #EF4444;
   --lp-text-primary: #172033;
   --lp-text-secondary: #64748B;
   --lp-text-muted: #94A3B8;
-  --lp-border: #D7E5EC;
-  --lp-border-light: #E8F2F6;
-  --lp-grid: #DCEEF4;
+  --lp-border: #E4DDD2;
+  --lp-border-light: #ECE5DC;
+  --lp-grid: #E8E1D6;
   --lp-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.04);
   --lp-shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
-  --lp-shadow-hover: 0 12px 32px -4px rgba(6, 182, 212, 0.16), 0 4px 10px rgba(15, 23, 42, 0.05);
+  --lp-shadow-hover: 0 12px 32px -4px rgba(217, 119, 54, 0.18), 0 4px 10px rgba(15, 23, 42, 0.05);
 
   min-height: 100vh;
   width: 100vw;
@@ -46,8 +46,8 @@
   background-image:
     linear-gradient(to right, var(--lp-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--lp-grid) 1px, transparent 1px),
-    radial-gradient(circle at 10% 15%, rgba(6, 182, 212, 0.06) 0%, transparent 45%),
-    radial-gradient(circle at 90% 25%, rgba(20, 184, 166, 0.06) 0%, transparent 45%);
+    radial-gradient(circle at 10% 15%, rgba(217, 119, 54, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 90% 25%, rgba(234, 88, 12, 0.05) 0%, transparent 45%);
   background-size: 32px 32px, 32px 32px, 100% 100%, 100% 100%;
   pointer-events: none;
   z-index: 0;
@@ -166,16 +166,16 @@
 }
 
 .landing-btn.primary {
-  background: linear-gradient(135deg, #06B6D4 0%, #14B8A6 100%);
+  background: linear-gradient(135deg, #d97736 0%, #ea580c 100%);
   color: #FFFFFF;
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 2px 10px rgba(6, 182, 212, 0.25);
+  border-color: rgba(217, 119, 54, 0.4);
+  box-shadow: 0 2px 10px rgba(217, 119, 54, 0.25);
 }
 
 .landing-btn.primary:hover {
-  background: linear-gradient(135deg, #0891B2 0%, #0D9488 100%);
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.35);
+  box-shadow: 0 4px 16px rgba(217, 119, 54, 0.38);
 }
 
 .landing-btn.secondary {
@@ -236,7 +236,7 @@
   gap: 8px;
   padding: 6px 13px;
   background: var(--lp-bg-secondary);
-  border: 1px solid rgba(6, 182, 212, 0.25);
+  border: 1px solid rgba(217, 119, 54, 0.3);
   border-radius: 9999px;
   font-size: 11.5px;
   font-weight: 700;
@@ -270,7 +270,7 @@
 }
 
 .hero-heading .brand-highlight {
-  background: linear-gradient(135deg, #06B6D4 0%, #14B8A6 100%);
+  background: linear-gradient(135deg, #d97736 0%, #ea580c 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -339,7 +339,7 @@
 
 .circuit-preview-card:hover {
   box-shadow: var(--lp-shadow-hover);
-  border-color: rgba(6, 182, 212, 0.4);
+  border-color: rgba(217, 119, 54, 0.45);
 }
 
 .preview-header-bar {
@@ -428,9 +428,9 @@
 }
 
 .interactive-switch-chip.active {
-  background: rgba(6, 182, 212, 0.12);
+  background: rgba(217, 119, 54, 0.12);
   border-color: var(--lp-primary);
-  color: #0891B2;
+  color: var(--lp-primary);
 }
 
 .interactive-switch-chip:hover {
@@ -499,7 +499,7 @@
 
 .capability-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(6, 182, 212, 0.45);
+  border-color: rgba(217, 119, 54, 0.45);
   box-shadow: var(--lp-shadow-hover);
 }
 
@@ -508,7 +508,7 @@
   height: 48px;
   border-radius: 10px;
   background: var(--lp-bg-secondary);
-  border: 1px solid rgba(6, 182, 212, 0.25);
+  border: 1px solid rgba(217, 119, 54, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -596,7 +596,7 @@
 
 .workflow-node.central {
   border-color: var(--lp-primary);
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(217, 119, 54, 0.08) 0%, rgba(234, 88, 12, 0.08) 100%);
 }
 
 .workflow-connector {
@@ -761,68 +761,9 @@
 .vault-input:focus {
   outline: none;
   border-color: var(--lp-primary);
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+  box-shadow: 0 0 0 3px rgba(217, 119, 54, 0.18);
 }
 
-/* ==========================================================================
-   Presets Grid
-   ========================================================================== */
-.presets-grid-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 18px;
-}
-
-.preset-card-light {
-  background: #FFFFFF;
-  border: 1px solid var(--lp-border);
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: var(--lp-shadow-sm);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  text-align: left;
-  transition: all 0.2s ease;
-}
-
-.preset-card-light:hover {
-  border-color: var(--lp-primary);
-  transform: translateY(-2px);
-  box-shadow: var(--lp-shadow-hover);
-}
-
-.preset-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.preset-category-badge {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--lp-primary);
-  background: var(--lp-bg-secondary);
-  padding: 3px 8px;
-  border-radius: 4px;
-}
-
-.preset-title-light {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--lp-text-primary);
-  margin-bottom: 6px;
-}
-
-.preset-desc-light {
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--lp-text-secondary);
-  margin-bottom: 16px;
-  flex: 1;
-}
 
 /* ==========================================================================
    Footer

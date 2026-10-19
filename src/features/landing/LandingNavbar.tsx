@@ -1,6 +1,7 @@
 import React from 'react';
 import type { User } from '../../types/circuit';
 import type { WorkbenchView } from '../../hooks/useUIState';
+import { CircuitFlowLogo } from '../../components/common/CircuitFlowLogo';
 
 interface LandingNavbarProps {
   currentUser: User | null;
@@ -29,21 +30,13 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
         tabIndex={0}
         aria-label="CircuitFlow Home"
       >
-        <div className="landing-brand-mark">
-          {/* Authentic circuit node / CF symbol */}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="6" cy="6" r="2.5" fill="currentColor" />
-            <circle cx="18" cy="18" r="2.5" fill="currentColor" />
-            <path d="M6 8.5v4a2 2 0 0 0 2 2h4" />
-            <path d="M12 14.5h4a2 2 0 0 1 2 2v1.5" />
-            <path d="M14 6h4" />
-            <circle cx="18" cy="6" r="1.5" />
-          </svg>
-        </div>
-        <div className="landing-brand-text">
-          <span className="landing-brand-title">CircuitFlow</span>
-          <span className="landing-brand-badge">Digital Logic Lab</span>
-        </div>
+        <CircuitFlowLogo
+          variant="horizontal"
+          size="md"
+          showBadge={true}
+          badgeText="LAB"
+          subtitle="Digital Logic Simulator"
+        />
       </div>
 
       {/* Nav Links */}

@@ -17,6 +17,7 @@ import {
   apiSaveCircuit,
   apiDeleteCircuit,
 } from '../services/apiClient';
+import { CircuitFlowLogo } from './common/CircuitFlowLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -202,8 +203,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
         <div className="modal-header">
-          <div className="modal-title">
-            <span>👤</span> Profile & Private Vault
+          <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CircuitFlowLogo variant="horizontal" size="sm" showBadge={true} badgeText="VAULT" />
           </div>
           <button className="panel-close-btn" onClick={onClose}>
             ✕

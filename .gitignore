@@ -30,3 +30,6 @@ server/*.db-wal
 *.db
 *.db-shm
 *.db-wal
+
+# Test Artifacts & Screenshots
+screenshots/

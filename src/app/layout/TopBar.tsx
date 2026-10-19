@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { User } from '../../types/circuit';
 import type { LabExperiment } from '../../presets/labExperiments';
 import type { WorkbenchView } from '../../hooks/useUIState';
+import { CircuitFlowLogo } from '../../components/common/CircuitFlowLogo';
 import {
-  IconLightning,
   IconBoard,
   IconSchematic,
   IconPlay,
@@ -169,21 +169,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           LEFT: CircuitFlow Brand + Primary Mode Switcher (Trainer vs Schematic)
           ------------------------------------------------------------------- */}
       <div className="topbar-left">
-        <div
-          className="app-brand"
+        <CircuitFlowLogo
+          variant="horizontal"
+          size="sm"
+          showBadge={true}
+          badgeText="SIM"
           onClick={() => onViewChange('landing')}
-          title="Return to CircuitFlow Overview / Landing"
-          role="button"
-          tabIndex={0}
-        >
-          <div className="brand-icon" aria-hidden="true">
-            <IconLightning size={16} />
-          </div>
-          <div className="brand-title">
-            <span>CircuitFlow</span>
-            <span className="brand-badge">SIM</span>
-          </div>
-        </div>
+          className="app-brand"
+        />
 
         {/* Primary View Switcher: Trainer Board vs Schematic Editor */}
         <div className="mode-toggle-segmented" title="Switch Between Hardware Trainer Kit and Schematic Editor">
