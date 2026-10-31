@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Background rounded gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#1c1917" />
+      <stop offset="70%" stop-color="#0c0a09" />
+      <stop offset="100%" stop-color="#050505" />
+    </radialGradient>
+
+    <!-- Metallic 3D Copper Gradient for C -->
+    <linearGradient id="copper3d" x1="20%" y1="10%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="25%" stop-color="#ea580c" />
+      <stop offset="60%" stop-color="#c2410c" />
+      <stop offset="100%" stop-color="#7c2d12" />
+    </linearGradient>
+
+    <linearGradient id="copperHighlight" x1="0%" y1="0%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#fdba74" />
+      <stop offset="50%" stop-color="#f97316" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+
+    <!-- Circuit Trace Gold/Amber Glow -->
+    <linearGradient id="traceGold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ea580c" />
+      <stop offset="60%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+
+    <filter id="padGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Frame -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bgGlow)" stroke="#292524" stroke-width="2" />
+
+  <!-- 3D C Emblem Shadow / Depth Layer -->
+  <path d="M78 30 H52 C38 30 28 42 28 64 C28 86 38 98 52 98 H78 L84 86 H54 C46 86 40 78 40 64 C40 50 46 42 54 42 H84 Z" 
+        fill="#431407" opacity="0.6" transform="translate(0, 3)" />
+
+  <!-- Main Metallic Copper C Outer Body -->
+  <path d="M78 28 H50 C36 28 26 40 26 64 C26 88 36 100 50 100 H78 L85 86 H54 C45 86 38 78 38 64 C38 50 45 42 54 42 H85 Z" 
+        fill="url(#copper3d)" />
+
+  <!-- Inner Chamfer / Highlight Bevel -->
+  <path d="M78 28 H50 C36 28 26 40 26 64 C26 72 29 80 34 86 C32 76 34 52 48 42 H85 L78 28 Z" 
+        fill="url(#copperHighlight)" opacity="0.85" />
+
+  <!-- Top Trace with 45-deg bend -->
+  <path d="M42 56 L55 56 L64 47 L82 47" 
+        fill="none" stroke="url(#traceGold)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Middle Straight Trace -->
+  <path d="M42 64 L86 64" 
+        fill="none" stroke="url(#traceGold)" stroke-width="4.5" stroke-linecap="round" />
+  <!-- Bottom Trace with 45-deg bend -->
+  <path d="M42 72 L55 72 L64 81 L78 81" 
+        fill="none" stroke="url(#traceGold)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Glowing Amber Contact Pads -->
+  <!-- Top Pad -->
+  <circle cx="85" cy="47" r="5" fill="#fef08a" stroke="#d97706" stroke-width="2" filter="url(#padGlow)" />
+  <circle cx="85" cy="47" r="2.2" fill="#ffffff" />
+
+  <!-- Middle Pad -->
+  <circle cx="90" cy="64" r="5.5" fill="#fef08a" stroke="#d97706" stroke-width="2" filter="url(#padGlow)" />
+  <circle cx="90" cy="64" r="2.5" fill="#ffffff" />
+
+  <!-- Bottom Pad -->
+  <circle cx="82" cy="81" r="5" fill="#fef08a" stroke="#d97706" stroke-width="2" filter="url(#padGlow)" />
+  <circle cx="82" cy="81" r="2.2" fill="#ffffff" />
+</svg>

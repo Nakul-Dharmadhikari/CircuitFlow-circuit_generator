@@ -1,0 +1,205 @@
+/* ==========================================================================
+   CircuitFlow Canonical Brand Logo Stylesheet
+   Copper Lab Identity: Deep Charcoal, Metallic Copper, Amber Glow, Warm Ivory
+   ========================================================================== */
+
+.circuitflow-logo {
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  line-height: 1;
+}
+
+.circuitflow-logo.cf-logo-clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.circuitflow-logo.cf-logo-clickable:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.circuitflow-logo.cf-logo-clickable:active {
+  transform: translateY(0);
+}
+
+/* --------------------------------------------------------------------------
+   Emblem Styling
+   -------------------------------------------------------------------------- */
+.cf-emblem-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #0f1115;
+  border: 1px solid rgba(217, 119, 54, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 0 10px rgba(217, 119, 54, 0.15);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.circuitflow-logo:hover .cf-emblem-badge {
+  border-color: rgba(217, 119, 54, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 14px rgba(217, 119, 54, 0.25);
+}
+
+.cf-emblem-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   Typography: Wordmark & Text Column
+   -------------------------------------------------------------------------- */
+.cf-text-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.cf-wordmark {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.cf-word-circuit {
+  color: var(--text-primary, #f5f0e6);
+  transition: color 0.15s ease;
+}
+
+.cf-word-flow {
+  color: var(--accent-copper, #d97736);
+  text-shadow: 0 0 12px rgba(217, 119, 54, 0.35);
+  margin-left: 1px;
+}
+
+.cf-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.55em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(217, 119, 54, 0.16);
+  color: var(--accent-copper, #d97736);
+  border: 1px solid rgba(217, 119, 54, 0.32);
+  margin-left: 6px;
+}
+
+.cf-logo-subtext {
+  font-size: 0.65em;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* --------------------------------------------------------------------------
+   Sizes for Horizontal & Emblem Variants
+   -------------------------------------------------------------------------- */
+/* Size XS */
+.cf-logo-size-xs .cf-emblem-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  margin-right: 6px;
+}
+.cf-logo-size-xs .cf-wordmark {
+  font-size: 13px;
+}
+
+/* Size SM (TopBar standard) */
+.cf-logo-size-sm .cf-emblem-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  margin-right: 8px;
+}
+.cf-logo-size-sm .cf-wordmark {
+  font-size: 15px;
+}
+
+/* Size MD (Landing Navbar standard) */
+.cf-logo-size-md .cf-emblem-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  margin-right: 10px;
+}
+.cf-logo-size-md .cf-wordmark {
+  font-size: 18px;
+}
+
+/* Size LG (Auth modal & feature headers) */
+.cf-logo-size-lg .cf-emblem-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  margin-right: 12px;
+}
+.cf-logo-size-lg .cf-wordmark {
+  font-size: 22px;
+}
+
+/* Size XL (Hero banner) */
+.cf-logo-size-xl .cf-emblem-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  margin-right: 16px;
+}
+.cf-logo-size-xl .cf-wordmark {
+  font-size: 28px;
+}
+
+/* --------------------------------------------------------------------------
+   Full Master Artwork Image Variant
+   -------------------------------------------------------------------------- */
+.cf-logo-full-wrapper {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0f1115;
+  border: 1px solid rgba(217, 119, 54, 0.28);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 25px rgba(217, 119, 54, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.circuitflow-logo:hover .cf-logo-full-wrapper {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5), 0 0 30px rgba(217, 119, 54, 0.28);
+}
+
+.cf-logo-master-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cf-logo-size-xs.cf-logo-full .cf-logo-full-wrapper { width: 36px; height: 36px; border-radius: 6px; }
+.cf-logo-size-sm.cf-logo-full .cf-logo-full-wrapper { width: 48px; height: 48px; border-radius: 8px; }
+.cf-logo-size-md.cf-logo-full .cf-logo-full-wrapper { width: 72px; height: 72px; border-radius: 10px; }
+.cf-logo-size-lg.cf-logo-full .cf-logo-full-wrapper { width: 110px; height: 110px; border-radius: 14px; }
+.cf-logo-size-xl.cf-logo-full .cf-logo-full-wrapper { width: 160px; height: 160px; border-radius: 18px; }
+
+.cf-logo-full-sub {
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-copper, #d97736);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
