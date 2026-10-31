@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { CircuitComponent, LogicValue, Wire } from '../types/circuit';
+import type { TrainerBoardModel } from '../engine/trainer/trainerBoardModel';
+import type { Box } from '../engine/wiring/geometry';
 import {
   calculateOrthogonalWireRoute,
   getComponentObstacles,
@@ -9,9 +11,192 @@ import {
   ROUTING_CONFIG,
 } from '../engine/wiring';
 
+export type WireRole = 'input' | 'output' | 'power' | 'ground' | 'logic';
+
+/**
+ * Classifies wire by its circuit role (input jumper, output jumper, VCC, GND, or logic gate-to-gate)
+ */
+export function getWireRole(wire: Wire, components: CircuitComponent[]): WireRole {
+  const fromComp = components.find((c) => c.id === wire.fromCompId);
+  const toComp = components.find((c) => c.id === wire.toCompId);
+
+  // 1. Power (+5V VCC / HIGH)
+  if (
+    fromComp?.type === 'vcc' ||
+    toComp?.type === 'vcc' ||
+    Boolean(fromComp?.customProps?.isTrainerVcc) ||
+    Boolean(toComp?.customProps?.isTrainerVcc) ||
+    Boolean(fromComp?.customProps?.isTrainerHigh) ||
+    Boolean(toComp?.customProps?.isTrainerHigh)
+  ) {
+    return 'power';
+  }
+
+  // 2. Ground (0V GND / LOW)
+  if (
+    fromComp?.type === 'gnd' ||
+    toComp?.type === 'gnd' ||
+    Boolean(fromComp?.customProps?.isTrainerGnd) ||
+    Boolean(toComp?.customProps?.isTrainerGnd) ||
+    Boolean(fromComp?.customProps?.isTrainerLow) ||
+    Boolean(toComp?.customProps?.isTrainerLow)
+  ) {
+    return 'ground';
+  }
+
+  // 3. Output wire (connects to trainer output probe lamp, external probe, LED, 7-segment, or buzzer)
+  if (
+    Boolean(fromComp?.customProps?.isTrainerOutput) ||
+    Boolean(toComp?.customProps?.isTrainerOutput) ||
+    fromComp?.type === 'probe' ||
+    toComp?.type === 'probe' ||
+    fromComp?.type === 'seven_segment' ||
+    toComp?.type === 'seven_segment' ||
+    fromComp?.type === 'led' ||
+    toComp?.type === 'led' ||
+    fromComp?.type === 'buzzer' ||
+    toComp?.type === 'buzzer'
+  ) {
+    return 'output';
+  }
+
+  // 4. Input wire (connects from trainer input switches, toggle switch, clock, or push button)
+  if (
+    Boolean(fromComp?.customProps?.isTrainerInput) ||
+    Boolean(toComp?.customProps?.isTrainerInput) ||
+    Boolean(fromComp?.customProps?.isTrainerClock) ||
+    Boolean(toComp?.customProps?.isTrainerClock) ||
+    fromComp?.type === 'toggle' ||
+    toComp?.type === 'toggle' ||
+    fromComp?.type === 'clock' ||
+    toComp?.type === 'clock' ||
+    fromComp?.type === 'push_button' ||
+    toComp?.type === 'push_button'
+  ) {
+    return 'input';
+  }
+
+  // 5. Default internal logic wire (gate-to-gate, IC-to-IC)
+  return 'logic';
+}
+
+/**
+ * Role-Based Wire Color Palette:
+ * - Input Wires: Royal Blue (0) / Glowing Electric Cyan (1)
+ * - Output Wires: Vibrant Tangerine Orange (0) / Luminous Amber Gold (1)
+ * - Power (+5V VCC): Vivid Crimson Red
+ * - Ground (0V GND): Technical Charcoal Slate
+ * - Logic Wires: Technical Slate (0) / Emerald Green (1)
+ */
+export function getWireVisualColor(
+  role: WireRole,
+  val: LogicValue,
+  isSelected: boolean,
+  isHovered: boolean,
+  isBlocked: boolean
+): { stroke: string; glow: string; roleName: string } {
+  if (isBlocked) {
+    return {
+      stroke: 'var(--signal-x, #ef4444)',
+      glow: isSelected || isHovered ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.3)',
+      roleName: 'Blocked',
+    };
+  }
+
+  if (isSelected) {
+    return {
+      stroke: 'var(--selection-stroke, #d97736)',
+      glow: 'var(--selection-glow, rgba(217, 119, 54, 0.4))',
+      roleName: 'Selected',
+    };
+  }
+
+  if (isHovered) {
+    return {
+      stroke: 'var(--wire-hover, #ea8a47)',
+      glow: 'rgba(217, 119, 54, 0.35)',
+      roleName: 'Hovered',
+    };
+  }
+
+  switch (role) {
+    case 'input':
+      if (val === '1') {
+        return {
+          stroke: '#38bdf8', // Electric Cyan
+          glow: 'rgba(56, 189, 248, 0.55)',
+          roleName: 'Input [HIGH]',
+        };
+      }
+      return {
+        stroke: '#2563eb', // Rich Royal Blue (distinct input jumper)
+        glow: 'transparent',
+        roleName: 'Input [LOW]',
+      };
+
+    case 'output':
+      if (val === '1') {
+        return {
+          stroke: '#f59e0b', // Luminous Amber Gold
+          glow: 'rgba(245, 158, 11, 0.55)',
+          roleName: 'Output [HIGH]',
+        };
+      }
+      return {
+        stroke: '#ea580c', // Vibrant Deep Orange (distinct output jumper)
+        glow: 'transparent',
+        roleName: 'Output [LOW]',
+      };
+
+    case 'power':
+      return {
+        stroke: '#ef4444', // Crimson Red
+        glow: val === '1' ? 'rgba(239, 68, 68, 0.5)' : 'transparent',
+        roleName: 'VCC (+5V)',
+      };
+
+    case 'ground':
+      return {
+        stroke: '#475569', // Charcoal Slate
+        glow: 'transparent',
+        roleName: 'GND (0V)',
+      };
+
+    case 'logic':
+    default:
+      if (val === '1') {
+        return {
+          stroke: 'var(--signal-high, #22c55e)',
+          glow: 'var(--signal-high-glow, rgba(34, 197, 94, 0.45))',
+          roleName: 'Logic [HIGH]',
+        };
+      }
+      if (val === 'X') {
+        return {
+          stroke: 'var(--signal-x, #ef4444)',
+          glow: 'rgba(239, 68, 68, 0.4)',
+          roleName: 'Conflict [X]',
+        };
+      }
+      if (val === 'Z') {
+        return {
+          stroke: 'var(--signal-z, #9ca3af)',
+          glow: 'transparent',
+          roleName: 'High-Z',
+        };
+      }
+      return {
+        stroke: '#64748b',
+        glow: 'transparent',
+        roleName: 'Logic [LOW]',
+      };
+  }
+}
+
 interface WireRendererProps {
   wires: Wire[];
   components: CircuitComponent[];
+  trainerBoards?: TrainerBoardModel[];
   selectedWireId?: string | null;
   isAllSelected?: boolean;
   isDeleteMode?: boolean;
@@ -30,33 +215,10 @@ interface WireRendererProps {
   onWireContextMenu?: (wire: Wire, e: React.MouseEvent) => void;
 }
 
-/**
- * Technical CAD Wire Color Scheme
- */
-function getWireStateColor(val: LogicValue, isSelected: boolean, isHovered: boolean): { stroke: string; glow: string } {
-  if (isSelected) {
-    return { stroke: 'var(--selection-stroke, #d97736)', glow: 'var(--selection-glow, rgba(217, 119, 54, 0.4))' };
-  }
-  if (isHovered) {
-    return { stroke: 'var(--wire-hover, #ea8a47)', glow: 'rgba(217, 119, 54, 0.3)' };
-  }
-  switch (val) {
-    case '1':
-      return { stroke: 'var(--signal-high, #22c55e)', glow: 'var(--signal-high-glow, rgba(34, 197, 94, 0.3))' };
-    case '0':
-      return { stroke: 'var(--signal-low, #64748b)', glow: 'transparent' };
-    case 'Z':
-      return { stroke: 'var(--signal-z, #9ca3af)', glow: 'var(--signal-z-glow, transparent)' };
-    case 'X':
-      return { stroke: 'var(--signal-x, #ef4444)', glow: 'var(--signal-x-glow, rgba(239, 68, 68, 0.4))' };
-    default:
-      return { stroke: 'var(--signal-low, #64748b)', glow: 'transparent' };
-  }
-}
-
 export const WireRenderer: React.FC<WireRendererProps> = ({
   wires,
   components,
+  trainerBoards,
   selectedWireId,
   isAllSelected,
   isDeleteMode,
@@ -70,8 +232,30 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
 }) => {
   const [hoveredWireId, setHoveredWireId] = useState<string | null>(null);
 
-  // Pre-calculate component obstacles for collision-free routing
-  const obstacles = useMemo(() => getComponentObstacles(components), [components]);
+  // Pre-calculate component obstacles and unmounted IC socket obstacles for collision-free routing
+  const obstacles = useMemo(() => {
+    const compObs = getComponentObstacles(components);
+    if (!trainerBoards || trainerBoards.length === 0) {
+      return compObs;
+    }
+    const socketObs: Box[] = [];
+    for (const board of trainerBoards) {
+      for (const slot of board.icSlots) {
+        // If an IC is NOT mounted on this slot, treat the socket footprint as an obstacle
+        // so wires never cut across unmounted IC sockets or their pins!
+        if (!slot.mountedComponentId) {
+          socketObs.push({
+            x: slot.x,
+            y: slot.y,
+            width: slot.width,
+            height: slot.height,
+            compId: slot.id,
+          });
+        }
+      }
+    }
+    return [...compObs, ...socketObs];
+  }, [components, trainerBoards]);
 
   // Memoize routes so that moving one component only reroutes affected wires
   const computedRoutes = useMemo(() => {
@@ -80,6 +264,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
       const endEp = getPinEndpoint(wire.toCompId, wire.toPinId, components);
       if (!startEp || !endEp) return null;
 
+      const role = getWireRole(wire, components);
       const points = calculateOrthogonalWireRoute(startEp, endEp, wireIdx, obstacles, components);
       const isBlocked = isRouteBlocked(points);
       const pathData = pointsToSvgPath(points, ROUTING_CONFIG.CORNER_RADIUS);
@@ -87,7 +272,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
         ? `M ${points[points.length - 1]?.x ?? startEp.x} ${points[points.length - 1]?.y ?? startEp.y} L ${endEp.x} ${endEp.y}`
         : null;
 
-      return { wire, startEp, endEp, points, pathData, isBlocked, blockedGuidePath };
+      return { wire, startEp, endEp, points, pathData, isBlocked, blockedGuidePath, role };
     });
   }, [wires, components, obstacles]);
 
@@ -96,17 +281,11 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
       {/* Existing Orthogonal Wires */}
       {computedRoutes.map((item) => {
         if (!item) return null;
-        const { wire, startEp, endEp, points, pathData, isBlocked, blockedGuidePath } = item;
+        const { wire, startEp, endEp, points, pathData, isBlocked, blockedGuidePath, role } = item;
 
         const isSelected = Boolean(isAllSelected || selectedWireId === wire.id);
         const isHovered = hoveredWireId === wire.id;
-        const baseColor = getWireStateColor(wire.value, isSelected, isHovered);
-        const color = isBlocked
-          ? {
-              stroke: 'var(--signal-x, #ef4444)',
-              glow: isSelected || isHovered ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.3)',
-            }
-          : baseColor;
+        const color = getWireVisualColor(role, wire.value, isSelected, isHovered, isBlocked);
 
         const midPoint = isBlocked
           ? { x: Math.round((startEp.x + endEp.x) / 2), y: Math.round((startEp.y + endEp.y) / 2) }
@@ -118,7 +297,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
         return (
           <g
             key={wire.id}
-            className={`wire-group ${isSelected ? 'selected' : ''} ${isBlocked ? 'blocked' : ''}`}
+            className={`wire-group ${isSelected ? 'selected' : ''} ${isBlocked ? 'blocked' : ''} wire-role-${role}`}
             onMouseEnter={() => setHoveredWireId(wire.id)}
             onMouseLeave={() => setHoveredWireId(null)}
           >
@@ -161,7 +340,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
               <title>
                 {isBlocked
                   ? `⚠️ Blocked Route: ${startEp.pinId} ➔ ${endEp.pinId} (Path obstructed by components)`
-                  : `Wire: ${startEp.pinId} ➔ ${endEp.pinId} [${wire.value}]`}
+                  : `${color.roleName}: ${startEp.pinId} ➔ ${endEp.pinId} [${wire.value}]`}
               </title>
             </path>
 
@@ -267,9 +446,9 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
             {isHovered && !isAllSelected && (
               <g style={{ pointerEvents: 'none' }}>
                 <rect
-                  x={midPoint.x - 48}
+                  x={midPoint.x - 60}
                   y={midPoint.y - 12}
-                  width="96"
+                  width="120"
                   height="20"
                   rx="3"
                   fill="#1e293b"
@@ -286,7 +465,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
                   fontWeight="700"
                   fontFamily="var(--font-mono)"
                 >
-                  {startEp.pinId} ➔ {endEp.pinId} [{wire.value}]
+                  {color.roleName}: {startEp.pinId} ➔ {endEp.pinId} [{wire.value}]
                 </text>
               </g>
             )}
@@ -334,7 +513,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
         );
       })}
 
-      {/* In-Progress Wire Preview (Live Orthogonal Tracking) */}
+      {/* In-Progress Wire Preview (Live Orthogonal Tracking with Role Preview) */}
       {inProgressWire && (() => {
         const startEp = getPinEndpoint(inProgressWire.fromCompId, inProgressWire.fromPinId, components);
         if (!startEp) return null;
@@ -350,6 +529,35 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
           pinId: 'cursor',
         };
 
+        const fromComp = components.find((c) => c.id === inProgressWire.fromCompId);
+        let previewColor = 'var(--accent-copper, #d97736)';
+        let previewGlow = 'rgba(217, 119, 54, 0.4)';
+
+        if (
+          Boolean(fromComp?.customProps?.isTrainerInput) ||
+          fromComp?.type === 'toggle' ||
+          fromComp?.type === 'clock' ||
+          fromComp?.type === 'push_button'
+        ) {
+          previewColor = '#38bdf8'; // Electric Cyan for input
+          previewGlow = 'rgba(56, 189, 248, 0.5)';
+        } else if (
+          Boolean(fromComp?.customProps?.isTrainerOutput) ||
+          fromComp?.type === 'probe' ||
+          fromComp?.type === 'led' ||
+          fromComp?.type === 'seven_segment' ||
+          fromComp?.type === 'buzzer'
+        ) {
+          previewColor = '#f97316'; // Tangerine Orange for output
+          previewGlow = 'rgba(249, 115, 22, 0.5)';
+        } else if (fromComp?.type === 'vcc' || Boolean(fromComp?.customProps?.isTrainerVcc)) {
+          previewColor = '#ef4444'; // Crimson Red for VCC
+          previewGlow = 'rgba(239, 68, 68, 0.5)';
+        } else if (fromComp?.type === 'gnd' || Boolean(fromComp?.customProps?.isTrainerGnd)) {
+          previewColor = '#475569'; // Slate for GND
+          previewGlow = 'transparent';
+        }
+
         const points = calculateOrthogonalWireRoute(startEp, endEp, 0, obstacles, components);
         const isBlocked = isRouteBlocked(points);
         const pathData = pointsToSvgPath(points, ROUTING_CONFIG.CORNER_RADIUS);
@@ -357,18 +565,19 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
           ? `M ${points[points.length - 1]?.x ?? startEp.x} ${points[points.length - 1]?.y ?? startEp.y} L ${endEp.x} ${endEp.y}`
           : null;
 
+        const effectiveStroke = isBlocked ? 'var(--signal-x, #ef4444)' : previewColor;
+        const effectiveGlow = isBlocked ? 'rgba(239, 68, 68, 0.5)' : previewGlow;
+
         return (
           <g style={{ pointerEvents: 'none' }}>
             <path
               d={pathData}
               fill="none"
-              stroke={isBlocked ? 'var(--signal-x, #ef4444)' : 'var(--accent-copper, #d97736)'}
+              stroke={effectiveStroke}
               strokeWidth="2"
               strokeDasharray={isBlocked ? '6 4' : '4 3'}
               style={{
-                filter: isBlocked
-                  ? 'drop-shadow(0 0 4px rgba(239, 68, 68, 0.5))'
-                  : 'drop-shadow(0 0 4px var(--accent-copper-glow, rgba(217, 119, 54, 0.4)))',
+                filter: effectiveGlow !== 'transparent' ? `drop-shadow(0 0 4px ${effectiveGlow})` : undefined,
               }}
             />
             {isBlocked && inProgressGuidePath && (
@@ -385,7 +594,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
               cx={inProgressWire.toX}
               cy={inProgressWire.toY}
               r={4}
-              fill={isBlocked ? 'var(--signal-x, #ef4444)' : 'var(--accent-copper, #d97736)'}
+              fill={effectiveStroke}
               stroke="var(--bg-app, #121417)"
               strokeWidth="1.5"
             />

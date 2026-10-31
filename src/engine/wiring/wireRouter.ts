@@ -542,26 +542,18 @@ export function calculateOrthogonalWireRoute(
     activeObstacles = getComponentObstacles(components, [start.compId || '', end.compId || '']);
   }
 
-  // Also prevent wires from cutting through the body of start and end components
-  if (components && Array.isArray(components)) {
-    const startComp = components.find((c) => c.id === start.compId);
-    const endComp = components.find((c) => c.id === end.compId);
-    if (startComp && startComp.type !== 'junction') {
+  // If routing between two pins on the SAME component (e.g. pin 3 to pin 5 on the same IC),
+  // add an inset obstacle of the chip body so intermediate paths route around the perimeter
+  // without colliding with the pins themselves.
+  if (start.compId && end.compId && start.compId === end.compId && components) {
+    const sameComp = components.find((c) => c.id === start.compId);
+    if (sameComp && sameComp.type !== 'junction' && sameComp.width > 30 && sameComp.height > 30) {
       activeObstacles.push({
-        x: startComp.x,
-        y: startComp.y,
-        width: startComp.width,
-        height: startComp.height,
-        compId: startComp.id,
-      });
-    }
-    if (endComp && endComp.type !== 'junction' && endComp.id !== startComp?.id) {
-      activeObstacles.push({
-        x: endComp.x,
-        y: endComp.y,
-        width: endComp.width,
-        height: endComp.height,
-        compId: endComp.id,
+        x: sameComp.x + 4,
+        y: sameComp.y + 4,
+        width: sameComp.width - 8,
+        height: sameComp.height - 8,
+        compId: sameComp.id,
       });
     }
   }
@@ -798,8 +790,47 @@ export function calculateOrthogonalWireRoute(
     return simplifyOrthogonalPoints(secondaryRoute);
   }
 
+  // If localized corridor bypass hit an obstacle outside the corridor window,
+  // try the wider canvas perimeter before reporting blocked.
+  if (bypassObstacles !== activeObstacles && activeObstacles.length > 0) {
+    const globalAbove =
+      Math.min(...activeObstacles.map((o) => o.y), pStubStart.y, pStubEnd.y) -
+      ROUTING_CONFIG.MIN_CLEARANCE -
+      14 -
+      Math.abs(laneOffset);
+    const globalBelow =
+      Math.max(...activeObstacles.map((o) => o.y + o.height), pStubStart.y, pStubEnd.y) +
+      ROUTING_CONFIG.MIN_CLEARANCE +
+      14 +
+      Math.abs(laneOffset);
+
+    const globalAboveRoute: Point[] = [
+      p0,
+      pStubStart,
+      { x: pStubStart.x, y: globalAbove },
+      { x: pStubEnd.x, y: globalAbove },
+      pStubEnd,
+      pN,
+    ];
+    if (isPathClear(globalAboveRoute, activeObstacles)) {
+      return simplifyOrthogonalPoints(globalAboveRoute);
+    }
+
+    const globalBelowRoute: Point[] = [
+      p0,
+      pStubStart,
+      { x: pStubStart.x, y: globalBelow },
+      { x: pStubEnd.x, y: globalBelow },
+      pStubEnd,
+      pN,
+    ];
+    if (isPathClear(globalBelowRoute, activeObstacles)) {
+      return simplifyOrthogonalPoints(globalBelowRoute);
+    }
+  }
+
   // 6. Blocked / Unroutable State Reporting
-  // If all local corridors and bypass channels are physically blocked,
+  // If all corridors and bypass channels are physically blocked,
   // return an unroutable state without penetrating any component keep-out box.
   const blockedRoute: Point[] = [p0, pStubStart];
   (blockedRoute as any).isBlocked = true;

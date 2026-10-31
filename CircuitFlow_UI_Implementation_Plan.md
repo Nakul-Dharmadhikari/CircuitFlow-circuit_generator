@@ -86,6 +86,14 @@ To resolve the contradiction between strict lexicographic ordering and arbitrary
      - Multi-obstacle narrow corridors (asserting obstacle avoidance).
      - Fully blocked paths (asserting `isBlocked: true` without obstacle penetration).
 
+6. **Trainer Board Straight Corridor Routing & Sockets Keep-Out Protection:**
+   - **Self-Obstacle Departure Bug Fix:** Excluded `startComp` and `endComp` from intermediate obstacle checks so pin departures and arrivals normal to component faces do not collide with their own source/target bounding boxes.
+   - **Unmounted IC Sockets (IC2, IC3, IC4) as Solid Keep-Out Obstacles:** All empty DIP-20 sockets (`trainerBoards[b].icSlots`) are registered as active keep-out obstacles. Wires can never cross over empty IC bases or their socket holes.
+   - **Top & Bottom Horizontal Highways:**
+     - **Bottom Corridor (`y = 280..340`):** Wires between input toggle switches (at $y=381$) and IC pins route cleanly through this 140px channel without crossing sockets.
+     - **Top Corridor (`y = 90..125`):** Wires between VCC or top output lamps (at $y=67$) and top IC pins route cleanly through this 90px channel.
+   - **Neat Multi-Lane Parallel Offset:** Parallel wires traveling along identical horizontal corridors receive 10px-spaced lane offsets (`yCorridor + laneOffset`), eliminating overlapping lines and keeping wire runs straight and orderly.
+
 ---
 
 ## 4. Electrical Net Integrity & Branching Rules
@@ -102,6 +110,20 @@ To resolve the contradiction between strict lexicographic ordering and arbitrary
 - **Preservation of Legitimate Branches:**
   - Double-clicking an existing wire to insert a branch junction remains fully supported.
   - Intentionally dropping an in-progress signal wire onto an existing signal wire in open space (greater than 24px away from any pin) continues to create a valid branch junction.
+
+### 4.3 Role-Based Wire Color Palette (Input vs. Output vs. Power/Ground)
+Wires are classified by their functional role via `getWireRole()` in `WireRenderer.tsx` and styled with high-contrast, distinct visual colors:
+- **Input Jumper Wires** (switches, clocks, pulse generators):
+  - LOW (`0`): `#2563eb` (Rich Royal Blue) — clean, high-contrast, distinct identity.
+  - HIGH (`1`): `#38bdf8` (Bright Electric Cyan) with vivid glowing halo (`rgba(56, 189, 248, 0.55)`).
+- **Output Jumper Wires** (probe lamps, LEDs, 7-segment displays, buzzers):
+  - LOW (`0`): `#ea580c` (Vibrant Deep Orange / Terracotta) — instantly distinguishable from input wires.
+  - HIGH (`1`): `#f59e0b` (Luminous Amber Gold) with warm golden glow (`rgba(245, 158, 11, 0.55)`).
+- **Power (+5V VCC) Wires:** `#ef4444` (Vivid Crimson Red) with ruby glow.
+- **Ground (0V GND) Wires:** `#475569` (Technical Charcoal Slate).
+- **Intermediate Logic Wires:** `#64748b` (Slate Neutral) on LOW, `#22c55e` (Emerald Green) on HIGH.
+- **Hover & Selection Overlays:** Maintained with 2px stroke, 6px corner radius, 14px invisible hit area, and live tooltip badge displaying `${roleName}: ${startPin} ➔ ${endPin} [${value}]`.
+- **Live Dragging Preview:** In-progress wire tracks the cursor in the role's color (Cyan for inputs, Orange for outputs, Red for VCC).
 
 ---
 

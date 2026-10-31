@@ -1076,6 +1076,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               ? circuit.components.filter((c) => !c.isTrainerFixed && !c.id.startsWith('trainer_') && !c.customProps?.isTrainerSpecial)
               : circuit.components
           }
+          trainerBoards={circuit.trainerBoards}
           selectedWireId={selectedWireId}
           isAllSelected={isAllSelected}
           isDeleteMode={toolMode === 'delete'}
