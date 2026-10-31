@@ -4,6 +4,7 @@ import {
   calculateOrthogonalWireRoute,
   getComponentObstacles,
   getPinEndpoint,
+  isRouteBlocked,
   pointsToSvgPath,
   ROUTING_CONFIG,
 } from '../engine/wiring';
@@ -80,8 +81,13 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
       if (!startEp || !endEp) return null;
 
       const points = calculateOrthogonalWireRoute(startEp, endEp, wireIdx, obstacles, components);
+      const isBlocked = isRouteBlocked(points);
       const pathData = pointsToSvgPath(points, ROUTING_CONFIG.CORNER_RADIUS);
-      return { wire, startEp, endEp, points, pathData };
+      const blockedGuidePath = isBlocked
+        ? `M ${points[points.length - 1]?.x ?? startEp.x} ${points[points.length - 1]?.y ?? startEp.y} L ${endEp.x} ${endEp.y}`
+        : null;
+
+      return { wire, startEp, endEp, points, pathData, isBlocked, blockedGuidePath };
     });
   }, [wires, components, obstacles]);
 
@@ -90,27 +96,35 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
       {/* Existing Orthogonal Wires */}
       {computedRoutes.map((item) => {
         if (!item) return null;
-        const { wire, startEp, endEp, points, pathData } = item;
+        const { wire, startEp, endEp, points, pathData, isBlocked, blockedGuidePath } = item;
 
         const isSelected = Boolean(isAllSelected || selectedWireId === wire.id);
         const isHovered = hoveredWireId === wire.id;
-        const color = getWireStateColor(wire.value, isSelected, isHovered);
+        const baseColor = getWireStateColor(wire.value, isSelected, isHovered);
+        const color = isBlocked
+          ? {
+              stroke: 'var(--signal-x, #ef4444)',
+              glow: isSelected || isHovered ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.3)',
+            }
+          : baseColor;
 
-        const midPoint = points[Math.floor(points.length / 2)] || {
-          x: (startEp.x + endEp.x) / 2,
-          y: (startEp.y + endEp.y) / 2,
-        };
+        const midPoint = isBlocked
+          ? { x: Math.round((startEp.x + endEp.x) / 2), y: Math.round((startEp.y + endEp.y) / 2) }
+          : points[Math.floor(points.length / 2)] || {
+              x: (startEp.x + endEp.x) / 2,
+              y: (startEp.y + endEp.y) / 2,
+            };
 
         return (
           <g
             key={wire.id}
-            className={`wire-group ${isSelected ? 'selected' : ''}`}
+            className={`wire-group ${isSelected ? 'selected' : ''} ${isBlocked ? 'blocked' : ''}`}
             onMouseEnter={() => setHoveredWireId(wire.id)}
             onMouseLeave={() => setHoveredWireId(null)}
           >
             {/* 1. Large Invisible Interaction Hit Area */}
             <path
-              d={pathData}
+              d={isBlocked && blockedGuidePath ? `${pathData} ${blockedGuidePath}` : pathData}
               fill="none"
               stroke="transparent"
               strokeWidth={ROUTING_CONFIG.HIT_STROKE_WIDTH}
@@ -144,7 +158,11 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
                 onWireContextMenu?.(wire, e);
               }}
             >
-              <title>{`Wire: ${startEp.pinId} ➔ ${endEp.pinId} [${wire.value}]`}</title>
+              <title>
+                {isBlocked
+                  ? `⚠️ Blocked Route: ${startEp.pinId} ➔ ${endEp.pinId} (Path obstructed by components)`
+                  : `Wire: ${startEp.pinId} ➔ ${endEp.pinId} [${wire.value}]`}
+              </title>
             </path>
 
             {/* 2. Crisp Orthogonal Wire Line */}
@@ -159,6 +177,7 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
                   ? ROUTING_CONFIG.WIRE_HOVER_STROKE_WIDTH
                   : ROUTING_CONFIG.WIRE_STROKE_WIDTH
               }
+              strokeDasharray={isBlocked ? '6 4' : undefined}
               strokeLinecap="round"
               strokeLinejoin="round"
               style={{
@@ -167,6 +186,46 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
                 transition: 'stroke-width 0.1s ease, stroke 0.15s ease',
               }}
             />
+
+            {/* Blocked Route Guide Dash */}
+            {isBlocked && blockedGuidePath && (
+              <path
+                d={blockedGuidePath}
+                fill="none"
+                stroke="var(--signal-x, #ef4444)"
+                strokeWidth="1.5"
+                strokeDasharray="3 3"
+                style={{ pointerEvents: 'none', opacity: 0.65 }}
+              />
+            )}
+
+            {/* Blocked Collision Warning Badge */}
+            {isBlocked && (
+              <g className="wire-blocked-badge" style={{ pointerEvents: 'none' }}>
+                <rect
+                  x={midPoint.x - 44}
+                  y={midPoint.y - 12}
+                  width="88"
+                  height="22"
+                  rx="4"
+                  fill="var(--signal-x, #ef4444)"
+                  stroke="#ffffff"
+                  strokeWidth="1.5"
+                  filter="drop-shadow(0 2px 6px rgba(239, 68, 68, 0.4))"
+                />
+                <text
+                  x={midPoint.x}
+                  y={midPoint.y + 3}
+                  textAnchor="middle"
+                  fill="#ffffff"
+                  fontSize="9.5"
+                  fontWeight="700"
+                  fontFamily="var(--font-mono)"
+                >
+                  ⚠️ BLOCKED
+                </text>
+              </g>
+            )}
 
             {/* 3. Selected Wire Dashed Overlay */}
             {isSelected && (
@@ -292,25 +351,41 @@ export const WireRenderer: React.FC<WireRendererProps> = ({
         };
 
         const points = calculateOrthogonalWireRoute(startEp, endEp, 0, obstacles, components);
+        const isBlocked = isRouteBlocked(points);
         const pathData = pointsToSvgPath(points, ROUTING_CONFIG.CORNER_RADIUS);
+        const inProgressGuidePath = isBlocked
+          ? `M ${points[points.length - 1]?.x ?? startEp.x} ${points[points.length - 1]?.y ?? startEp.y} L ${endEp.x} ${endEp.y}`
+          : null;
 
         return (
           <g style={{ pointerEvents: 'none' }}>
             <path
               d={pathData}
               fill="none"
-              stroke="var(--accent-copper, #d97736)"
+              stroke={isBlocked ? 'var(--signal-x, #ef4444)' : 'var(--accent-copper, #d97736)'}
               strokeWidth="2"
-              strokeDasharray="4 3"
+              strokeDasharray={isBlocked ? '6 4' : '4 3'}
               style={{
-                filter: 'drop-shadow(0 0 4px var(--accent-copper-glow, rgba(217, 119, 54, 0.4)))',
+                filter: isBlocked
+                  ? 'drop-shadow(0 0 4px rgba(239, 68, 68, 0.5))'
+                  : 'drop-shadow(0 0 4px var(--accent-copper-glow, rgba(217, 119, 54, 0.4)))',
               }}
             />
+            {isBlocked && inProgressGuidePath && (
+              <path
+                d={inProgressGuidePath}
+                fill="none"
+                stroke="var(--signal-x, #ef4444)"
+                strokeWidth="1.5"
+                strokeDasharray="3 3"
+                style={{ opacity: 0.65 }}
+              />
+            )}
             <circle
               cx={inProgressWire.toX}
               cy={inProgressWire.toY}
               r={4}
-              fill="var(--accent-copper, #d97736)"
+              fill={isBlocked ? 'var(--signal-x, #ef4444)' : 'var(--accent-copper, #d97736)'}
               stroke="var(--bg-app, #121417)"
               strokeWidth="1.5"
             />
